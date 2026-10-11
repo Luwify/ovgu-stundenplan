@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -16,12 +18,17 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.luwify.stundenplanmd.R
+
+private enum class Tab { WEEK, TODAY }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,6 +37,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
     val now by vm.now.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val res = LocalResources.current
+    var tab by rememberSaveable { mutableStateOf(Tab.WEEK) }
 
     LaunchedEffect(vm) {
         vm.messages.collect { msg ->
@@ -60,6 +68,24 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
                 },
             )
         },
+        bottomBar = {
+            if (plan?.isEmpty == false) {
+                NavigationBar {
+                    NavigationBarItem(
+                        selected = tab == Tab.WEEK,
+                        onClick = { tab = Tab.WEEK },
+                        icon = { Icon(WeekIcon, null) },
+                        label = { Text(stringResource(R.string.tab_week)) },
+                    )
+                    NavigationBarItem(
+                        selected = tab == Tab.TODAY,
+                        onClick = { tab = Tab.TODAY },
+                        icon = { Icon(TodayIcon, null) },
+                        label = { Text(stringResource(R.string.tab_today)) },
+                    )
+                }
+            }
+        },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         val p = plan
@@ -67,7 +93,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
             when {
                 p == null -> Unit
                 p.isEmpty -> EmptyState(onImport)
-                else -> WeekScreen(p, now, onOpen = {}, Modifier.fillMaxSize())
+                tab == Tab.WEEK -> WeekScreen(p, now, onOpen = {}, Modifier.fillMaxSize())
+                else -> TodayScreen(p, now, onOpen = {}, Modifier.fillMaxSize())
             }
         }
     }

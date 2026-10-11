@@ -29,4 +29,12 @@
     <string name="next_week">Nächste Woche</string>
     <string name="semester_starts">Das Semester beginnt am %1$s.</string>
     <string name="plan_ended">Keine weiteren Termine. Der letzte war am %1$s.</string>
+    <string name="today_free">Heute vorlesungsfrei.</string>
+    <string name="free_until">Vorlesungsfrei bis %1$s.</string>
+    <string name="today_heading">Heute, %1$s</string>
+    <string name="tomorrow_heading">Morgen, %1$s</string>
+    <string name="now">jetzt</string>
+    <string name="cancelled_full">Fällt aus</string>
+    <string name="tab_week">Woche</string>
+    <string name="tab_today">Heute</string>
 </resources>
