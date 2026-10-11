@@ -54,4 +54,11 @@
     <string name="rhythm_weekly">Wöchentlich am %1$s</string>
     <string name="rhythm_n_weeks" tools:ignore="PluralsCandidate">Alle %1$d Wochen am %2$s</string>
     <string name="rhythm_until">%1$s bis %2$s</string>
+    <string name="short_name">Kurzname</string>
+    <string name="color">Farbe</string>
+    <string name="color_automatic">Automatische Farbe</string>
+    <string name="courses_of_subject">Veranstaltungen in diesem Fach</string>
+    <string name="course_id">LSF-Veranstaltung %1$s</string>
+    <string name="move">Verschieben</string>
+    <string name="move_to_own">Eigenes Fach</string>
 </resources>

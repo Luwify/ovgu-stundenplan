@@ -40,6 +40,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
     val res = LocalResources.current
     var tab by rememberSaveable { mutableStateOf(Tab.WEEK) }
     var selected by remember { mutableStateOf<Timed?>(null) }
+    var editing by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(vm) {
         vm.messages.collect { msg ->
@@ -100,7 +101,20 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
             }
             val item = selected
             if (p != null && item != null) {
-                DetailSheet(p, item, onEditSubject = { selected = null }, onDismiss = { selected = null })
+                DetailSheet(p, item, onEditSubject = { selected = null; editing = it.key }, onDismiss = { selected = null })
+            }
+            val key = editing
+            if (p != null && key != null) {
+                SubjectEditor(
+                    p, key,
+                    onSave = { name, color ->
+                        p.subjects.firstOrNull { it.key == key }?.let { vm.setSubjectStyle(it, name, color) }
+                        editing = null
+                    },
+                    onMove = vm::moveCourse,
+                    onPickCustomColor = null,
+                    onDismiss = { editing = null },
+                )
             }
         }
     }

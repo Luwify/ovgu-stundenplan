@@ -56,4 +56,11 @@
     <string name="rhythm_weekly">Weekly on %1$s</string>
     <string name="rhythm_n_weeks" tools:ignore="PluralsCandidate">Every %1$d weeks on %2$s</string>
     <string name="rhythm_until">%1$s until %2$s</string>
+    <string name="short_name">Short name</string>
+    <string name="color">Color</string>
+    <string name="color_automatic">Automatic color</string>
+    <string name="courses_of_subject">Courses in this subject</string>
+    <string name="course_id">LSF course %1$s</string>
+    <string name="move">Move</string>
+    <string name="move_to_own">Own subject</string>
 </resources>
