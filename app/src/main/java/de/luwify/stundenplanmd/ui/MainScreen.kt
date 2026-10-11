@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.luwify.stundenplanmd.R
@@ -41,6 +42,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(Tab.WEEK) }
     var selected by remember { mutableStateOf<Timed?>(null) }
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(vm) {
         vm.messages.collect { msg ->
@@ -60,62 +62,68 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
-                actions = {
-                    if (plan?.isEmpty == false) {
-                        IconButton(onClick = onImport) { Icon(ImportIcon, stringResource(R.string.import_file)) }
+    Box(Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.app_name)) },
+                    actions = {
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings))
+                        }
+                    },
+                )
+            },
+            bottomBar = {
+                if (plan?.isEmpty == false) {
+                    NavigationBar {
+                        NavigationBarItem(
+                            selected = tab == Tab.WEEK,
+                            onClick = { tab = Tab.WEEK },
+                            icon = { Icon(WeekIcon, null) },
+                            label = { Text(stringResource(R.string.tab_week)) },
+                        )
+                        NavigationBarItem(
+                            selected = tab == Tab.TODAY,
+                            onClick = { tab = Tab.TODAY },
+                            icon = { Icon(TodayIcon, null) },
+                            label = { Text(stringResource(R.string.tab_today)) },
+                        )
                     }
-                },
-            )
-        },
-        bottomBar = {
-            if (plan?.isEmpty == false) {
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = tab == Tab.WEEK,
-                        onClick = { tab = Tab.WEEK },
-                        icon = { Icon(WeekIcon, null) },
-                        label = { Text(stringResource(R.string.tab_week)) },
-                    )
-                    NavigationBarItem(
-                        selected = tab == Tab.TODAY,
-                        onClick = { tab = Tab.TODAY },
-                        icon = { Icon(TodayIcon, null) },
-                        label = { Text(stringResource(R.string.tab_today)) },
-                    )
+                }
+            },
+            snackbarHost = { SnackbarHost(snackbar) },
+        ) { padding ->
+            val p = plan
+            Box(Modifier.fillMaxSize().padding(padding)) {
+                when {
+                    p == null -> Unit
+                    p.isEmpty -> EmptyState(onImport)
+                    tab == Tab.WEEK -> WeekScreen(p, now, onOpen = { selected = it }, Modifier.fillMaxSize())
+                    else -> TodayScreen(p, now, onOpen = { selected = it }, Modifier.fillMaxSize())
+                }
+                val item = selected
+                if (p != null && item != null) {
+                    DetailSheet(p, item, onEditSubject = { selected = null; editing = it.key }, onDismiss = { selected = null })
                 }
             }
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        val p = plan
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            when {
-                p == null -> Unit
-                p.isEmpty -> EmptyState(onImport)
-                tab == Tab.WEEK -> WeekScreen(p, now, onOpen = { selected = it }, Modifier.fillMaxSize())
-                else -> TodayScreen(p, now, onOpen = { selected = it }, Modifier.fillMaxSize())
-            }
-            val item = selected
-            if (p != null && item != null) {
-                DetailSheet(p, item, onEditSubject = { selected = null; editing = it.key }, onDismiss = { selected = null })
-            }
-            val key = editing
-            if (p != null && key != null) {
-                SubjectEditor(
-                    p, key,
-                    onSave = { name, color ->
-                        p.subjects.firstOrNull { it.key == key }?.let { vm.setSubjectStyle(it, name, color) }
-                        editing = null
-                    },
-                    onMove = vm::moveCourse,
-                    onPickCustomColor = null,
-                    onDismiss = { editing = null },
-                )
-            }
         }
+        if (showSettings) {
+            SettingsScreen(vm, plan, onEditSubject = { editing = it.key }, onImport = onImport, onBack = { showSettings = false })
+        }
+    }
+
+    val current = plan
+    val key = editing
+    if (current != null && key != null) {
+        SubjectEditor(
+            current, key,
+            onSave = { name, color ->
+                current.subjects.firstOrNull { it.key == key }?.let { vm.setSubjectStyle(it, name, color) }
+                editing = null
+            },
+            onMove = vm::moveCourse,
+            onDismiss = { editing = null },
+        )
     }
 }

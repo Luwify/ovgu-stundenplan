@@ -63,4 +63,53 @@
     <string name="course_id">LSF course %1$s</string>
     <string name="move">Move</string>
     <string name="move_to_own">Own subject</string>
+    <string name="theme_title">Theme</string>
+    <string name="theme_label">Color scheme</string>
+    <string name="theme_system">System colors</string>
+    <string name="theme_soft">Soft</string>
+    <string name="theme_amoled">AMOLED</string>
+    <string name="theme_custom">Custom</string>
+    <string name="custom_base">Background</string>
+    <string name="custom_base_system">Follow system</string>
+    <string name="custom_base_light">Light</string>
+    <string name="custom_base_dark">Dark</string>
+    <string name="custom_base_black">Black</string>
+    <string name="custom_accent">Accent color</string>
+    <string name="custom_hue">Hue</string>
+    <string name="custom_hex" translatable="false">Hex</string>
+    <string name="custom_red" translatable="false">R</string>
+    <string name="custom_green" translatable="false">G</string>
+    <string name="custom_blue" translatable="false">B</string>
+    <string name="custom_accent_adjusted">Adjusted slightly so text stays readable on this background.</string>
+    <string name="color_advanced">Advanced colors</string>
+    <string name="color_advanced_hint">Set background, cards, text and more one by one</string>
+    <string name="color_editor_title">Color editor</string>
+    <string name="color_section_general">General</string>
+    <string name="color_accent">Accent</string>
+    <string name="color_accent_hint">Tabs, selection, buttons</string>
+    <string name="color_background">Background</string>
+    <string name="color_card">Cards</string>
+    <string name="color_text">Text</string>
+    <string name="color_card_border">Card border</string>
+    <string name="color_auto">Automatic</string>
+    <string name="color_adjusted">%1$s, adjusted for readability</string>
+    <string name="color_reset_all">Reset all colors</string>
+    <string name="color_picker">Color picker: hue ring and saturation/brightness square</string>
+    <plurals name="color_advanced_count">
+        <item quantity="one">%d color set by hand</item>
+        <item quantity="other">%d colors set by hand</item>
+    </plurals>
+    <string name="color_section_cards">Today list and changes</string>
+    <string name="color_card_border_hint">With the card border option a 3:1 edge</string>
+    <string name="color_highlight">Changes</string>
+    <string name="color_highlight_hint">Border and badge of changed, extra and cancelled events</string>
+    <string name="custom_glow">Card border</string>
+    <string name="custom_glow_hint">A visible edge around the cards in the accent color</string>
+    <string name="settings_subjects">Subjects</string>
+    <string name="settings_plan">Timetable</string>
+    <string name="plan_imported_at">Imported on %1$s</string>
+    <plurals name="course_count">
+        <item quantity="one">%1$d course</item>
+        <item quantity="other">%1$d courses</item>
+    </plurals>
 </resources>

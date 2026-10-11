@@ -1,27 +1,41 @@
 package de.luwify.stundenplanmd.ui.theme
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.Dp
 
-/** App colors that Material's scheme has no role for. */
-data class PlanColors(
-    /** Border and badge of changed and extra appointments (amber), 3:1 on the page. */
+/** The colors Material's scheme has no role for, per theme, so no screen hardcodes a color. */
+@Immutable
+class PlanColors(
+    /** Cards of the Today list. */
+    val cardContainer: Color,
+    val cardBorder: Color,
+    val cardBorderWidth: Dp = Dp.Hairline,
+    /** Border and badge of changed and extra appointments (amber by default), 3:1 on page and card. */
     val highlight: Color,
+    /** Text on [highlight]. */
     val onHighlight: Color,
+    /** Highlight color used as text (change lines), 4.5:1 on page and card. */
+    val highlightText: Color,
 )
 
-@Composable
-fun planColors(): PlanColors {
-    val page = MaterialTheme.colorScheme.background
-    return remember(page) { planColorsFor(page) }
+/** Amber in light and dark, or the custom theme's [wish]: nudged to 3:1 (text 4.5:1) on [page] and [card]. */
+fun highlightColors(page: Color, card: Color, wish: Color? = null): Triple<Color, Color, Color> {
+    val dark = page.luminance() < 0.18f
+    val base = wish ?: if (dark) Color(0xFFFFB74D) else Color(0xFFE65100)
+    val highlight = base.withContrast(3.0, listOf(page, card))
+    val on = (if (highlight.luminance() > 0.4f) Color(0xFF2B1700) else Color.White).withContrast(4.5, listOf(highlight))
+    return Triple(highlight, on, base.withContrast(4.5, listOf(page, card)))
 }
 
-fun planColorsFor(page: Color): PlanColors {
-    val dark = page.luminance() < 0.18f
-    val highlight = (if (dark) Color(0xFFFFB74D) else Color(0xFFE65100)).withContrast(3.0, listOf(page))
-    val on = (if (dark) Color(0xFF2B1700) else Color.White).withContrast(4.5, listOf(highlight))
-    return PlanColors(highlight, on)
+fun planColors(page: Color, card: Color, border: Color, borderWidth: Dp = Dp.Hairline, highlightWish: Color? = null): PlanColors {
+    val (h, on, text) = highlightColors(page, card, highlightWish)
+    return PlanColors(card, border, borderWidth, h, on, text)
 }
+
+@Composable
+@ReadOnlyComposable
+fun planColors(): PlanColors = LocalPlanColors.current

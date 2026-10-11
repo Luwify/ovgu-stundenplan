@@ -57,7 +57,6 @@ fun SubjectEditor(
     subjectKey: String,
     onSave: (shortName: String?, color: Int?) -> Unit,
     onMove: (Course, target: String) -> Unit,
-    onPickCustomColor: ((current: Int, onPicked: (Int) -> Unit) -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     val subject = plan.subjects.firstOrNull { it.key == subjectKey }
@@ -70,6 +69,19 @@ fun SubjectEditor(
     // null = automatic color.
     var color by rememberSaveable(subjectKey) { mutableStateOf(subject.color) }
     val shown = color ?: SubjectColors.defaultColor(index)
+    var picking by rememberSaveable(subjectKey) { mutableStateOf(false) }
+    if (picking) {
+        ColorPickerDialog(
+            title = stringResource(R.string.color),
+            initial = shown,
+            onAuto = null,
+            onDismiss = { picking = false },
+            onPick = {
+                color = it
+                picking = false
+            },
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -90,10 +102,7 @@ fun SubjectEditor(
                     SubjectColors.palette.forEach { rgb ->
                         Swatch(rgb, selected = shown == rgb) { color = rgb }
                     }
-                    if (onPickCustomColor != null) {
-                        val custom = shown !in SubjectColors.palette
-                        Swatch(shown, selected = custom, label = "+") { onPickCustomColor(shown) { color = it } }
-                    }
+                    Swatch(shown, selected = shown !in SubjectColors.palette, label = "+") { picking = true }
                 }
                 if (color != null) {
                     TextButton(onClick = { color = null }) { Text(stringResource(R.string.color_automatic)) }

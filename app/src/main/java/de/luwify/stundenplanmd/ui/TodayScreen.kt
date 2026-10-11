@@ -41,7 +41,6 @@ import de.luwify.stundenplanmd.core.schedule.Timed
 import de.luwify.stundenplanmd.core.schedule.TodayView
 import de.luwify.stundenplanmd.ui.theme.SubjectColors
 import de.luwify.stundenplanmd.ui.theme.planColors
-import de.luwify.stundenplanmd.ui.theme.withContrast
 import java.time.LocalDateTime
 
 /** Today's events, or the next day with events; cancellations of the current and next week included. */
@@ -113,11 +112,10 @@ private fun InfoCard(text: String) {
 private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val page = scheme.background
-    val card = scheme.surfaceContainerLow
+    val hl = planColors()
+    val card = hl.cardContainer
     val rgb = plan.colorOf(item)
     val c = remember(rgb, page) { SubjectColors.block(rgb, page) }
-    val hl = planColors()
-    val hlText = remember(hl, card) { hl.highlight.withContrast(4.5, listOf(card)) }
     val cancelled = item is Cancellation
     val status = (item as? Occurrence)?.status
     val highlighted = cancelled || status is Status.Changed || status == Status.Extra
@@ -133,7 +131,7 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
             .alpha(if (past) 0.55f else 1f)
             .clip(shape)
             .background(card)
-            .then(if (highlighted) Modifier.border(2.dp, hl.highlight, shape) else Modifier)
+            .border(if (highlighted) 2.dp else hl.cardBorderWidth, if (highlighted) hl.highlight else hl.cardBorder, shape)
             .clickable(onClick = onClick),
     ) {
         Box(Modifier.width(6.dp).fillMaxHeight().background(c.stripe))
@@ -176,7 +174,7 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
                 else -> emptyList()
             }
             notes.forEach {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = hlText, fontWeight = FontWeight.SemiBold)
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = hl.highlightText, fontWeight = FontWeight.SemiBold)
             }
         }
     }

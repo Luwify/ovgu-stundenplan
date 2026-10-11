@@ -91,3 +91,9 @@ val BackIcon: ImageVector by lazy {
 
 val ChevronLeftIcon: ImageVector by lazy { lineIcon("ChevronLeft", 2f) { moveTo(14.5f, 6f); lineTo(8.5f, 12f); lineTo(14.5f, 18f) } }
 val ChevronRightIcon: ImageVector by lazy { lineIcon("ChevronRight", 2f) { moveTo(9.5f, 6f); lineTo(15.5f, 12f); lineTo(9.5f, 18f) } }
+
+/** A check mark (selected entry of a drop-down menu or color shade). */
+val CheckIcon: ImageVector by lazy { lineIcon("Check", 2f) { moveTo(5f, 12.5f); lineTo(10f, 17.5f); lineTo(19f, 7f) } }
+
+/** A chevron pointing down (drop-down field); turned 180° while the menu is open. */
+val ChevronDownIcon: ImageVector by lazy { lineIcon("ChevronDown", 2f) { moveTo(6f, 9.5f); lineTo(12f, 15.5f); lineTo(18f, 9.5f) } }

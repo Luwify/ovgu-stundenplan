@@ -8,7 +8,17 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.material3.MaterialTheme
+import android.graphics.Color
+import androidx.activity.SystemBarStyle
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import de.luwify.stundenplanmd.data.settings.ColorRole
+import de.luwify.stundenplanmd.data.settings.CustomBase
+import de.luwify.stundenplanmd.data.settings.ThemeMode
+import de.luwify.stundenplanmd.ui.theme.CustomTheme
+import de.luwify.stundenplanmd.ui.theme.StundenplanTheme
 import de.luwify.stundenplanmd.data.IcsSource
 import de.luwify.stundenplanmd.ui.MainScreen
 import de.luwify.stundenplanmd.ui.MainViewModel
@@ -26,8 +36,38 @@ class MainActivity : ComponentActivity() {
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri != null) vm.import(uri)
             }
-            MaterialTheme {
-                MainScreen(vm, onImport = { picker.launch(PICKER_TYPES) })
+            val theme by vm.theme.collectAsStateWithLifecycle()
+            // AMOLED is always dark: black bars with light icons whatever the system setting is. A custom theme
+            // with a fixed base gets matching bar icons; everything else follows the system (auto).
+            val custom = theme?.takeIf { it.mode == ThemeMode.CUSTOM }?.custom
+            val systemDark = isSystemInDarkTheme()
+            val customDark = custom?.takeIf { it.base != CustomBase.SYSTEM || ColorRole.BACKGROUND in it.overrides }
+                ?.let { CustomTheme.isDark(it, systemDark) }
+            val blackBars = theme?.mode == ThemeMode.AMOLED ||
+                (custom?.base == CustomBase.BLACK && ColorRole.BACKGROUND !in custom.overrides)
+            DisposableEffect(theme?.mode, blackBars, customDark) {
+                when {
+                    blackBars -> enableEdgeToEdge(
+                        statusBarStyle = SystemBarStyle.dark(Color.BLACK),
+                        navigationBarStyle = SystemBarStyle.dark(Color.BLACK),
+                    )
+                    customDark == true -> enableEdgeToEdge(
+                        statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+                        navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+                    )
+                    customDark == false -> enableEdgeToEdge(
+                        statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+                        navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+                    )
+                    else -> enableEdgeToEdge()
+                }
+                onDispose { }
+            }
+            // Nothing until the stored theme is known (a few ms), so the wrong theme never flashes.
+            theme?.let {
+                StundenplanTheme(it.mode, it.custom) {
+                    MainScreen(vm, onImport = { picker.launch(PICKER_TYPES) })
+                }
             }
         }
     }
