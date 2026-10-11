@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <string name="import_file">.ics-Datei importieren</string>
     <string name="empty_title">Noch kein Stundenplan</string>
@@ -37,4 +37,21 @@
     <string name="cancelled_full">Fällt aus</string>
     <string name="tab_week">Woche</string>
     <string name="tab_today">Heute</string>
+    <string name="detail_when">Wann</string>
+    <string name="detail_room">Raum</string>
+    <string name="detail_lecturers">Lehrende</string>
+    <string name="detail_notes">Hinweise</string>
+    <string name="detail_lsf_title">Titel im LSF</string>
+    <string name="edit_subject">Fach bearbeiten</string>
+    <string name="cancelled_on">Fällt aus am %1$s</string>
+    <string name="regular_slot">Regulär: %1$s, %2$s</string>
+    <string name="extra_long">Zusatztermin (nicht Teil des regulären Plans)</string>
+    <string name="building">Gebäude %1$s</string>
+    <plurals name="seats">
+        <item quantity="one">%1$d Platz</item>
+        <item quantity="other">%1$d Plätze</item>
+    </plurals>
+    <string name="rhythm_weekly">Wöchentlich am %1$s</string>
+    <string name="rhythm_n_weeks" tools:ignore="PluralsCandidate">Alle %1$d Wochen am %2$s</string>
+    <string name="rhythm_until">%1$s bis %2$s</string>
 </resources>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name" translatable="false">Stundenplan MD</string>
     <string name="launcher_label" translatable="false">Stundenplan</string>
 
@@ -39,4 +39,21 @@
     <string name="cancelled_full">Cancelled</string>
     <string name="tab_week">Week</string>
     <string name="tab_today">Today</string>
+    <string name="detail_when">When</string>
+    <string name="detail_room">Room</string>
+    <string name="detail_lecturers">Lecturers</string>
+    <string name="detail_notes">Notes</string>
+    <string name="detail_lsf_title">Title in the LSF</string>
+    <string name="edit_subject">Edit subject</string>
+    <string name="cancelled_on">Cancelled on %1$s</string>
+    <string name="regular_slot">Usually: %1$s, %2$s</string>
+    <string name="extra_long">Extra appointment (not part of the regular schedule)</string>
+    <string name="building">building %1$s</string>
+    <plurals name="seats">
+        <item quantity="one">%1$d seat</item>
+        <item quantity="other">%1$d seats</item>
+    </plurals>
+    <string name="rhythm_weekly">Weekly on %1$s</string>
+    <string name="rhythm_n_weeks" tools:ignore="PluralsCandidate">Every %1$d weeks on %2$s</string>
+    <string name="rhythm_until">%1$s until %2$s</string>
 </resources>

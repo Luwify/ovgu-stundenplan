@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.luwify.stundenplanmd.R
+import de.luwify.stundenplanmd.core.schedule.Timed
 
 private enum class Tab { WEEK, TODAY }
 
@@ -38,6 +39,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
     val snackbar = remember { SnackbarHostState() }
     val res = LocalResources.current
     var tab by rememberSaveable { mutableStateOf(Tab.WEEK) }
+    var selected by remember { mutableStateOf<Timed?>(null) }
 
     LaunchedEffect(vm) {
         vm.messages.collect { msg ->
@@ -93,8 +95,12 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
             when {
                 p == null -> Unit
                 p.isEmpty -> EmptyState(onImport)
-                tab == Tab.WEEK -> WeekScreen(p, now, onOpen = {}, Modifier.fillMaxSize())
-                else -> TodayScreen(p, now, onOpen = {}, Modifier.fillMaxSize())
+                tab == Tab.WEEK -> WeekScreen(p, now, onOpen = { selected = it }, Modifier.fillMaxSize())
+                else -> TodayScreen(p, now, onOpen = { selected = it }, Modifier.fillMaxSize())
+            }
+            val item = selected
+            if (p != null && item != null) {
+                DetailSheet(p, item, onEditSubject = { selected = null }, onDismiss = { selected = null })
             }
         }
     }
