@@ -20,3 +20,10 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
 }
+
+// Dev tool, see PlanReport.kt.
+tasks.register<JavaExec>("planReport") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("de.luwify.stundenplanmd.core.PlanReportKt")
+    workingDir = rootDir
+}
