@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Sheet with a header bar -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,32h40a4,4 0,0 1,4 4v6h-48v-6a4,4 0,0 1,4 -4z" />
+    <!-- Event blocks in a Mon-Fri grid -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,46h8v10h-8z M40,46h8v6h-8z M50,52h8v14h-8z M60,46h8v8h-8z M70,46h8v10h-8z
+            M30,60h8v8h-8z M40,56h8v12h-8z M60,58h8v14h-8z M70,62h8v6h-8z
+            M30,72h8v4h-8z M40,72h8v4h-8z M50,70h8v6h-8z M70,72h8v4h-8z" />
+</vector>
