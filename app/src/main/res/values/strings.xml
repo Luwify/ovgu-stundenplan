@@ -16,4 +16,19 @@
     <string name="import_no_events">The file contains no events.</string>
     <string name="settings">Settings</string>
     <string name="back">Back</string>
+    <string name="no_room">no room</string>
+    <string name="change_day">Day changed: %1$s instead of %2$s</string>
+    <string name="change_time">Time changed: %1$s instead of %2$s</string>
+    <string name="change_room">Room changed: %1$s instead of %2$s</string>
+    <string name="change_lecturer">Lecturer changed: %1$s</string>
+    <string name="changed">Changed</string>
+    <string name="extra">Extra appointment</string>
+    <string name="cancelled">cancelled</string>
+    <string name="lecture_free">No lectures</string>
+    <string name="week_number">Week %1$d</string>
+    <string name="this_week">Today</string>
+    <string name="previous_week">Previous week</string>
+    <string name="next_week">Next week</string>
+    <string name="semester_starts">The semester starts on %1$s.</string>
+    <string name="plan_ended">No more events. The last one was on %1$s.</string>
 </resources>

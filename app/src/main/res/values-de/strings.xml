@@ -14,4 +14,19 @@
     <string name="import_no_events">Die Datei enthält keine Termine.</string>
     <string name="settings">Einstellungen</string>
     <string name="back">Zurück</string>
+    <string name="no_room">kein Raum</string>
+    <string name="change_day">Tag geändert: %1$s statt %2$s</string>
+    <string name="change_time">Zeit geändert: %1$s statt %2$s</string>
+    <string name="change_room">Raum geändert: %1$s statt %2$s</string>
+    <string name="change_lecturer">Lehrende geändert: %1$s</string>
+    <string name="changed">Geändert</string>
+    <string name="extra">Zusatztermin</string>
+    <string name="cancelled">fällt aus</string>
+    <string name="lecture_free">Vorlesungsfrei</string>
+    <string name="week_number">KW %1$d</string>
+    <string name="this_week">Heute</string>
+    <string name="previous_week">Vorige Woche</string>
+    <string name="next_week">Nächste Woche</string>
+    <string name="semester_starts">Das Semester beginnt am %1$s.</string>
+    <string name="plan_ended">Keine weiteren Termine. Der letzte war am %1$s.</string>
 </resources>

@@ -17,7 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -28,6 +27,7 @@ import de.luwify.stundenplanmd.R
 @Composable
 fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
     val plan by vm.plan.collectAsStateWithLifecycle()
+    val now by vm.now.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val res = LocalResources.current
 
@@ -67,7 +67,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
             when {
                 p == null -> Unit
                 p.isEmpty -> EmptyState(onImport)
-                else -> Text("${p.schedule.events.size} / ${p.schedule.occurrences.size}", Modifier.align(Alignment.Center))
+                else -> WeekScreen(p, now, onOpen = {}, Modifier.fillMaxSize())
             }
         }
     }
