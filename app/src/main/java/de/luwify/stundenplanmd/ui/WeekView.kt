@@ -43,7 +43,10 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,7 +72,8 @@ import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
 private val Gutter = 26.dp
-private val MinHour = 52.dp
+private val BlockTitleStyle = TextStyle(hyphens = Hyphens.Auto, lineBreak = LineBreak.Paragraph)
+private val MinHour = 40.dp
 
 /** Mon–Fri grid, one page per week; opens on this week (next week on weekends). */
 @Composable
@@ -265,7 +269,7 @@ private fun DayColumn(
                 val width = maxWidth
                 for (p in placed) {
                     EventBlock(
-                        plan, p.item, strong, onClick = { onOpen(p.item) },
+                        plan, p.item, strong, narrow = p.columns > 1, onClick = { onOpen(p.item) },
                         modifier = Modifier
                             .offset(x = width * p.column / p.columns, y = y(p.item.start))
                             .width(width / p.columns)
@@ -288,7 +292,7 @@ private fun DayColumn(
 
 /** One block in the grid: occurrence (highlighted if changed/extra) or faint cancellation. */
 @Composable
-private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, onClick: () -> Unit, modifier: Modifier) {
+private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val page = MaterialTheme.colorScheme.background
     val rgb = plan.colorOf(item)
     val c = remember(rgb, page) { SubjectColors.block(rgb, page) }
@@ -314,9 +318,11 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, onClick: () -
                 blockName(subject, item),
                 Modifier.weight(1f, fill = false),
                 color = c.content,
-                fontSize = 11.sp,
-                lineHeight = 13.sp,
+                fontSize = if (narrow) 10.sp else 11.sp,
+                lineHeight = if (narrow) 12.sp else 13.sp,
                 fontWeight = FontWeight.SemiBold,
+                // Long German words in narrow columns: hyphenate instead of breaking anywhere.
+                style = BlockTitleStyle,
                 overflow = TextOverflow.Ellipsis,
                 textDecoration = if (cancelled) TextDecoration.LineThrough else null,
             )
