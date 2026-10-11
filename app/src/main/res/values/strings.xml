@@ -1,4 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">Stundenplan MD</string>
+    <string name="launcher_label" translatable="false">Stundenplan</string>
+
+    <string name="import_file">Import .ics file</string>
+    <string name="empty_title">No timetable yet</string>
+    <string name="empty_how_to">In the LSF, open your timetable (\"Stundenplan\"), choose the iCalendar export and save the .ics file. Then import it here, or open it with this app from your file manager or browser.\n\nRe-importing later replaces the plan but keeps your short names and colors.</string>
+    <plurals name="imported">
+        <item quantity="one">Imported: %1$d event</item>
+        <item quantity="other">Imported: %1$d events</item>
+    </plurals>
+    <string name="undo">Undo</string>
+    <string name="import_failed">Couldn\'t read the file.</string>
+    <string name="import_not_calendar">This is not an iCalendar (.ics) file.</string>
+    <string name="import_no_events">The file contains no events.</string>
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
 </resources>

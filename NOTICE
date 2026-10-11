@@ -1,7 +1,20 @@
 Stundenplan MD: third-party material
 ====================================
 
-No third-party code, icons or other assets are included yet.
+Settings icon
+  File:     app/src/main/res/drawable/ic_settings.xml
+  Used for: the settings button in the top bar
+  Source:   Material Symbols, icon "settings" (Outlined, weight 400, 24px), by Google
+            https://fonts.google.com/icons
+            https://github.com/google/material-design-icons
+            (symbols/android/settings/materialsymbolsoutlined/settings_24px.xml)
+  License:  Apache License, Version 2.0
+            https://www.apache.org/licenses/LICENSE-2.0
+  Changes:  the theme-attribute tint was removed and the fill color set to black so the
+            app can tint it per theme. The path data is unchanged.
+
+Only this icon is included; the app has no dependency on any icon library. All other
+icons are drawn from scratch (app/src/main/java/de/luwify/stundenplanmd/ui/Icons.kt).
 
 The theme system (app/src/main/java/de/luwify/stundenplanmd/ui/theme/) is taken from
 Mensa MD by the same author and adapted; it is not third-party material.

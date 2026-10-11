@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="import_file">.ics-Datei importieren</string>
+    <string name="empty_title">Noch kein Stundenplan</string>
+    <string name="empty_how_to">Öffne im LSF deinen Stundenplan, wähle den iCalendar-Export und speichere die .ics-Datei. Importiere sie dann hier oder öffne sie im Dateimanager oder Browser mit dieser App.\n\nEin späterer Import ersetzt den Plan, deine Kurznamen und Farben bleiben erhalten.</string>
+    <plurals name="imported">
+        <item quantity="one">Importiert: %1$d Termin</item>
+        <item quantity="other">Importiert: %1$d Termine</item>
+    </plurals>
+    <string name="undo">Rückgängig</string>
+    <string name="import_failed">Die Datei konnte nicht gelesen werden.</string>
+    <string name="import_not_calendar">Das ist keine iCalendar-Datei (.ics).</string>
+    <string name="import_no_events">Die Datei enthält keine Termine.</string>
+    <string name="settings">Einstellungen</string>
+    <string name="back">Zurück</string>
+</resources>
