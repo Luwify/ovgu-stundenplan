@@ -20,12 +20,23 @@ sealed interface Status {
     data object Extra : Status
 }
 
-data class Occurrence(val event: Event, val start: LocalDateTime, val end: LocalDateTime, val status: Status) {
+/** Something with a time span on one day: an [Occurrence] or a [Cancellation]. */
+sealed interface Timed {
+    val event: Event
+    val start: LocalDateTime
+    val end: LocalDateTime
     val date: LocalDate get() = start.toLocalDate()
 }
 
+data class Occurrence(
+    override val event: Event,
+    override val start: LocalDateTime,
+    override val end: LocalDateTime,
+    val status: Status,
+) : Timed
+
 /** A date of a regular series removed by EXDATE (holiday, moved appointment, ...). */
-data class Cancellation(val event: Event, val start: LocalDateTime, val end: LocalDateTime)
+data class Cancellation(override val event: Event, override val start: LocalDateTime, override val end: LocalDateTime) : Timed
 
 /**
  * All occurrences of a plan with change detection.
@@ -83,8 +94,23 @@ class Schedule(val events: List<Event>) {
     }
 
     private val byDate: Map<LocalDate, List<Occurrence>> = occurrences.groupBy { it.date }
+    private val cancelledByDate: Map<LocalDate, List<Cancellation>> = cancellations.groupBy { it.date }
 
     fun on(date: LocalDate): List<Occurrence> = byDate[date].orEmpty()
+
+    fun day(date: LocalDate) = DayPlan(date, on(date), cancelledByDate[date].orEmpty())
+
+    /** Monday to Friday of the week starting at [monday]. */
+    fun week(monday: LocalDate) = WeekPlan(monday, (0L until 5L).map { day(monday.plusDays(it)) })
+
+    /** Whole hours covering every occurrence and cancellation (for the week grid); 8–18 for an empty plan. */
+    val hours: IntRange by lazy {
+        val all: List<Timed> = occurrences + cancellations
+        if (all.isEmpty()) return@lazy 8..18
+        val first = all.minOf { it.start.hour }
+        val last = all.maxOf { if (it.end.toLocalTime().let { t -> t.minute == 0 && t.second == 0 }) it.end.hour else it.end.hour + 1 }
+        first..maxOf(last, first + 1)
+    }
 
     /** Occurrences with [from] <= date < [until]. */
     fun between(from: LocalDate, until: LocalDate): List<Occurrence> =
