@@ -1,0 +1,7 @@
+Stundenplan MD: third-party material
+====================================
+
+No third-party code, icons or other assets are included yet.
+
+The theme system (app/src/main/java/de/luwify/stundenplanmd/ui/theme/) is taken from
+Mensa MD by the same author and adapted; it is not third-party material.
