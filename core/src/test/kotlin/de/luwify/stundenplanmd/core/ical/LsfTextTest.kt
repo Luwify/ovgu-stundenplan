@@ -74,6 +74,17 @@ class LsfTextTest {
             "Grundlagen der Aktorik (Ü)" to "Grundlagen der Aktorik",
             "Ausgabe GFT III Skript" to "Ausgabe GFT III Skript",
             "Übung" to "Übung",
+            // Type words only as whole words or as the head of a compound.
+            "Datenbanktechnik & IT-Projektmanagement" to "Datenbanktechnik & IT-Projektmanagement",
+            "Projektmanagement" to "Projektmanagement",
+            "Grundlagen der Werkstoffprüfung" to "Grundlagen der Werkstoffprüfung",
+            "Einführung Softwareprojekt" to "Einführung Softwareprojekt",
+            "Seminarvortrag Robotik" to "Seminarvortrag Robotik",
+            "Laborversuche Elektronik" to "Laborversuche Elektronik",
+            "Programmierung (Tafelübung)" to "Programmierung",
+            "Elektrotechnik Laborpraktikum" to "Elektrotechnik",
+            "Robotik Proseminar" to "Robotik",
+            "Softwaretechnik Projekt" to "Softwaretechnik",
         )
         for ((title, stem) in stems) assertEquals(title, stem, LsfText.titleStem(title))
     }

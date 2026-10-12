@@ -76,9 +76,16 @@ object LsfText {
         }
     }
 
+    /** Type words that also count as the head of a compound ("Großübung", "Laborpraktikum", "Proseminar"). */
+    private val compoundHeads = listOf("vorlesung", "übung", "uebung", "praktikum", "seminar", "tutorium")
+
+    /**
+     * Whole words only: "Projektmanagement" or "Werkstoffprüfung" are not types. A German compound is a type only
+     * when it ends with one of [compoundHeads].
+     */
     private fun isTypeLike(text: String): Boolean {
         val words = text.lowercase().split(' ', ',', '/', '-').filter { it.isNotEmpty() }
-        return words.any { w -> w in typeAbbreviations || typeWords.any { it in w } }
+        return words.any { w -> w in typeAbbreviations || w in typeWords || compoundHeads.any { w.endsWith(it) } }
     }
 
     /**
