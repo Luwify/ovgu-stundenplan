@@ -9,7 +9,9 @@ Icons
             ic_edit.xml (rename a friend), ic_delete.xml (remove a friend), ic_close.xml (close),
             ic_warning.xml (the QR code leaves details out), ic_favorite.xml and
             ic_favorite_filled.xml (favorite friends: "favorite", fill 0 and fill 1),
-            ic_chevron_left.xml and ic_chevron_right.xml (back to this week / today)
+            ic_chevron_left.xml and ic_chevron_right.xml (back to this week / today; version list),
+            ic_list.xml ("format_list_bulleted", version overview), ic_download.xml (install an
+            update), ic_open_in_new.xml (actions that leave the page)
   Source:   Material Symbols, Outlined, weight 400, 24px, by Google
             https://fonts.google.com/icons
             https://github.com/google/material-design-icons
@@ -17,7 +19,9 @@ Icons
   License:  Apache License, Version 2.0
             https://www.apache.org/licenses/LICENSE-2.0
   Changes:  the theme-attribute tint was removed and the fill color set to black so the
-            app can tint it per theme. The path data is unchanged.
+            app can tint it per theme. The path data is unchanged (ic_list, ic_download and
+            ic_open_in_new: taken from the SVG, whose viewBox starts at y = -960, so the path sits
+            in a group moved down by 960).
 
 Only these icons are included; the app has no dependency on any icon library. All other
 icons are drawn from scratch (app/src/main/java/de/luwify/stundenplanmd/ui/Icons.kt).
