@@ -37,6 +37,8 @@ class ThemeContrastTest {
         check("onSurface/sheet", s.onSurface, sheet, text, failures)
         check("onSurfaceVariant/sheet", s.onSurfaceVariant, sheet, text, failures)
         check("info card", s.onSecondaryContainer, s.secondaryContainer, text, failures)
+        check("person indicator", s.inverseOnSurface, s.inverseSurface, text, failures)
+        check("strip arrow icon", s.onSecondaryContainer, s.secondaryContainer, 3.0, failures)
         check("onSurface/surfaceContainerHigh (status box, settings rows)", s.onSurface, s.surfaceContainerHigh, text, failures)
         check("change text/card", m.highlightText, card, text, failures)
         check("change text/page", m.highlightText, s.background, text, failures)

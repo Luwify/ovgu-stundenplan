@@ -53,9 +53,20 @@ import de.luwify.stundenplanmd.ui.theme.SubjectColors
 import de.luwify.stundenplanmd.ui.theme.planColors
 import java.time.LocalDateTime
 
-/** Day strip above a pager with one page per weekday (Mon–Fri); opens on today or the next day with events. */
+/**
+ * Day strip above a pager with one page per weekday (Mon–Fri); opens on [day] (shared between people, null = today or
+ * the next day with events), clamped to this plan's range. While [active], days the user moves to go to [onDay].
+ */
 @Composable
-fun DayScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, modifier: Modifier = Modifier) {
+fun DayScreen(
+    plan: PlanUi,
+    now: LocalDateTime,
+    day: LocalDate?,
+    active: Boolean,
+    onDay: (LocalDate) -> Unit,
+    onOpen: (Timed) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val schedule = plan.schedule
     val today = now.toLocalDate()
     val openDate = Navigation.dayToOpen(schedule, now)
@@ -65,10 +76,11 @@ fun DayScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, modifie
     fun pageOf(date: LocalDate) =
         (ChronoUnit.WEEKS.between(start, Schedule.monday(date.atStartOfDay())).toInt() * 5 + minOf(date.dayOfWeek.value - 1, 4)).coerceIn(0, count - 1)
     fun dateOf(page: Int): LocalDate = start.plusWeeks((page / 5).toLong()).plusDays((page % 5).toLong())
-    val openPage = pageOf(openDate)
+    val openPage = pageOf(day ?: openDate)
 
     key(start, count) {
         val pager = rememberPagerState(initialPage = openPage) { count }
+        FollowSharedPage(pager, day?.let(::pageOf), active) { onDay(dateOf(it)) }
         val scope = rememberCoroutineScope()
         val animate = animationsEnabled()
         val locale = appLocale()

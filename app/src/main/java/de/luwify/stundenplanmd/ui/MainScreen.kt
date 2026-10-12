@@ -23,6 +23,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import java.time.LocalDate
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.Alignment
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
@@ -66,6 +74,21 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     var askName by rememberSaveable { mutableStateOf<ShareAction?>(null) }
     var editShareName by rememberSaveable { mutableStateOf(false) }
     var friendDetails by rememberSaveable { mutableStateOf(false) }
+    // Week and day shown, shared by everyone's plan (null = this week / today until the user moves).
+    var week by rememberSaveable { mutableStateOf<LocalDate?>(null) }
+    var day by rememberSaveable { mutableStateOf<LocalDate?>(null) }
+
+    // Vertical pager over my plan and my friends: follows the drawer selection and selects whoever it settles on.
+    val pages by vm.pages.collectAsStateWithLifecycle()
+    val people = rememberPagerState(initialPage = pages.indexOfFirst { it.person.id == selectedId }.coerceAtLeast(0)) { pages.size }
+    val latestPages by rememberUpdatedState(pages)
+    LaunchedEffect(people) {
+        snapshotFlow { people.settledPage }.collect { i -> latestPages.getOrNull(i)?.let { vm.select(it.person.id) } }
+    }
+    LaunchedEffect(selectedId, pages.map { it.person.id }) {
+        val i = pages.indexOfFirst { it.person.id == selectedId }
+        if (i >= 0 && i != people.currentPage && !people.isScrollInProgress) people.scrollToPage(i)
+    }
 
     fun share(action: ShareAction) {
         scope.launch {
@@ -209,14 +232,26 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
             ) { padding ->
                 val p = plan
                 Box(Modifier.fillMaxSize().padding(padding)) {
-                    // Each person's plan gets fresh pagers (their weeks differ).
-                    key(p?.person?.id) {
-                        when {
-                            p == null -> Unit
-                            p.isEmpty -> EmptyState(onImport)
-                            tab == Tab.WEEK -> WeekScreen(p, now, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
-                            else -> DayScreen(p, now, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
+                    if (pages.isNotEmpty()) {
+                        // One page per person (drawer order); week and day stay where they are when switching.
+                        VerticalPager(people, Modifier.fillMaxSize(), key = { pages.getOrNull(it)?.person?.id ?: it }) { i ->
+                            val page = pages[i]
+                            val active = i == people.settledPage
+                            val edge = remember { EdgeOnlyConnection() }
+                            Box(Modifier.fillMaxSize().nestedScroll(edge)) {
+                                when {
+                                    page.isEmpty -> EmptyState(onImport)
+                                    tab == Tab.WEEK -> WeekScreen(page, now, week, active, onWeek = { week = it }, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
+                                    else -> DayScreen(page, now, day, active, onDay = { day = it }, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
+                                }
+                            }
                         }
+                        val shown = pages.getOrNull(people.currentPage)
+                        PersonIndicator(
+                            people,
+                            if (shown == null || shown.isMe) stringResource(R.string.my_plan) else shown.person.displayName,
+                            Modifier.align(Alignment.TopCenter).padding(top = 76.dp),
+                        )
                     }
                     val item = selected
                     if (p != null && item != null) {

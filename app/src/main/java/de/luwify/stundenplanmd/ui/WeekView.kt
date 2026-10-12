@@ -81,20 +81,33 @@ private val Gutter = 26.dp
 private val BlockTitleStyle = TextStyle(hyphens = Hyphens.Auto, lineBreak = LineBreak.Paragraph)
 private val MinHour = 40.dp
 
-/** Week strip above a Mon–Fri grid, one pager page per week; opens on this week (next week on weekends). */
+/**
+ * Week strip above a Mon–Fri grid, one pager page per week; opens on [week] (shared between people, null = this week,
+ * next week on weekends), clamped to this plan's weeks. While [active], weeks the user moves to are reported to [onWeek].
+ */
 @Composable
-fun WeekScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, modifier: Modifier = Modifier) {
+fun WeekScreen(
+    plan: PlanUi,
+    now: LocalDateTime,
+    week: LocalDate?,
+    active: Boolean,
+    onWeek: (LocalDate) -> Unit,
+    onOpen: (Timed) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val schedule = plan.schedule
     val openMonday = Navigation.weekToOpen(now.toLocalDate())
     val firstMonday = Schedule.monday(schedule.firstDate!!.atStartOfDay())
     val lastMonday = Schedule.monday(schedule.lastDate!!.atStartOfDay())
     val weeks = remember(schedule, openMonday) { Navigation.weeks(schedule, openMonday) }
     val start = weeks.first()
-    val openPage = weeks.indexOf(openMonday)
+    fun pageOf(monday: LocalDate) = weeks.indexOf(monday).takeIf { it >= 0 } ?: if (monday < weeks.first()) 0 else weeks.lastIndex
+    val openPage = week?.let(::pageOf) ?: weeks.indexOf(openMonday)
     val thisMonday = now.toLocalDate().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
 
     key(start, weeks.size) {
         val pager = rememberPagerState(initialPage = openPage) { weeks.size }
+        FollowSharedPage(pager, week?.let(::pageOf), active) { onWeek(weeks[it]) }
         val scope = rememberCoroutineScope()
         val animate = animationsEnabled()
         val locale = appLocale()

@@ -84,7 +84,14 @@ data class PlanUi(
     fun withFavorite(item: Timed): Boolean = togetherWith(item).any { it in favorites }
 
     companion object {
-        fun of(data: StoredData, personId: String): PlanUi {
+        /** Me and every friend, in drawer order (my plan first); each schedule is expanded once. */
+        fun all(data: StoredData): List<PlanUi> {
+            val schedules = data.plans.associate { it.personId to Schedule(it.events) }
+            val ids = listOf(StoredData.ME) + data.friends.map { it.id }
+            return ids.map { of(data, it, schedules) }
+        }
+
+        fun of(data: StoredData, personId: String, schedules: Map<String, Schedule> = emptyMap()): PlanUi {
             val person = data.person(personId) ?: Person(StoredData.ME, "", isMe = true)
             val plan = data.planOf(person.id)
             val events = plan?.events.orEmpty()
@@ -95,10 +102,10 @@ data class PlanUi(
                 shared = plan?.sharedSettings.orEmpty(),
             )
             val subjects = Subjects.build(events, settings)
-            val schedule = Schedule(events)
+            val schedule = schedules[person.id] ?: Schedule(events)
             // In my plan: friends. In a friend's: me and the other friends.
             val others = data.people.filter { it.id != person.id }
-                .mapNotNull { p -> data.planOf(p.id)?.let { p.id to Schedule(it.events) } }
+                .mapNotNull { p -> data.planOf(p.id)?.let { p.id to (schedules[p.id] ?: Schedule(it.events)) } }
             return PlanUi(
                 person = person,
                 schedule = schedule,
@@ -189,14 +196,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _selected.value = personId
     }
 
+    /** Every plan in drawer order (mine first): the pages of the vertical pager. Empty while loading. */
+    val pages: StateFlow<List<PlanUi>> = repo.data.filterNotNull().map { PlanUi.all(it) }
+        .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     /** The plan shown (mine or the selected friend's; mine again when that friend is gone). Null while loading. */
-    val plan: StateFlow<PlanUi?> = combine(repo.data.filterNotNull(), _selected) { data, id ->
-        PlanUi.of(data, if (data.person(id) != null) id else StoredData.ME)
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val plan: StateFlow<PlanUi?> = combine(pages, _selected) { pages, id ->
+        pages.firstOrNull { it.person.id == id } ?: pages.firstOrNull()
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** My plan, for settings and backup. Null while loading. */
-    val myPlan: StateFlow<PlanUi?> = repo.data.filterNotNull().map { PlanUi.of(it, StoredData.ME) }
-        .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val myPlan: StateFlow<PlanUi?> = pages.map { it.firstOrNull() }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val friends: StateFlow<List<FriendEntry>> = repo.data.filterNotNull().map { data ->
         data.friends.map { p -> data.planOf(p.id).let { FriendEntry(p, it?.planDate, Schedule(it?.events.orEmpty())) } }
