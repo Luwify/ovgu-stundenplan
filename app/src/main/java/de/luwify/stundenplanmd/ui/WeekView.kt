@@ -170,13 +170,16 @@ private fun WeekPage(
                     },
             ) {
                 Box(Modifier.width(Gutter).fillMaxHeight()) {
-                    DayProgressBar(DayProgress.of(monday, now, hours.first, hours.last), Modifier.padding(start = 3.dp).fillMaxHeight())
+                    val fill = dayProgress(DayProgress.of(monday, now, hours.first, hours.last))
+                    DayProgressFill(fill, Modifier.fillMaxSize())
                     for (h in hours.first until hours.last) {
+                        // A label counts as covered once the fill passes its middle (label ~ top 2..16 dp of the hour).
+                        val covered = fill * n > (h - hours.first) + 9f / hourH.value
                         Text(
                             "$h",
                             Modifier.offset(y = hourH * (h - hours.first) + 2.dp).fillMaxWidth().padding(end = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
-                            color = colors.onSurfaceVariant,
+                            color = if (covered) colors.onPrimaryContainer else colors.onSurfaceVariant,
                             textAlign = TextAlign.End,
                         )
                     }
@@ -279,18 +282,29 @@ private fun DayColumn(
     }
 }
 
-/** Slim bar in the hour column, filled in the accent from the top of the day range down to now. */
+/** The day progress, animated unless animations are off. */
 @Composable
-private fun DayProgressBar(progress: Float, modifier: Modifier) {
-    val animate = animationsEnabled()
-    val fill by animateFloatAsState(progress, if (animate) tween(600) else snap(), label = "day progress")
+private fun dayProgress(progress: Float): Float {
+    val fill by animateFloatAsState(progress, if (animationsEnabled()) tween(600) else snap(), label = "day progress")
+    return fill
+}
+
+/**
+ * The hour column's background from the top of the day range down to now, in the tonal accent, with a slim accent
+ * edge at now while the day is running.
+ */
+@Composable
+private fun DayProgressFill(fill: Float, modifier: Modifier) {
     val scheme = MaterialTheme.colorScheme
-    val track = scheme.outlineVariant.copy(alpha = 0.5f)
     Box(
-        modifier.width(3.dp).drawBehind {
-            val r = CornerRadius(size.width / 2)
-            drawRoundRect(track, cornerRadius = r)
-            if (fill > 0f) drawRoundRect(scheme.primary, size = Size(size.width, size.height * fill), cornerRadius = r)
+        modifier.drawBehind {
+            if (fill <= 0f) return@drawBehind
+            val h = size.height * fill
+            drawRoundRect(scheme.primaryContainer, size = Size(size.width, h), cornerRadius = CornerRadius(4.dp.toPx()))
+            if (fill < 1f) {
+                val edge = 2.dp.toPx()
+                drawRect(scheme.primary, Offset(0f, (h - edge).coerceAtLeast(0f)), Size(size.width, minOf(edge, h)))
+            }
         },
     )
 }
