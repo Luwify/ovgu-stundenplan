@@ -17,6 +17,11 @@ import de.luwify.stundenplanmd.data.IcsSource
 import de.luwify.stundenplanmd.data.ImportOutcome
 import de.luwify.stundenplanmd.data.StoredData
 import de.luwify.stundenplanmd.data.FriendImport
+import de.luwify.stundenplanmd.data.MyShare
+import de.luwify.stundenplanmd.core.model.PlanZone
+import de.luwify.stundenplanmd.ui.theme.SubjectColors
+import java.io.File
+import java.time.LocalDate
 import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.model.Plan
 import de.luwify.stundenplanmd.core.share.ShareCodec
@@ -262,6 +267,47 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 onFailure = { UiMessage.ImportFailed },
             )
             _messages.send(msg)
+        }
+    }
+
+    /** My share identity (id made on first share); the name is asked before the first share. */
+    val myShare: StateFlow<MyShare> = repo.data.filterNotNull().map { it.share }.stateIn(viewModelScope, SharingStarted.Eagerly, MyShare())
+
+    fun setShareName(name: String) {
+        viewModelScope.launch { repo.shareIdentity(name) }
+    }
+
+    /** My plan as shared: events, and short names and colors of every course as shown (automatic ones resolved). */
+    suspend fun mySharedPlan(): SharedPlan? {
+        val identity = repo.shareIdentity()
+        val data = repo.data.value ?: return null
+        val plan = data.myPlan ?: return null
+        val name = identity.name ?: return null
+        return withContext(Dispatchers.Default) {
+            SharedPlan(
+                personId = identity.id!!,
+                name = name,
+                exportedOn = LocalDate.now(PlanZone),
+                planDate = plan.importedAt.atZone(PlanZone).toLocalDate(),
+                events = plan.events,
+                settings = Subjects.resolved(plan.events, data.courseSettings, SubjectColors::defaultColor),
+                complete = true,
+            )
+        }
+    }
+
+    suspend fun myQrText(): String? = mySharedPlan()?.let { withContext(Dispatchers.Default) { ShareCodec.qrText(it) } }
+
+    /** Writes my plan as a share file into cache/share (for the share sheet); null on failure. */
+    suspend fun writeShareFile(): File? {
+        val plan = mySharedPlan() ?: return null
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = File(getApplication<Application>().cacheDir, "share").apply { mkdirs() }
+                dir.listFiles()?.forEach { it.delete() }
+                val safe = plan.name.replace(Regex("[^\\p{L}\\p{N} _-]"), "").trim().ifEmpty { "Stundenplan" }
+                File(dir, "Stundenplan $safe.${ShareCodec.FILE_EXTENSION}").apply { writeBytes(ShareCodec.file(plan)) }
+            }.getOrNull()
         }
     }
 

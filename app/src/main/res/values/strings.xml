@@ -144,4 +144,17 @@
     <string name="share_own">This is your own timetable.</string>
     <string name="share_too_new">This timetable was shared by a newer version of the app. Update the app first.</string>
     <string name="share_broken">This is not a readable shared timetable.</string>
+    <string name="close">Close</string>
+    <string name="qr_title">Share by QR code</string>
+    <string name="qr_too_large">Your timetable is too large for a QR code that scans reliably. Share it as a file instead.</string>
+    <string name="qr_how_to">On the other phone: open Stundenplan MD, tap the menu, then + and \"Scan QR code\".</string>
+    <string name="share_as_file">Share as file</string>
+    <string name="scan_title">Scan QR code</string>
+    <string name="scan_hint">Point the camera at the QR code of a shared timetable.</string>
+    <string name="scan_other_code">This QR code is not a shared timetable.</string>
+    <string name="scan_no_permission">Scanning needs the camera. The picture stays on this phone and is not saved.</string>
+    <string name="scan_allow">Allow camera</string>
+    <string name="scan_app_settings">Open app settings</string>
+    <string name="share_failed">Your timetable could not be shared.</string>
+    <string name="share_chooser">Share timetable</string>
 </resources>

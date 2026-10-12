@@ -1,20 +1,34 @@
 Stundenplan MD: third-party material
 ====================================
 
-Settings icon
-  File:     app/src/main/res/drawable/ic_settings.xml
-  Used for: the settings button in the top bar
-  Source:   Material Symbols, icon "settings" (Outlined, weight 400, 24px), by Google
+Icons
+  Files:    app/src/main/res/drawable/ic_settings.xml (settings button), ic_menu.xml (drawer),
+            ic_group.xml (events shared with friends), ic_add.xml (add a friend), ic_share.xml
+            (share my plan as a file), ic_qr_code_2.xml (show my plan as a QR code),
+            ic_qr_code_scanner.xml (scan a QR code), ic_file_open.xml (pick a friend's file),
+            ic_edit.xml (rename a friend), ic_delete.xml (remove a friend), ic_close.xml (close)
+  Source:   Material Symbols, Outlined, weight 400, 24px, by Google
             https://fonts.google.com/icons
             https://github.com/google/material-design-icons
-            (symbols/android/settings/materialsymbolsoutlined/settings_24px.xml)
+            (symbols/android/<name>/materialsymbolsoutlined/<name>_24px.xml)
   License:  Apache License, Version 2.0
             https://www.apache.org/licenses/LICENSE-2.0
   Changes:  the theme-attribute tint was removed and the fill color set to black so the
             app can tint it per theme. The path data is unchanged.
 
-Only this icon is included; the app has no dependency on any icon library. All other
+Only these icons are included; the app has no dependency on any icon library. All other
 icons are drawn from scratch (app/src/main/java/de/luwify/stundenplanmd/ui/Icons.kt).
+
+Libraries (linked into the app, unmodified)
+  ZXing core 3.5.4 (com.google.zxing:core): QR code encoding and decoding.
+            https://github.com/zxing/zxing
+            License: Apache License, Version 2.0
+  CameraX 1.6.2 (androidx.camera: camera-core, camera-camera2, camera-lifecycle,
+            camera-compose): camera preview and frames for scanning QR codes.
+            https://developer.android.com/jetpack/androidx/releases/camera
+            License: Apache License, Version 2.0
+  Other AndroidX and Kotlin libraries (Compose, Material 3, DataStore, kotlinx.serialization,
+  kotlinx.coroutines): Apache License, Version 2.0.
 
 The theme system (app/src/main/java/de/luwify/stundenplanmd/ui/theme/) is taken from
 Mensa MD by the same author and adapted; it is not third-party material.

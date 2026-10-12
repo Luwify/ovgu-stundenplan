@@ -138,4 +138,17 @@
     <string name="share_own">Das ist dein eigener Stundenplan.</string>
     <string name="share_too_new">Dieser Stundenplan wurde mit einer neueren App-Version geteilt. Bitte zuerst die App aktualisieren.</string>
     <string name="share_broken">Das ist kein lesbarer geteilter Stundenplan.</string>
+    <string name="close">Schließen</string>
+    <string name="qr_title">Per QR-Code teilen</string>
+    <string name="qr_too_large">Dein Stundenplan ist zu groß für einen QR-Code, der zuverlässig gescannt werden kann. Teile ihn stattdessen als Datei.</string>
+    <string name="qr_how_to">Auf dem anderen Handy: Stundenplan MD öffnen, Menü antippen, dann + und „QR-Code scannen“.</string>
+    <string name="share_as_file">Als Datei teilen</string>
+    <string name="scan_title">QR-Code scannen</string>
+    <string name="scan_hint">Richte die Kamera auf den QR-Code eines geteilten Stundenplans.</string>
+    <string name="scan_other_code">Dieser QR-Code ist kein geteilter Stundenplan.</string>
+    <string name="scan_no_permission">Zum Scannen wird die Kamera gebraucht. Das Bild bleibt auf diesem Handy und wird nicht gespeichert.</string>
+    <string name="scan_allow">Kamera erlauben</string>
+    <string name="scan_app_settings">App-Einstellungen öffnen</string>
+    <string name="share_failed">Dein Stundenplan konnte nicht geteilt werden.</string>
+    <string name="share_chooser">Stundenplan teilen</string>
 </resources>
