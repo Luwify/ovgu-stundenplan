@@ -35,8 +35,11 @@ data class ThemeBackup(
     }
 }
 
-/** What a backup file holds; [ics] is the raw import (null if there was none). */
-data class Backup(val data: StoredData, val ics: String?, val theme: ThemeBackup, val exportedAt: String?)
+/**
+ * What a backup file holds; [ics] is the raw import (null if there was none). [language] is the in-app language key
+ * ("system", "de", "en"), null in backups from before version 2: restoring those keeps the current language.
+ */
+data class Backup(val data: StoredData, val ics: String?, val theme: ThemeBackup, val exportedAt: String?, val language: String? = null)
 
 sealed interface BackupResult {
     data class Ok(val backup: Backup) : BackupResult
@@ -53,11 +56,12 @@ sealed interface BackupResult {
  */
 object BackupCodec {
     const val FORMAT = "stundenplanmd-backup"
-    const val VERSION = 1
+    /** 2: `language` (in-app language). Older files are read with it missing. */
+    const val VERSION = 2
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = false }
 
-    fun encode(data: StoredData, ics: String?, theme: ThemeChoice, now: Instant = Instant.now()): String {
+    fun encode(data: StoredData, ics: String?, theme: ThemeChoice, language: String, now: Instant = Instant.now()): String {
         val obj = JsonObject(
             buildMap {
                 put("format", JsonPrimitive(FORMAT))
@@ -66,6 +70,7 @@ object BackupCodec {
                 put("data", json.encodeToJsonElement(StoredData.serializer(), data.copy(version = Migrations.CURRENT)))
                 if (ics != null) put("ics", JsonPrimitive(ics))
                 put("theme", json.encodeToJsonElement(ThemeBackup.serializer(), ThemeBackup.of(theme)))
+                put("language", JsonPrimitive(language))
             },
         )
         return json.encodeToString(JsonObject.serializer(), obj)
@@ -81,7 +86,12 @@ object BackupCodec {
             val data = json.decodeFromJsonElement(StoredData.serializer(), Migrations.migrate(obj.getValue("data").jsonObject))
             val theme = obj["theme"]?.let { json.decodeFromJsonElement(ThemeBackup.serializer(), it) }
                 ?: ThemeBackup.of(ThemeChoice(ThemeMode.SYSTEM))
-            BackupResult.Ok(Backup(data, obj["ics"]?.jsonPrimitive?.content, theme, obj["exportedAt"]?.jsonPrimitive?.content))
+            BackupResult.Ok(
+                Backup(
+                    data, obj["ics"]?.jsonPrimitive?.content, theme, obj["exportedAt"]?.jsonPrimitive?.content,
+                    language = obj["language"]?.jsonPrimitive?.content,
+                ),
+            )
         }
     } catch (e: MigrationException) {
         BackupResult.TooNew

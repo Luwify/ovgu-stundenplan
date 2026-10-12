@@ -249,4 +249,7 @@
     <string name="app_share_failed">Die App-Datei konnte nicht vorbereitet werden.</string>
     <string name="app_share_chooser">App senden</string>
     <string name="settings_update_badge">Einstellungen, Update verfügbar</string>
+    <string name="language_title">Sprache</string>
+    <string name="language_label">App-Sprache</string>
+    <string name="language_system">Systemstandard</string>
 </resources>

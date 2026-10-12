@@ -255,4 +255,7 @@
     <string name="app_share_failed">The app file could not be prepared.</string>
     <string name="app_share_chooser">Send app</string>
     <string name="settings_update_badge">Settings, update available</string>
+    <string name="language_title">Language</string>
+    <string name="language_label">App language</string>
+    <string name="language_system">System default</string>
 </resources>

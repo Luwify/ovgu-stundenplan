@@ -36,17 +36,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import de.luwify.stundenplanmd.AppLanguage
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.model.PlanZone
 import de.luwify.stundenplanmd.core.model.Subject
@@ -98,6 +101,29 @@ fun SettingsScreen(
                     Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottom + 24.dp),
                 ) {
+                    item(key = "language-title") { SectionHeading(stringResource(R.string.language_title)) }
+                    item(key = "language-picker") {
+                        val context = LocalContext.current
+                        var chosen by remember { mutableStateOf(AppLanguage.current(context)) }
+                        SettingsDropdown(
+                            label = stringResource(R.string.language_label),
+                            options = listOf(
+                                AppLanguage.SYSTEM to stringResource(R.string.language_system),
+                                AppLanguage.GERMAN to "Deutsch",
+                                AppLanguage.ENGLISH to "English",
+                            ),
+                            selected = chosen,
+                            onSelect = {
+                                chosen = it
+                                AppLanguage.set(context, it)
+                                // From API 33 the system recreates the activity itself. Screen state is saveable
+                                // (week, day, tab, open pages) or in the ViewModel (selected person), so it stays.
+                                if (android.os.Build.VERSION.SDK_INT < 33) (context as? android.app.Activity)?.recreate()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
                     item(key = "theme-title") { SectionHeading(stringResource(R.string.theme_title)) }
                     item(key = "theme-picker") {
                         val theme = LocalThemeMode.current

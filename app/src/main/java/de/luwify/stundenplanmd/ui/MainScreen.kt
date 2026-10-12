@@ -111,6 +111,16 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         }
     }
 
+    // A restored backup changed the language (before Android 13 the activity has to be recreated for it).
+    val recreate by vm.recreate.collectAsStateWithLifecycle()
+    val activity = androidx.activity.compose.LocalActivity.current
+    LaunchedEffect(recreate) {
+        if (recreate) {
+            vm.recreated()
+            activity?.recreate()
+        }
+    }
+
     fun share(action: ShareAction) {
         scope.launch {
             drawer.close()

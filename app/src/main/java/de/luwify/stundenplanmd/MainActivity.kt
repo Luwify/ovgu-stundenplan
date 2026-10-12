@@ -27,6 +27,9 @@ import de.luwify.stundenplanmd.ui.MainViewModel
 class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
 
+    // In-app language before Android 13 (from 13 the system applies the per-app language itself).
+    override fun attachBaseContext(newBase: android.content.Context) = super.attachBaseContext(AppLanguage.wrap(newBase))
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)

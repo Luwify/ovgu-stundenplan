@@ -142,7 +142,7 @@ class PersistenceTest {
         PlanStore(File(tmp.root, "x")).write(d)
         again.load()
         assertEquals(d, again.data.value)
-        assertEquals(d, (BackupCodec.decode(BackupCodec.encode(d, null, theme)) as BackupResult.Ok).backup.data)
+        assertEquals(d, (BackupCodec.decode(BackupCodec.encode(d, null, theme, "system")) as BackupResult.Ok).backup.data)
     }
 
     private val friendId = "0123456789abcdef"
@@ -163,7 +163,7 @@ class PersistenceTest {
         val d = dir()
         PlanStore(d).write(withFriend)
         assertEquals(withFriend, (PlanStore(d).read() as StoreRead.Ok).data)
-        val backup = BackupCodec.decode(BackupCodec.encode(withFriend, null, theme)) as BackupResult.Ok
+        val backup = BackupCodec.decode(BackupCodec.encode(withFriend, null, theme, "system")) as BackupResult.Ok
         assertEquals(withFriend, backup.backup.data)
     }
 
@@ -313,17 +313,32 @@ class PersistenceTest {
     @Test
     fun backupRoundTripsEverything() {
         val ics = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"
-        val text = BackupCodec.encode(data, ics, theme, Instant.parse("2026-10-12T10:00:00Z"))
+        val text = BackupCodec.encode(data, ics, theme, "en", Instant.parse("2026-10-12T10:00:00Z"))
         val ok = BackupCodec.decode(text) as BackupResult.Ok
         assertUserDataSurvived(ok.backup.data)
         assertEquals(ics, ok.backup.ics)
         assertEquals(theme, ok.backup.theme.toChoice())
         assertEquals("2026-10-12T10:00:00Z", ok.backup.exportedAt)
+        assertEquals("en", ok.backup.language)
+        assertEquals(de.luwify.stundenplanmd.AppLanguage.ENGLISH, de.luwify.stundenplanmd.AppLanguage.fromKey(ok.backup.language))
+    }
+
+    @Test
+    fun backupVersion1HasNoLanguageAndKeepsTheCurrentOne() {
+        val v1 = BackupCodec.encode(data, null, theme, "de").replace("\"version\":${BackupCodec.VERSION}", "\"version\":1")
+            .replace(",\"language\":\"de\"", "")
+        assertTrue(v1.contains("\"version\":1") && !v1.contains("language"))
+        val ok = BackupCodec.decode(v1) as BackupResult.Ok
+        assertUserDataSurvived(ok.backup.data)
+        assertEquals(null, ok.backup.language)
+        assertEquals(null, de.luwify.stundenplanmd.AppLanguage.fromKey(null)) // restore leaves the language alone
+        assertEquals(de.luwify.stundenplanmd.AppLanguage.SYSTEM, de.luwify.stundenplanmd.AppLanguage.fromKey("system"))
+        assertEquals(null, de.luwify.stundenplanmd.AppLanguage.fromKey("fr"))
     }
 
     @Test
     fun backupWithoutIcsAndGarbageAreHandled() {
-        assertEquals(null, (BackupCodec.decode(BackupCodec.encode(data, null, theme)) as BackupResult.Ok).backup.ics)
+        assertEquals(null, (BackupCodec.decode(BackupCodec.encode(data, null, theme, "system")) as BackupResult.Ok).backup.ics)
         assertEquals(BackupResult.NotABackup, BackupCodec.decode("""{"hello":1}"""))
         assertTrue(BackupCodec.decode("nope") !is BackupResult.Ok)
         assertTrue(BackupCodec.decode("{\"format\":\"stundenplanmd-backup\",\"version\":1,\"data\":[1]}") is BackupResult.Broken)

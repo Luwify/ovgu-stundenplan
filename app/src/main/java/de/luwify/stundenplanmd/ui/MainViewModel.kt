@@ -15,6 +15,7 @@ import de.luwify.stundenplanmd.core.schedule.OccurrenceKey
 import de.luwify.stundenplanmd.core.schedule.Timed
 import de.luwify.stundenplanmd.core.schedule.Together
 import de.luwify.stundenplanmd.data.Backup
+import de.luwify.stundenplanmd.AppLanguage
 import de.luwify.stundenplanmd.data.BackupCodec
 import de.luwify.stundenplanmd.data.BackupResult
 import de.luwify.stundenplanmd.data.StoreRead
@@ -155,7 +156,7 @@ sealed interface UiMessage {
 data class PendingFriend(val plan: SharedPlan, val existing: Person?, val existingPlan: Plan?)
 
 /** Everything a backup import replaces, kept for undo. */
-data class Snapshot(val data: StoredData, val ics: String?, val theme: ThemeChoice)
+data class Snapshot(val data: StoredData, val ics: String?, val theme: ThemeChoice, val language: AppLanguage? = null)
 
 /** A backup file read and waiting for the user's confirmation. */
 data class PendingBackup(val backup: Backup)
@@ -240,7 +241,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val ok = runCatching {
                 val data = repo.data.value ?: error("not loaded")
-                val text = BackupCodec.encode(data, repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM))
+                val language = AppLanguage.key(AppLanguage.current(getApplication()))
+                val text = BackupCodec.encode(data, repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), language)
                 withContext(Dispatchers.IO) {
                     getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.encodeToByteArray()) }
                 }
@@ -273,11 +275,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val backup = _pendingBackup.value?.backup ?: return
         _pendingBackup.value = null
         viewModelScope.launch {
-            val before = Snapshot(repo.data.value ?: StoredData(), repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM))
+            val app = getApplication<Application>()
+            val before = Snapshot(repo.data.value ?: StoredData(), repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), AppLanguage.current(app))
             runCatching {
                 repo.replaceAll(backup.data, backup.ics)
                 container.theme.restore(backup.theme.toChoice())
-            }.onSuccess { _messages.send(UiMessage.BackupRestored(before)) }.onFailure { _messages.send(UiMessage.BackupFailed) }
+            }.onSuccess {
+                _messages.send(UiMessage.BackupRestored(before))
+                // Last: a different language recreates the activity (the restored data is saved by then).
+                AppLanguage.fromKey(backup.language)?.let(::applyLanguage)
+            }.onFailure { _messages.send(UiMessage.BackupFailed) }
         }
     }
 
@@ -285,7 +292,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.replaceAll(previous.data, previous.ics)
             container.theme.restore(previous.theme)
+            previous.language?.let(::applyLanguage)
         }
+    }
+
+    /** Sets the app language if it differs; before Android 13 the screen recreates the activity (see [recreate]). */
+    private fun applyLanguage(language: AppLanguage) {
+        val app = getApplication<Application>()
+        if (AppLanguage.current(app) == language) return
+        AppLanguage.set(app, language)
+        if (android.os.Build.VERSION.SDK_INT < 33) _recreate.value = true
+    }
+
+    private val _recreate = MutableStateFlow(false)
+
+    /** API < 33: the activity must be recreated to show a restored language; the screen resets this. */
+    val recreate: StateFlow<Boolean> = _recreate
+
+    fun recreated() {
+        _recreate.value = false
     }
 
     private val _pendingFriend = MutableStateFlow<PendingFriend?>(null)
