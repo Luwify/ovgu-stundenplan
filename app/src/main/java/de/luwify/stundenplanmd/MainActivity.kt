@@ -20,6 +20,7 @@ import de.luwify.stundenplanmd.data.settings.ThemeMode
 import de.luwify.stundenplanmd.ui.theme.CustomTheme
 import de.luwify.stundenplanmd.ui.theme.StundenplanTheme
 import de.luwify.stundenplanmd.data.IcsSource
+import de.luwify.stundenplanmd.core.share.ShareCodec
 import de.luwify.stundenplanmd.ui.MainScreen
 import de.luwify.stundenplanmd.ui.MainViewModel
 
@@ -93,6 +94,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
-        val PICKER_TYPES = arrayOf("text/calendar", "text/x-vcalendar", "application/ics", "application/octet-stream", "text/plain")
+        val PICKER_TYPES = arrayOf("text/calendar", "text/x-vcalendar", "application/ics", ShareCodec.MIME, "application/octet-stream", "text/plain")
     }
 }

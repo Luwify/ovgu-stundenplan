@@ -16,6 +16,12 @@ import de.luwify.stundenplanmd.data.StoreRead
 import de.luwify.stundenplanmd.data.IcsSource
 import de.luwify.stundenplanmd.data.ImportOutcome
 import de.luwify.stundenplanmd.data.StoredData
+import de.luwify.stundenplanmd.data.FriendImport
+import de.luwify.stundenplanmd.core.model.Person
+import de.luwify.stundenplanmd.core.model.Plan
+import de.luwify.stundenplanmd.core.share.ShareCodec
+import de.luwify.stundenplanmd.core.share.ShareResult
+import de.luwify.stundenplanmd.core.share.SharedPlan
 import de.luwify.stundenplanmd.data.settings.CustomThemeSpec
 import de.luwify.stundenplanmd.data.settings.ThemeChoice
 import de.luwify.stundenplanmd.data.settings.ThemeMode
@@ -61,7 +67,14 @@ sealed interface UiMessage {
     data object BackupNotABackup : UiMessage
     data object BackupTooNew : UiMessage
     data class BackupRestored(val previous: Snapshot) : UiMessage
+    data class FriendImported(val name: String, val replaced: Boolean, val previous: StoredData) : UiMessage
+    data object ShareOwn : UiMessage
+    data object ShareTooNew : UiMessage
+    data object ShareBroken : UiMessage
 }
+
+/** A friend's plan read from a file or QR code, waiting for the user's confirmation. */
+data class PendingFriend(val plan: SharedPlan, val existing: Person?, val existingPlan: Plan?)
 
 /** Everything a backup import replaces, kept for undo. */
 data class Snapshot(val data: StoredData, val ics: String?, val theme: ThemeChoice)
@@ -179,14 +192,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private val _pendingFriend = MutableStateFlow<PendingFriend?>(null)
+    val pendingFriend: StateFlow<PendingFriend?> = _pendingFriend
+
+    /** A picked, opened or shared file: a friend's plan (content starts with SPMD) or my .ics. */
     fun import(uri: Uri) {
         viewModelScope.launch {
             val resolver = getApplication<Application>().contentResolver
-            val text = withContext(Dispatchers.IO) { IcsSource.read(resolver, uri) }
-            if (text == null) {
+            val bytes = withContext(Dispatchers.IO) { IcsSource.readBytes(resolver, uri) }
+            if (bytes == null) {
                 _messages.send(UiMessage.ImportFailed)
                 return@launch
             }
+            if (ShareCodec.looksLikeShare(bytes)) {
+                receiveShare(withContext(Dispatchers.Default) { ShareCodec.parse(bytes) })
+                return@launch
+            }
+            val text = withContext(Dispatchers.Default) { IcsSource.text(bytes) }
             repo.load()
             _messages.send(
                 runCatching { repo.importIcs(text) }.fold(
@@ -200,6 +222,46 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     onFailure = { UiMessage.ImportFailed },
                 ),
             )
+        }
+    }
+
+    /** A scanned QR text. */
+    fun importScanned(text: String) {
+        viewModelScope.launch { receiveShare(withContext(Dispatchers.Default) { ShareCodec.parse(text) }) }
+    }
+
+    private suspend fun receiveShare(result: ShareResult) {
+        repo.load()
+        val data = repo.data.value ?: StoredData()
+        when (result) {
+            is ShareResult.Ok -> if (result.plan.personId == data.share.id) {
+                _messages.send(UiMessage.ShareOwn)
+            } else {
+                _pendingFriend.value = PendingFriend(result.plan, data.person(result.plan.personId), data.planOf(result.plan.personId))
+            }
+            ShareResult.TooNew -> _messages.send(UiMessage.ShareTooNew)
+            ShareResult.NotAShare, is ShareResult.Broken -> _messages.send(UiMessage.ShareBroken)
+        }
+    }
+
+    fun cancelFriend() {
+        _pendingFriend.value = null
+    }
+
+    fun confirmFriend() {
+        val pending = _pendingFriend.value ?: return
+        _pendingFriend.value = null
+        viewModelScope.launch {
+            val msg = runCatching { repo.importFriend(pending.plan) }.fold(
+                onSuccess = { r ->
+                    when (r) {
+                        is FriendImport.Imported -> UiMessage.FriendImported(r.person.displayName, r.replaced, r.previous)
+                        FriendImport.Own -> UiMessage.ShareOwn
+                    }
+                },
+                onFailure = { UiMessage.ImportFailed },
+            )
+            _messages.send(msg)
         }
     }
 

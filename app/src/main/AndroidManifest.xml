@@ -32,24 +32,26 @@
                 <data android:mimeType="text/x-vcalendar" />
                 <data android:mimeType="application/ics" />
             </intent-filter>
-            <!-- Some file managers send .ics as octet-stream: only offered for the .ics extension. -->
-            <intent-filter tools:ignore="AppLinkUrlError">
+            <!-- A friend's shared plan (own type), and files labeled octet-stream (many file managers and messengers
+                 send .ics and .stundenplan files like that): the content decides (VCALENDAR or SPMD). -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" />
                 <data android:scheme="file" />
-                <data android:host="*" />
+                <data android:mimeType="application/vnd.luwify.stundenplan" />
                 <data android:mimeType="application/octet-stream" />
-                <data android:pathPattern=".*\\.ics" />
-                <data android:pathPattern=".*\\..*\\.ics" />
             </intent-filter>
-            <!-- Share an .ics file to the app. -->
+            <!-- Share an .ics file or a friend's plan to the app. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/calendar" />
                 <data android:mimeType="text/x-vcalendar" />
                 <data android:mimeType="application/ics" />
+                <data android:mimeType="application/vnd.luwify.stundenplan" />
+                <data android:mimeType="application/octet-stream" />
             </intent-filter>
         </activity>
     </application>

@@ -131,4 +131,17 @@
         <item quantity="one">%1$d event</item>
         <item quantity="other">%1$d events</item>
     </plurals>
+    <string name="friend_confirm_add_title">Add %1$s\'s timetable?</string>
+    <string name="friend_confirm_update_title">Update %1$s\'s timetable?</string>
+    <string name="friend_confirm_stand">As of %1$s</string>
+    <string name="friend_shared_on">Shared on %1$s</string>
+    <string name="friend_confirm_replace">This replaces the timetable you have of %1$s (as of %2$s). Your name and colors for this person stay.</string>
+    <string name="friend_confirm_qr_notes">From a QR code: long notes are shortened. A shared file has them in full.</string>
+    <string name="friend_add">Add</string>
+    <string name="friend_update">Update</string>
+    <string name="friend_added">Added %1$s\'s timetable.</string>
+    <string name="friend_updated">Updated %1$s\'s timetable.</string>
+    <string name="share_own">This is your own timetable.</string>
+    <string name="share_too_new">This timetable was shared by a newer version of the app. Update the app first.</string>
+    <string name="share_broken">This is not a readable shared timetable.</string>
 </resources>

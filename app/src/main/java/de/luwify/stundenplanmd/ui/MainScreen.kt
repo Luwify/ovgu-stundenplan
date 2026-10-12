@@ -78,6 +78,17 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 UiMessage.ImportFailed -> snackbar.showSnackbar(res.getString(R.string.import_failed))
                 UiMessage.NotACalendar -> snackbar.showSnackbar(res.getString(R.string.import_not_calendar))
                 UiMessage.NoEvents -> snackbar.showSnackbar(res.getString(R.string.import_no_events))
+                is UiMessage.FriendImported -> {
+                    val r = snackbar.showSnackbar(
+                        res.getString(if (msg.replaced) R.string.friend_updated else R.string.friend_added, msg.name),
+                        actionLabel = res.getString(R.string.undo),
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                }
+                UiMessage.ShareOwn -> snackbar.showSnackbar(res.getString(R.string.share_own))
+                UiMessage.ShareTooNew -> snackbar.showSnackbar(res.getString(R.string.share_too_new))
+                UiMessage.ShareBroken -> snackbar.showSnackbar(res.getString(R.string.share_broken))
             }
         }
     }
@@ -138,6 +149,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
 
     val pending by vm.pendingBackup.collectAsStateWithLifecycle()
     pending?.let { BackupConfirmDialog(it.backup, plan, onConfirm = vm::confirmBackup, onCancel = vm::cancelBackup) }
+    val friend by vm.pendingFriend.collectAsStateWithLifecycle()
+    friend?.let { FriendConfirmDialog(it, onConfirm = vm::confirmFriend, onCancel = vm::cancelFriend) }
 
     val current = plan
     val key = editing

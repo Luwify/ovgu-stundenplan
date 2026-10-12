@@ -9,7 +9,7 @@ import java.nio.charset.CharacterCodingException
 import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
 
-/** Reading an .ics file the user picked, opened or shared. */
+/** Reading a file the user picked, opened or shared (an .ics or a friend's plan). */
 object IcsSource {
     private const val MAX_BYTES = 4 * 1024 * 1024
 
@@ -25,9 +25,9 @@ object IcsSource {
         else -> null
     }
 
-    /** UTF-8 (what LSF writes), falling back to Windows-1252. Null if unreadable or too big. */
-    fun read(resolver: ContentResolver, uri: Uri): String? = runCatching {
-        val bytes = resolver.openInputStream(uri)?.use { input ->
+    /** The file's bytes; null if unreadable or too big. */
+    fun readBytes(resolver: ContentResolver, uri: Uri): ByteArray? = runCatching {
+        resolver.openInputStream(uri)?.use { input ->
             val out = java.io.ByteArrayOutputStream()
             val buffer = ByteArray(64 * 1024)
             while (true) {
@@ -37,12 +37,14 @@ object IcsSource {
                 if (out.size() > MAX_BYTES) return null
             }
             out.toByteArray()
-        } ?: return null
-        try {
-            Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes)).toString()
-        } catch (_: CharacterCodingException) {
-            String(bytes, Charset.forName("windows-1252"))
         }
     }.getOrNull()
+
+    /** UTF-8 (what LSF writes), falling back to Windows-1252. */
+    fun text(bytes: ByteArray): String = try {
+        Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(bytes)).toString()
+    } catch (_: CharacterCodingException) {
+        String(bytes, Charset.forName("windows-1252"))
+    }
 }

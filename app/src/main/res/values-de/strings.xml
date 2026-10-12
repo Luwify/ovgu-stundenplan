@@ -125,4 +125,17 @@
         <item quantity="one">%1$d Termin</item>
         <item quantity="other">%1$d Termine</item>
     </plurals>
+    <string name="friend_confirm_add_title">Stundenplan von %1$s hinzufügen?</string>
+    <string name="friend_confirm_update_title">Stundenplan von %1$s aktualisieren?</string>
+    <string name="friend_confirm_stand">Stand: %1$s</string>
+    <string name="friend_shared_on">Geteilt am %1$s</string>
+    <string name="friend_confirm_replace">Das ersetzt den Stundenplan von %1$s, den du hast (Stand: %2$s). Deine Einstellungen für diese Person (Name, Farben) bleiben.</string>
+    <string name="friend_confirm_qr_notes">Per QR-Code: lange Notizen sind gekürzt. Eine geteilte Datei enthält sie vollständig.</string>
+    <string name="friend_add">Hinzufügen</string>
+    <string name="friend_update">Aktualisieren</string>
+    <string name="friend_added">Stundenplan von %1$s hinzugefügt.</string>
+    <string name="friend_updated">Stundenplan von %1$s aktualisiert.</string>
+    <string name="share_own">Das ist dein eigener Stundenplan.</string>
+    <string name="share_too_new">Dieser Stundenplan wurde mit einer neueren App-Version geteilt. Bitte zuerst die App aktualisieren.</string>
+    <string name="share_broken">Das ist kein lesbarer geteilter Stundenplan.</string>
 </resources>
