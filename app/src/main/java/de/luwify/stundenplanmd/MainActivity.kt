@@ -40,6 +40,9 @@ class MainActivity : ComponentActivity() {
             val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
                 if (uri != null) vm.exportBackup(uri)
             }
+            val friendFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri != null) vm.import(uri)
+            }
             val importBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri != null) vm.readBackup(uri)
             }
@@ -78,6 +81,8 @@ class MainActivity : ComponentActivity() {
                         onImport = { picker.launch(PICKER_TYPES) },
                         onExportBackup = { exportLauncher.launch("stundenplan-sicherung-${java.time.LocalDate.now()}.json") },
                         onImportBackup = { importBackupLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                        // .stundenplan is unknown to Android: file pickers label it octet-stream. The content decides.
+                        onPickFriendFile = { friendFileLauncher.launch(arrayOf(ShareCodec.MIME, "application/octet-stream")) },
                     )
                 }
             }

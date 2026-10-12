@@ -59,7 +59,17 @@ import java.time.format.FormatStyle
 
 /** The settings page (gear in the top bar): theme, subjects, the imported plan. An overlay closed with back. */
 @Composable
-fun SettingsScreen(vm: MainViewModel, plan: PlanUi?, onEditSubject: (Subject) -> Unit, onImport: () -> Unit, onExportBackup: () -> Unit, onImportBackup: () -> Unit, onBack: () -> Unit) {
+fun SettingsScreen(
+    vm: MainViewModel,
+    plan: PlanUi?,
+    shareName: String?,
+    onEditSubject: (Subject) -> Unit,
+    onImport: () -> Unit,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit,
+    onEditShareName: () -> Unit,
+    onBack: () -> Unit,
+) {
     BackHandler(onBack = onBack)
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     var showColors by rememberSaveable { mutableStateOf(false) }
@@ -134,6 +144,24 @@ fun SettingsScreen(vm: MainViewModel, plan: PlanUi?, onEditSubject: (Subject) ->
                                 Spacer(Modifier.width(8.dp))
                                 Text(stringResource(R.string.import_file))
                             }
+                        }
+                    }
+
+                    item(key = "share-title") { SectionHeading(stringResource(R.string.settings_share)) }
+                    item(key = "share") {
+                        Row(
+                            Modifier.fillMaxWidth().clickable(onClick = onEditShareName).heightIn(min = 56.dp).padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.share_name_setting), style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    shareName ?: stringResource(R.string.share_name_unset),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Icon(EditIcon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 

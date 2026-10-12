@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import de.luwify.stundenplanmd.StundenplanApp
 import de.luwify.stundenplanmd.core.model.Course
+import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Subject
 import de.luwify.stundenplanmd.core.model.Subjects
 import de.luwify.stundenplanmd.core.schedule.Schedule
@@ -48,16 +49,52 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
-/** My plan as the UI needs it. */
+/** A plan (mine or a friend's) as the UI needs it. */
 data class PlanUi(
+    val person: Person,
     val schedule: Schedule,
     val subjects: List<Subject>,
     /** Course key -> subject. */
     val subjectOf: Map<String, Subject>,
     val importedAt: java.time.Instant?,
+    /** The course settings shown (for a friend: my overrides, mine for shared courses, theirs). */
+    val settings: Map<String, CourseSetting>,
+    /** "Stand": my last import, or the day a friend imported their .ics. */
+    val planDate: LocalDate?,
+    /** Friend's plan: the day they shared it. */
+    val exportedOn: LocalDate? = null,
 ) {
     val isEmpty: Boolean get() = schedule.events.isEmpty()
+    val isMe: Boolean get() = person.isMe
+
+    companion object {
+        fun of(data: StoredData, personId: String): PlanUi {
+            val person = data.person(personId) ?: Person(StoredData.ME, "", isMe = true)
+            val plan = data.planOf(person.id)
+            val events = plan?.events.orEmpty()
+            val settings = if (person.isMe) data.courseSettings else Subjects.forFriend(
+                events,
+                local = data.friendSettings[person.id].orEmpty(),
+                mine = Subjects.resolved(data.myPlan?.events.orEmpty(), data.courseSettings, SubjectColors::defaultColor),
+                shared = plan?.sharedSettings.orEmpty(),
+            )
+            val subjects = Subjects.build(events, settings)
+            return PlanUi(
+                person = person,
+                schedule = Schedule(events),
+                subjects = subjects,
+                subjectOf = subjects.flatMap { s -> s.courses.map { it.key to s } }.toMap(),
+                importedAt = plan?.importedAt,
+                settings = settings,
+                planDate = if (person.isMe) plan?.importedAt?.atZone(PlanZone)?.toLocalDate() else plan?.planDate,
+                exportedOn = plan?.exportedOn,
+            )
+        }
+    }
 }
+
+/** A friend in the drawer: name, "Stand" and their schedule for the now-line. */
+data class FriendEntry(val person: Person, val planDate: LocalDate?, val schedule: Schedule)
 
 sealed interface UiMessage {
     data class Imported(val events: Int, val previous: StoredData) : UiMessage
@@ -74,6 +111,9 @@ sealed interface UiMessage {
     data class BackupRestored(val previous: Snapshot) : UiMessage
     data class FriendImported(val name: String, val replaced: Boolean, val previous: StoredData) : UiMessage
     data object ShareOwn : UiMessage
+    data class FriendDeleted(val name: String, val previous: StoredData) : UiMessage
+    data object NoPlanToShare : UiMessage
+    data object ShareFailed : UiMessage
     data object ShareTooNew : UiMessage
     data object ShareBroken : UiMessage
 }
@@ -115,12 +155,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Null while loading. */
-    val plan: StateFlow<PlanUi?> = repo.data.filterNotNull().map { data ->
-        val events = data.myPlan?.events.orEmpty()
-        val subjects = Subjects.build(events, data.courseSettings)
-        PlanUi(Schedule(events), subjects, subjects.flatMap { s -> s.courses.map { it.key to s } }.toMap(), data.myPlan?.importedAt)
+    /** Whose plan is shown: [StoredData.ME] or a friend's id. */
+    private val _selected = MutableStateFlow(StoredData.ME)
+    val selected: StateFlow<String> = _selected
+
+    fun select(personId: String) {
+        _selected.value = personId
+    }
+
+    /** The plan shown (mine or the selected friend's; mine again when that friend is gone). Null while loading. */
+    val plan: StateFlow<PlanUi?> = combine(repo.data.filterNotNull(), _selected) { data, id ->
+        PlanUi.of(data, if (data.person(id) != null) id else StoredData.ME)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** My plan, for settings and backup. Null while loading. */
+    val myPlan: StateFlow<PlanUi?> = repo.data.filterNotNull().map { PlanUi.of(it, StoredData.ME) }
+        .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    val friends: StateFlow<List<FriendEntry>> = repo.data.filterNotNull().map { data ->
+        data.friends.map { p -> data.planOf(p.id).let { FriendEntry(p, it?.planDate, Schedule(it?.events.orEmpty())) } }
+            .sortedBy { it.person.displayName.lowercase() }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Wall-clock time, updated at every full minute (now line, Today list). */
     val now: StateFlow<LocalDateTime> = flow {
@@ -273,8 +328,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** My share identity (id made on first share); the name is asked before the first share. */
     val myShare: StateFlow<MyShare> = repo.data.filterNotNull().map { it.share }.stateIn(viewModelScope, SharingStarted.Eagerly, MyShare())
 
-    fun setShareName(name: String) {
-        viewModelScope.launch { repo.shareIdentity(name) }
+    suspend fun setShareName(name: String) {
+        repo.shareIdentity(name)
     }
 
     /** My plan as shared: events, and short names and colors of every course as shown (automatic ones resolved). */
@@ -315,12 +370,48 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.restore(previous) }
     }
 
+    /** In my plan: my settings. In a friend's: my local overrides for them; no short name and color = their defaults. */
     fun setSubjectStyle(subject: Subject, shortName: String?, color: Int?) {
-        viewModelScope.launch { repo.updateSettings { Subjects.setStyle(it, subject, shortName, color) } }
+        val p = plan.value ?: return
+        viewModelScope.launch {
+            if (p.isMe) {
+                repo.updateSettings { Subjects.setStyle(it, subject, shortName, color) }
+            } else {
+                val edited = Subjects.setStyle(p.settings, subject, shortName, color)
+                repo.updateFriendSettings(p.person.id) { local ->
+                    val keys = subject.courses.map { it.key }.toSet()
+                    if (shortName.isNullOrBlank() && color == null) {
+                        local.filterKeys { it !in keys || local[it]?.subject != null }
+                            .mapValues { (k, v) -> if (k in keys) v.copy(shortName = null, color = null) else v }
+                    } else {
+                        Subjects.overrides(local, p.settings, edited)
+                    }
+                }
+            }
+        }
     }
 
     fun moveCourse(course: Course, target: String) {
-        val subjects = plan.value?.subjects.orEmpty()
-        viewModelScope.launch { repo.updateSettings { Subjects.move(it, course, target, subjects) } }
+        val p = plan.value ?: return
+        viewModelScope.launch {
+            if (p.isMe) {
+                repo.updateSettings { Subjects.move(it, course, target, p.subjects) }
+            } else {
+                repo.updateFriendSettings(p.person.id) { local -> Subjects.overrides(local, p.settings, Subjects.move(p.settings, course, target, p.subjects)) }
+            }
+        }
+    }
+
+    fun renameFriend(id: String, name: String?) {
+        viewModelScope.launch { repo.renameFriend(id, name) }
+    }
+
+    fun deleteFriend(id: String) {
+        viewModelScope.launch {
+            val name = repo.data.value?.person(id)?.displayName ?: return@launch
+            val previous = repo.deleteFriend(id) ?: return@launch
+            _selected.value = StoredData.ME
+            _messages.send(UiMessage.FriendDeleted(name, previous))
+        }
     }
 }

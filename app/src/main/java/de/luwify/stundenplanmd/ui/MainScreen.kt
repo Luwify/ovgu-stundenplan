@@ -24,6 +24,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -33,19 +41,47 @@ import de.luwify.stundenplanmd.core.schedule.Timed
 
 private enum class Tab { WEEK, DAY }
 
+private enum class ShareAction { FILE, QR }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Unit, onImportBackup: () -> Unit) {
+fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Unit, onImportBackup: () -> Unit, onPickFriendFile: () -> Unit) {
     val plan by vm.plan.collectAsStateWithLifecycle()
+    val myPlan by vm.myPlan.collectAsStateWithLifecycle()
+    val friends by vm.friends.collectAsStateWithLifecycle()
+    val selectedId by vm.selected.collectAsStateWithLifecycle()
+    val myShare by vm.myShare.collectAsStateWithLifecycle()
     val now by vm.now.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val res = LocalResources.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val drawer = rememberDrawerState(DrawerValue.Closed)
     var tab by rememberSaveable { mutableStateOf(Tab.WEEK) }
     var selected by remember { mutableStateOf<Timed?>(null) }
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     // Registered by the visible screen: jumps back to the current week/day, null while already there.
     var goToday by remember { mutableStateOf<(() -> Unit)?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var addChoice by rememberSaveable { mutableStateOf(false) }
+    var scanning by rememberSaveable { mutableStateOf(false) }
+    var qrText by remember { mutableStateOf<String?>(null) }
+    var askName by rememberSaveable { mutableStateOf<ShareAction?>(null) }
+    var editShareName by rememberSaveable { mutableStateOf(false) }
+    var friendDetails by rememberSaveable { mutableStateOf(false) }
+
+    fun share(action: ShareAction) {
+        scope.launch {
+            drawer.close()
+            when {
+                myPlan?.isEmpty != false -> snackbar.showSnackbar(res.getString(R.string.no_plan_to_share))
+                myShare.name == null -> askName = action
+                action == ShareAction.FILE -> vm.writeShareFile()?.let { openShareSheet(context, it) }
+                    ?: snackbar.showSnackbar(res.getString(R.string.share_failed))
+                else -> qrText = vm.myQrText() ?: run { snackbar.showSnackbar(res.getString(R.string.share_failed)); null }
+            }
+        }
+    }
 
     LaunchedEffect(vm) {
         vm.messages.collect { msg ->
@@ -89,62 +125,156 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 UiMessage.ShareOwn -> snackbar.showSnackbar(res.getString(R.string.share_own))
                 UiMessage.ShareTooNew -> snackbar.showSnackbar(res.getString(R.string.share_too_new))
                 UiMessage.ShareBroken -> snackbar.showSnackbar(res.getString(R.string.share_broken))
+                is UiMessage.FriendDeleted -> {
+                    val r = snackbar.showSnackbar(
+                        res.getString(R.string.friend_deleted, msg.name),
+                        actionLabel = res.getString(R.string.undo),
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                }
+                UiMessage.NoPlanToShare -> snackbar.showSnackbar(res.getString(R.string.no_plan_to_share))
+                UiMessage.ShareFailed -> snackbar.showSnackbar(res.getString(R.string.share_failed))
             }
         }
     }
 
     Box(Modifier.fillMaxSize()) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.app_name)) },
-                    actions = {
-                        if (plan?.isEmpty == false) {
-                            TextButton(onClick = { goToday?.invoke() }, enabled = goToday != null) { Text(stringResource(R.string.this_week)) }
-                        }
-                        IconButton(onClick = { showSettings = true }) {
-                            Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings))
-                        }
-                    },
+        ModalNavigationDrawer(
+            drawerState = drawer,
+            // Swiping stays with the week and day pagers; the drawer opens with the menu button.
+            gesturesEnabled = drawer.isOpen,
+            drawerContent = {
+                PlanDrawer(
+                    my = myPlan,
+                    friends = friends,
+                    selected = selectedId,
+                    now = now,
+                    onSelect = { id -> vm.select(id); scope.launch { drawer.close() } },
+                    onAdd = { addChoice = true; scope.launch { drawer.close() } },
+                    onShare = { share(ShareAction.FILE) },
+                    onQr = { share(ShareAction.QR) },
                 )
             },
-            bottomBar = {
-                if (plan?.isEmpty == false) {
-                    NavigationBar {
-                        NavigationBarItem(
-                            selected = tab == Tab.WEEK,
-                            onClick = { tab = Tab.WEEK },
-                            icon = { Icon(WeekIcon, null) },
-                            label = { Text(stringResource(R.string.tab_week)) },
-                        )
-                        NavigationBarItem(
-                            selected = tab == Tab.DAY,
-                            onClick = { tab = Tab.DAY },
-                            icon = { Icon(TodayIcon, null) },
-                            label = { Text(stringResource(R.string.tab_day)) },
-                        )
+        ) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawer.open() } }) {
+                                Icon(painterResource(R.drawable.ic_menu), stringResource(R.string.open_drawer))
+                            }
+                        },
+                        title = {
+                            Text(
+                                plan?.takeIf { !it.isMe }?.person?.displayName ?: stringResource(R.string.app_name),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        actions = {
+                            if (plan?.isEmpty == false) {
+                                TextButton(onClick = { goToday?.invoke() }, enabled = goToday != null) { Text(stringResource(R.string.this_week)) }
+                            }
+                            if (plan?.isMe == false) {
+                                IconButton(onClick = { friendDetails = true }) {
+                                    Icon(painterResource(R.drawable.ic_edit), stringResource(R.string.friend_details))
+                                }
+                            } else {
+                                IconButton(onClick = { showSettings = true }) {
+                                    Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings))
+                                }
+                            }
+                        },
+                    )
+                },
+                bottomBar = {
+                    if (plan?.isEmpty == false) {
+                        NavigationBar {
+                            NavigationBarItem(
+                                selected = tab == Tab.WEEK,
+                                onClick = { tab = Tab.WEEK },
+                                icon = { Icon(WeekIcon, null) },
+                                label = { Text(stringResource(R.string.tab_week)) },
+                            )
+                            NavigationBarItem(
+                                selected = tab == Tab.DAY,
+                                onClick = { tab = Tab.DAY },
+                                icon = { Icon(TodayIcon, null) },
+                                label = { Text(stringResource(R.string.tab_day)) },
+                            )
+                        }
                     }
-                }
-            },
-            snackbarHost = { SnackbarHost(snackbar) },
-        ) { padding ->
-            val p = plan
-            Box(Modifier.fillMaxSize().padding(padding)) {
-                when {
-                    p == null -> Unit
-                    p.isEmpty -> EmptyState(onImport)
-                    tab == Tab.WEEK -> WeekScreen(p, now, onOpen = { selected = it }, onToday = { goToday = it }, modifier = Modifier.fillMaxSize())
-                    else -> DayScreen(p, now, onOpen = { selected = it }, onToday = { goToday = it }, modifier = Modifier.fillMaxSize())
-                }
-                val item = selected
-                if (p != null && item != null) {
-                    DetailSheet(p, item, onEditSubject = { selected = null; editing = it.key }, onDismiss = { selected = null })
+                },
+                snackbarHost = { SnackbarHost(snackbar) },
+            ) { padding ->
+                val p = plan
+                Box(Modifier.fillMaxSize().padding(padding)) {
+                    // Each person's plan gets fresh pagers (their weeks differ).
+                    key(p?.person?.id) {
+                        when {
+                            p == null -> Unit
+                            p.isEmpty -> EmptyState(onImport)
+                            tab == Tab.WEEK -> WeekScreen(p, now, onOpen = { selected = it }, onToday = { goToday = it }, modifier = Modifier.fillMaxSize())
+                            else -> DayScreen(p, now, onOpen = { selected = it }, onToday = { goToday = it }, modifier = Modifier.fillMaxSize())
+                        }
+                    }
+                    val item = selected
+                    if (p != null && item != null) {
+                        DetailSheet(p, item, onEditSubject = { selected = null; editing = it.key }, onDismiss = { selected = null })
+                    }
                 }
             }
         }
         if (showSettings) {
-            SettingsScreen(vm, plan, onEditSubject = { editing = it.key }, onImport = onImport, onExportBackup = onExportBackup, onImportBackup = onImportBackup, onBack = { showSettings = false })
+            SettingsScreen(
+                vm, myPlan, myShare.name,
+                onEditSubject = { editing = it.key },
+                onImport = onImport,
+                onExportBackup = onExportBackup,
+                onImportBackup = onImportBackup,
+                onEditShareName = { editShareName = true },
+                onBack = { showSettings = false },
+            )
         }
+        if (scanning) {
+            ScanScreen(onScanned = { text -> scanning = false; vm.importScanned(text) }, onClose = { scanning = false })
+        }
+        qrText?.let { text ->
+            QrShowScreen(
+                text = text,
+                name = myShare.name.orEmpty(),
+                stand = standText(myPlan?.planDate),
+                onShareFile = { qrText = null; share(ShareAction.FILE) },
+                onClose = { qrText = null },
+            )
+        }
+    }
+
+    if (addChoice) {
+        AddFriendDialog(
+            onScan = { addChoice = false; scanning = true },
+            onPickFile = { addChoice = false; onPickFriendFile() },
+            onDismiss = { addChoice = false },
+        )
+    }
+    askName?.let { action ->
+        ShareNameDialog(null, onSave = { name ->
+            askName = null
+            scope.launch { vm.setShareName(name); share(action) }
+        }, onDismiss = { askName = null })
+    }
+    if (editShareName) {
+        ShareNameDialog(myShare.name, onSave = { name -> editShareName = false; scope.launch { vm.setShareName(name) } }, onDismiss = { editShareName = false })
+    }
+    val friendPlan = plan?.takeIf { !it.isMe }
+    if (friendDetails && friendPlan != null) {
+        FriendDialog(
+            friendPlan,
+            onRename = { vm.renameFriend(friendPlan.person.id, it); friendDetails = false },
+            onDelete = { friendDetails = false; vm.deleteFriend(friendPlan.person.id) },
+            onDismiss = { friendDetails = false },
+        )
     }
 
     val pending by vm.pendingBackup.collectAsStateWithLifecycle()
