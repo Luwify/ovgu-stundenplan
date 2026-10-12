@@ -6,6 +6,7 @@ import de.luwify.stundenplanmd.core.model.CourseKeys
 import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.schedule.Occurrence
 import de.luwify.stundenplanmd.core.schedule.Schedule
+import de.luwify.stundenplanmd.core.schedule.Together
 import java.io.File
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -80,20 +81,17 @@ fun main(args: Array<String>) {
     val sb = Schedule(b)
     val bySlot = sb.occurrences.groupBy { Triple(it.date, it.start, it.end) }
 
-    /** The proposed "together" rule; null = not together. */
+    /** Which part of [Together.matches] applies; null = not together. */
     fun rule(x: Occurrence, y: Occurrence): String? {
-        if (x.start != y.start || x.end != y.end) return null
-        val ex = x.event
-        val ey = y.event
-        val sameCourse = courseId(ex) != null && courseId(ex) == courseId(ey)
-        val rx = ex.location?.room?.lowercase()
-        val ry = ey.location?.room?.lowercase()
+        if (!Together.matches(x, y)) return null
+        val sameCourse = courseId(x.event) != null && courseId(x.event) == courseId(y.event)
         return when {
-            sameCourse && ex.uid == ey.uid -> "same UID"
-            sameCourse && rx != null && rx == ry -> "course + room"
-            sameCourse && (rx == null || ry == null) -> "course, a room missing"
-            ex.title == ey.title && ex.category == ey.category && ex.location != null && ex.location?.raw == ey.location?.raw -> "title fallback"
-            else -> null
+            sameCourse && x.event.uid == y.event.uid -> "same UID"
+            sameCourse && x.event.location != null && y.event.location != null &&
+                x.event.location?.room.equals(y.event.location?.room, ignoreCase = true) -> "course + room"
+            sameCourse && (x.event.location == null || y.event.location == null) -> "course, a room missing"
+            sameCourse -> "course, moved appointment"
+            else -> "title fallback"
         }
     }
 

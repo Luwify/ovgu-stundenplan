@@ -75,6 +75,11 @@ fun DetailSheet(plan: PlanUi, item: Timed, onEditSubject: (Subject) -> Unit, onD
 
             Field(stringResource(R.string.detail_when), "${longDate(item.date, locale)}\n${timeRange(item.start, item.end)}" + rhythm(event, locale)?.let { "\n$it" }.orEmpty())
             Field(stringResource(R.string.detail_room), roomText(event))
+            val with = plan.togetherWith(item)
+            if (with.isNotEmpty()) {
+                val you = stringResource(R.string.together_you)
+                Field(stringResource(R.string.detail_together), with.joinToString(", ") { if (it == de.luwify.stundenplanmd.data.StoredData.ME) you else plan.names[it] ?: "?" })
+            }
             if (event.lecturers.isNotEmpty()) Field(stringResource(R.string.detail_lecturers), event.lecturers.joinToString(", "))
             if (event.notes.isNotBlank() || event.notesShortened) {
                 val hint = stringResource(if (event.notes.isBlank()) R.string.notes_not_sent else R.string.notes_shortened)

@@ -181,4 +181,7 @@
     <string name="share_name_unset">Noch nicht festgelegt</string>
     <string name="notes_shortened">(Im QR-Code gekürzt. Eine geteilte Datei enthält die ganze Notiz.)</string>
     <string name="notes_not_sent">(Nicht im QR-Code enthalten. Eine geteilte Datei enthält die Notiz.)</string>
+    <string name="together_marker">Zusammen mit Freunden</string>
+    <string name="detail_together">Zusammen mit</string>
+    <string name="together_you">dir</string>
 </resources>

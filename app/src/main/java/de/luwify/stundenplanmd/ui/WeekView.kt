@@ -32,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -294,7 +296,19 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
             .then(if (cancelled) Modifier.semantics { contentDescription = cancelledText } else Modifier),
     ) {
         Box(Modifier.fillMaxHeight().width(3.dp).background(c.stripe))
-        Column(Modifier.fillMaxSize().padding(start = 6.dp, end = 3.dp, top = 3.dp, bottom = 3.dp)) {
+        // Attended with friends: a group icon at the top right; in narrow split lanes next to the type label instead,
+        // so the title keeps the full width.
+        val shared = plan.togetherWith(item).isNotEmpty()
+        val sharedLabel = stringResource(R.string.together_marker)
+        if (shared && !narrow) {
+            Icon(
+                painterResource(R.drawable.ic_group),
+                contentDescription = sharedLabel,
+                tint = c.content,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp).size(13.dp),
+            )
+        }
+        Column(Modifier.fillMaxSize().padding(start = 6.dp, end = if (shared && !narrow) 13.dp else 3.dp, top = 3.dp, bottom = 3.dp)) {
             Text(
                 blockName(subject, item),
                 Modifier.weight(1f, fill = false),
@@ -317,6 +331,9 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
             )
             Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
                 TypeLabel(item.event.type.short, border = c.stripe, text = c.content)
+                if (shared && narrow) {
+                    Icon(painterResource(R.drawable.ic_group), contentDescription = sharedLabel, tint = c.content, modifier = Modifier.size(11.dp))
+                }
                 if (highlight && strong) {
                     Text(
                         if (status == Status.Extra) "+" else "!",

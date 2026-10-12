@@ -30,6 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
@@ -180,6 +183,14 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
                     textDecoration = if (cancelled) TextDecoration.LineThrough else null,
                 )
                 TypeLabel(item.event.type.short, border = c.stripe, text = scheme.onSurface)
+                if (plan.togetherWith(item).isNotEmpty()) {
+                    Icon(
+                        painterResource(R.drawable.ic_group),
+                        contentDescription = stringResource(R.string.together_marker),
+                        tint = scheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
                 if (running) {
                     Text(
                         stringResource(R.string.now),

@@ -10,6 +10,10 @@ import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Subject
 import de.luwify.stundenplanmd.core.model.Subjects
 import de.luwify.stundenplanmd.core.schedule.Schedule
+import de.luwify.stundenplanmd.core.schedule.Occurrence
+import de.luwify.stundenplanmd.core.schedule.OccurrenceKey
+import de.luwify.stundenplanmd.core.schedule.Timed
+import de.luwify.stundenplanmd.core.schedule.Together
 import de.luwify.stundenplanmd.data.Backup
 import de.luwify.stundenplanmd.data.BackupCodec
 import de.luwify.stundenplanmd.data.BackupResult
@@ -63,9 +67,16 @@ data class PlanUi(
     val planDate: LocalDate?,
     /** Friend's plan: the day they shared it. */
     val exportedOn: LocalDate? = null,
+    /** Occurrences attended together with others: their person ids ([StoredData.ME] = me). */
+    val together: Map<OccurrenceKey, List<String>> = emptyMap(),
+    /** Display names of friends by id. */
+    val names: Map<String, String> = emptyMap(),
 ) {
     val isEmpty: Boolean get() = schedule.events.isEmpty()
     val isMe: Boolean get() = person.isMe
+
+    /** Who else attends [item] (person ids); empty for cancellations. */
+    fun togetherWith(item: Timed): List<String> = (item as? Occurrence)?.let { together[OccurrenceKey.of(it)] }.orEmpty()
 
     companion object {
         fun of(data: StoredData, personId: String): PlanUi {
@@ -79,15 +90,21 @@ data class PlanUi(
                 shared = plan?.sharedSettings.orEmpty(),
             )
             val subjects = Subjects.build(events, settings)
+            val schedule = Schedule(events)
+            // In my plan: friends. In a friend's: me and the other friends.
+            val others = data.people.filter { it.id != person.id }
+                .mapNotNull { p -> data.planOf(p.id)?.let { p.id to Schedule(it.events) } }
             return PlanUi(
                 person = person,
-                schedule = Schedule(events),
+                schedule = schedule,
                 subjects = subjects,
                 subjectOf = subjects.flatMap { s -> s.courses.map { it.key to s } }.toMap(),
                 importedAt = plan?.importedAt,
                 settings = settings,
                 planDate = if (person.isMe) plan?.importedAt?.atZone(PlanZone)?.toLocalDate() else plan?.planDate,
                 exportedOn = plan?.exportedOn,
+                together = Together.of(schedule, others),
+                names = data.friends.associate { it.id to it.displayName },
             )
         }
     }
