@@ -171,16 +171,16 @@ private fun WeekPage(
             ) {
                 Box(Modifier.width(Gutter).fillMaxHeight()) {
                     val fill = dayProgress(DayProgress.of(monday, now, hours.first, hours.last))
-                    DayProgressFill(fill, Modifier.fillMaxSize())
+                    DayProgressFill(fill, Modifier.fillMaxSize().padding(horizontal = 3.dp))
                     for (h in hours.first until hours.last) {
                         // A label counts as covered once the fill passes its middle (label ~ top 2..16 dp of the hour).
                         val covered = fill * n > (h - hours.first) + 9f / hourH.value
                         Text(
                             "$h",
-                            Modifier.offset(y = hourH * (h - hours.first) + 2.dp).fillMaxWidth().padding(end = 4.dp),
+                            Modifier.offset(y = hourH * (h - hours.first) + 2.dp).fillMaxWidth(),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (covered) colors.onPrimaryContainer else colors.onSurfaceVariant,
-                            textAlign = TextAlign.End,
+                            textAlign = TextAlign.Center,
                         )
                     }
                 }
