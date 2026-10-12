@@ -344,6 +344,21 @@ class PersistenceTest {
     }
 
     @Test
+    fun updatePreferencesAreStampedAndNeverLost() {
+        val prefs = mutablePreferencesOf(
+            androidx.datastore.preferences.core.booleanPreferencesKey("auto_check") to false,
+            stringPreferencesKey("manifest") to "{}",
+        )
+        de.luwify.stundenplanmd.data.update.UpdateSettings(FakeStore).migratePrefs(prefs)
+        assertEquals(false, prefs[androidx.datastore.preferences.core.booleanPreferencesKey("auto_check")])
+        assertEquals("{}", prefs[stringPreferencesKey("manifest")])
+        assertEquals(de.luwify.stundenplanmd.data.update.UpdateSettings.SCHEMA, prefs[intPreferencesKey("schema_version")])
+        val newer = mutablePreferencesOf(intPreferencesKey("schema_version") to 9)
+        de.luwify.stundenplanmd.data.update.UpdateSettings(FakeStore).migratePrefs(newer)
+        assertEquals(9, newer[intPreferencesKey("schema_version")])
+    }
+
+    @Test
     fun versionOfAFileWithoutTheFieldIsTheFirstFormat() {
         assertEquals(1, Migrations.versionOf(JsonObject(emptyMap())))
         assertEquals(3, Migrations.versionOf(JsonObject(mapOf("version" to JsonPrimitive(3)))))

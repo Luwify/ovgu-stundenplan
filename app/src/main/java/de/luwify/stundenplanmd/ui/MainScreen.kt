@@ -9,6 +9,8 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -74,6 +76,10 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     var askName by rememberSaveable { mutableStateOf<ShareAction?>(null) }
     var editShareName by rememberSaveable { mutableStateOf(false) }
     var friendDetails by rememberSaveable { mutableStateOf(false) }
+    val update by vm.updates.state.collectAsStateWithLifecycle()
+    val download by vm.updates.download.collectAsStateWithLifecycle()
+    val announcement by vm.updates.announcement.collectAsStateWithLifecycle()
+    var updateDialog by rememberSaveable { mutableStateOf<Int?>(null) }
     // Week and day shown, shared by everyone's plan (null = this week / today until the user moves).
     var week by rememberSaveable { mutableStateOf<LocalDate?>(null) }
     var day by rememberSaveable { mutableStateOf<LocalDate?>(null) }
@@ -89,6 +95,18 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     LaunchedEffect(selectedId, pages.map { it.person.id }) {
         val i = pages.indexOfFirst { it.person.id == selectedId }
         if (i >= 0 && i != people.currentPage && !people.isScrollInProgress) people.scrollToPage(i)
+    }
+
+    // A check found a newer version: one snackbar per version, "Anzeigen" opens the update dialog.
+    LaunchedEffect(announcement) {
+        val release = announcement ?: return@LaunchedEffect
+        vm.updates.announcement.value = null
+        val r = snackbar.showSnackbar(
+            res.getString(R.string.update_snackbar, release.versionName),
+            actionLabel = res.getString(R.string.update_show),
+            duration = SnackbarDuration.Long,
+        )
+        if (r == SnackbarResult.ActionPerformed) updateDialog = release.versionCode
     }
 
     fun share(action: ShareAction) {
@@ -205,7 +223,13 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                                 }
                             } else {
                                 IconButton(onClick = { showSettings = true }) {
-                                    Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings))
+                                    if (update.offer != null) {
+                                        BadgedBox(badge = { Badge() }) {
+                                            Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings_update_badge))
+                                        }
+                                    } else {
+                                        Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings))
+                                    }
                                 }
                             }
                         },
@@ -286,6 +310,16 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
             )
         }
     }
+
+    update.manifest?.releases?.firstOrNull { it.versionCode == updateDialog }?.let { release ->
+        UpdateDialog(
+            update.installed.name, release,
+            onInstall = { updateDialog = null; vm.updates.install(release) },
+            onSkip = { dontShow -> updateDialog = null; if (dontShow) vm.updates.skip(release) },
+            onDismiss = { updateDialog = null },
+        )
+    }
+    UpdateDialogs(vm.updates, download)
 
     if (addChoice) {
         AddFriendDialog(

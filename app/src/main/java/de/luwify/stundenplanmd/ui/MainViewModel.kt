@@ -163,6 +163,7 @@ data class PendingBackup(val backup: Backup)
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val container = (app as StundenplanApp).container
     private val repo = container.plans
+    val updates = container.updates
     private val customDraft = MutableStateFlow<CustomThemeSpec?>(null)
 
     /** Null until DataStore answered: the activity draws nothing until then, so there is no theme flash. */

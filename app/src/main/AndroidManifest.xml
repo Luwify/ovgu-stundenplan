@@ -5,6 +5,11 @@
     <!-- Only for scanning a friend's QR code; asked for when scanning. Frames are never stored or sent. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- Only for the updater: the version list (updates.json) and APKs of the app's own release repo
+         (core/update/UpdateSource). No other connections, no identifiers, no analytics. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Installing a verified update through PackageInstaller; the user confirms each install. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".StundenplanApp"
@@ -58,6 +63,10 @@
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
         </activity>
+        <!-- Result of an update install session (PackageInstaller). -->
+        <receiver
+            android:name=".data.update.InstallResultReceiver"
+            android:exported="false" />
         <!-- My plan as a file for the share sheet (cache/share only). -->
         <provider
             android:name="androidx.core.content.FileProvider"

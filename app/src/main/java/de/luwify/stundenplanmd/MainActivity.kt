@@ -31,7 +31,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         // Opened with / shared an .ics file. Not again after a configuration change.
-        if (savedInstanceState == null) handleFile(intent)
+        if (savedInstanceState == null) {
+            handleFile(intent)
+            // Update check (at most daily, if on) and leftover APKs from an earlier run.
+            (application as StundenplanApp).container.updates.onAppStart()
+        }
         setContent {
             // Many file managers label .ics as octet-stream or plain text: the content is checked on import.
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -87,6 +91,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Back from "install unknown apps": go on with the update if it was allowed.
+        (application as StundenplanApp).container.updates.onResume()
     }
 
     override fun onNewIntent(intent: Intent) {

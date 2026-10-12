@@ -96,8 +96,28 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.floor
 
 /** Top row of a full-screen overlay: close button and title. */
+/** Full brightness and the screen kept on while a QR code is shown. */
 @Composable
-private fun OverlayHeader(title: String, onClose: () -> Unit) {
+internal fun FullBrightness() {
+    val activity = LocalActivity.current
+    DisposableEffect(activity) {
+        val window = activity?.window
+        val before = window?.attributes?.screenBrightness
+        window?.let {
+            it.attributes = it.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL }
+            it.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            window?.let {
+                it.attributes = it.attributes.apply { screenBrightness = before ?: WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
+                it.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+    }
+}
+
+@Composable
+internal fun OverlayHeader(title: String, onClose: () -> Unit) {
     Row(
         Modifier.windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).height(56.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -115,21 +135,7 @@ private fun OverlayHeader(title: String, onClose: () -> Unit) {
 @Composable
 fun QrShowScreen(text: String, omitsDetails: Boolean, name: String, stand: String, onShareFile: () -> Unit, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
-    val activity = LocalActivity.current
-    DisposableEffect(activity) {
-        val window = activity?.window
-        val before = window?.attributes?.screenBrightness
-        window?.let {
-            it.attributes = it.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL }
-            it.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
-        onDispose {
-            window?.let {
-                it.attributes = it.attributes.apply { screenBrightness = before ?: WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
-                it.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            }
-        }
-    }
+    FullBrightness()
     val qr = remember(text) {
         if (text.length > ShareCodec.QR_MAX_CHARS) null else runCatching { Encoder.encode(text, ErrorCorrectionLevel.L) }.getOrNull()
     }
@@ -173,7 +179,7 @@ fun QrShowScreen(text: String, omitsDetails: Boolean, name: String, stand: Strin
 
 /** The modules on white, the quiet zone (4 modules) included in [modifier]'s size, snapped to whole pixels. */
 @Composable
-private fun QrCode(matrix: com.google.zxing.qrcode.encoder.ByteMatrix, modifier: Modifier) {
+internal fun QrCode(matrix: com.google.zxing.qrcode.encoder.ByteMatrix, modifier: Modifier) {
     Canvas(modifier.clip(RoundedCornerShape(8.dp)).background(Color.White)) {
         val modules = matrix.width + 8
         val cell = floor(size.minDimension / modules)

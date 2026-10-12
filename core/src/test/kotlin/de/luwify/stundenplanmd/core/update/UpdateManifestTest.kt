@@ -99,6 +99,8 @@ class UpdateManifestTest {
         val r = release("1.0.0")
         assertTrue(broken(r.copy(versionCode = 1))!!.reason.contains("expected 10000"))
         assertTrue(broken(r.copy(apkUrl = "http://example.org/a.apk")) != null)
+        assertTrue(broken(r.copy(apkUrl = "http://127.0.0.1.example.org/a.apk")) != null)
+        assertEquals(null, broken(r.copy(apkUrl = "http://127.0.0.1:8765/a.apk"))) // local test server
         assertTrue(broken(r.copy(sha256 = "AB".repeat(32))) != null)
         assertTrue(broken(r.copy(size = 0)) != null)
         assertTrue(broken(r.copy(date = "12.10.2026")) != null)

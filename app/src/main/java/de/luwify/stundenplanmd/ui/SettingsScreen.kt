@@ -73,6 +73,12 @@ fun SettingsScreen(
     BackHandler(onBack = onBack)
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     var showColors by rememberSaveable { mutableStateOf(false) }
+    val updates = vm.updates
+    val update by updates.state.collectAsStateWithLifecycle()
+    val download by updates.download.collectAsStateWithLifecycle()
+    var showVersions by rememberSaveable { mutableStateOf(false) }
+    var openVersion by rememberSaveable { mutableStateOf<Int?>(null) }
+    var shareApp by rememberSaveable { mutableStateOf(false) }
     val choice by vm.theme.collectAsStateWithLifecycle()
     val locale = appLocale()
 
@@ -179,9 +185,22 @@ fun SettingsScreen(
                             }
                         }
                     }
+
+                    versionSection(
+                        update, download,
+                        onOverview = { showVersions = true },
+                        onOpen = { openVersion = it.versionCode },
+                        onCheck = updates::checkNow,
+                        onAutoCheck = updates::setAutoCheck,
+                    )
                 }
             }
         }
+        if (showVersions) VersionOverviewScreen(update, onOpen = { openVersion = it.versionCode }, onBack = { showVersions = false })
+        update.manifest?.releases?.firstOrNull { it.versionCode == openVersion }?.let { release ->
+            VersionDetailScreen(release, updates, onShare = { shareApp = true }, onBack = { openVersion = null })
+        }
+        if (shareApp) AppShareScreen(updates, onClose = { shareApp = false })
         val spec = choice?.custom
         if (showColors && spec != null) {
             ColorEditorScreen(spec, onChange = { vm.setCustomTheme(it) }, onBack = { showColors = false })
@@ -216,7 +235,7 @@ private fun SubjectRow(subject: Subject, rgb: Int, onClick: () -> Unit) {
 
 /** A setting with a title, an explanation and a switch; the whole row toggles. */
 @Composable
-private fun SwitchRow(title: String, hint: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SwitchRow(title: String, hint: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()

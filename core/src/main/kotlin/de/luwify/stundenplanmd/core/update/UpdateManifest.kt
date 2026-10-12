@@ -87,6 +87,7 @@ object Manifests {
     }
     private val semver = Regex("""(0|[1-9]\d*)\.(0|[1-9]\d{0,1})\.(0|[1-9]\d{0,1})""")
     private val sha = Regex("[0-9a-f]{64}")
+    private val localTest = Regex("""^http://(127\.0\.0\.1|localhost)(:\d+)?/""")
 
     /** Size cap for a downloaded manifest (it's text with one short entry per release). */
     const val MAX_BYTES = 512 * 1024
@@ -125,7 +126,8 @@ object Manifests {
             }
             try { LocalDate.parse(r.date) } catch (_: DateTimeParseException) { add("$name: date ${r.date}") }
             if (r.minSdk < 1) add("$name: minSdk ${r.minSdk}")
-            if (!r.apkUrl.startsWith("https://")) add("$name: apkUrl is not https")
+            // Plain http only for a local test server (debug override); the app's release source still requires https.
+            if (!r.apkUrl.startsWith("https://") && !localTest.containsMatchIn(r.apkUrl)) add("$name: apkUrl is not https")
             if (!sha.matches(r.sha256)) add("$name: sha256 is not 64 lowercase hex digits")
             if (r.size <= 0) add("$name: size ${r.size}")
             if (r.changelog.de.isBlank() || r.changelog.en.isBlank()) add("$name: changelog missing")
