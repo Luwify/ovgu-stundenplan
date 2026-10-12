@@ -26,7 +26,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -52,7 +51,14 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
+import de.luwify.stundenplanmd.core.schedule.DayProgress
 import androidx.compose.ui.unit.sp
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.schedule.Cancellation
@@ -77,7 +83,7 @@ private val MinHour = 40.dp
 
 /** Week strip above a Mon–Fri grid, one pager page per week; opens on this week (next week on weekends). */
 @Composable
-fun WeekScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, onToday: ((() -> Unit)?) -> Unit, modifier: Modifier = Modifier) {
+fun WeekScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, modifier: Modifier = Modifier) {
     val schedule = plan.schedule
     val openMonday = Navigation.weekToOpen(now.toLocalDate())
     val firstMonday = Schedule.monday(schedule.firstDate!!.atStartOfDay())
@@ -93,11 +99,6 @@ fun WeekScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, onToda
         val animate = animationsEnabled()
         val locale = appLocale()
         val goTo: (Int) -> Unit = { page -> scope.launch { if (animate) pager.animateScrollToPage(page) else pager.scrollToPage(page) } }
-        val atOpen = pager.currentPage == openPage
-        DisposableEffect(atOpen, openPage) {
-            onToday(if (atOpen) null else ({ goTo(openPage) }))
-            onDispose { onToday(null) }
-        }
         val labels = remember(plan, weeks, thisMonday, locale) {
             weeks.map { monday ->
                 ChipLabel(
@@ -109,7 +110,7 @@ fun WeekScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, onToda
             }
         }
         Column(modifier) {
-            ChipStrip(labels, pager.currentPage, WeekChipWidth, onSelect = goTo)
+            ChipStrip(labels, pager.currentPage, WeekChipWidth, stringResource(R.string.back_to_this_week), onSelect = goTo)
             HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
                 WeekPage(plan, weeks[page], now, openMonday, firstMonday, lastMonday, onOpen)
             }
@@ -156,6 +157,7 @@ private fun WeekPage(
                     },
             ) {
                 Box(Modifier.width(Gutter).fillMaxHeight()) {
+                    DayProgressBar(DayProgress.of(monday, now, hours.first, hours.last), Modifier.padding(start = 3.dp).fillMaxHeight())
                     for (h in hours.first until hours.last) {
                         Text(
                             "$h",
@@ -169,7 +171,7 @@ private fun WeekPage(
                 week.days.forEach { day ->
                     DayColumn(
                         plan, day, hours.first, hourH,
-                        isToday = day.date == today, now = now,
+                        isToday = day.date == today,
                         weekFree = week.free, strong = monday == openMonday, onOpen = onOpen,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
@@ -224,7 +226,6 @@ private fun DayColumn(
     firstHour: Int,
     hourH: Dp,
     isToday: Boolean,
-    now: LocalDateTime,
     weekFree: Boolean,
     strong: Boolean,
     onOpen: (Timed) -> Unit,
@@ -262,15 +263,23 @@ private fun DayColumn(
                 }
             }
         }
-        if (isToday) {
-            val ny = y(now)
-            if (ny >= 0.dp && ny <= maxHeight) {
-                val red = colors.error
-                Box(Modifier.offset(y = ny - 1.dp).fillMaxWidth().height(2.dp).background(red))
-                Box(Modifier.offset(x = (-1).dp, y = ny - 4.dp).size(8.dp).clip(CircleShape).background(red))
-            }
-        }
     }
+}
+
+/** Slim bar in the hour column, filled in the accent from the top of the day range down to now. */
+@Composable
+private fun DayProgressBar(progress: Float, modifier: Modifier) {
+    val animate = animationsEnabled()
+    val fill by animateFloatAsState(progress, if (animate) tween(600) else snap(), label = "day progress")
+    val scheme = MaterialTheme.colorScheme
+    val track = scheme.outlineVariant.copy(alpha = 0.5f)
+    Box(
+        modifier.width(3.dp).drawBehind {
+            val r = CornerRadius(size.width / 2)
+            drawRoundRect(track, cornerRadius = r)
+            if (fill > 0f) drawRoundRect(scheme.primary, size = Size(size.width, size.height * fill), cornerRadius = r)
+        },
+    )
 }
 
 /** One block in the grid: occurrence (highlighted if changed/extra) or faint cancellation. */

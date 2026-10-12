@@ -24,7 +24,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -56,7 +55,7 @@ import java.time.LocalDateTime
 
 /** Day strip above a pager with one page per weekday (Mon–Fri); opens on today or the next day with events. */
 @Composable
-fun DayScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, onToday: ((() -> Unit)?) -> Unit, modifier: Modifier = Modifier) {
+fun DayScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, modifier: Modifier = Modifier) {
     val schedule = plan.schedule
     val today = now.toLocalDate()
     val openDate = Navigation.dayToOpen(schedule, now)
@@ -74,11 +73,6 @@ fun DayScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, onToday
         val animate = animationsEnabled()
         val locale = appLocale()
         val goTo: (Int) -> Unit = { page -> scope.launch { if (animate) pager.animateScrollToPage(page) else pager.scrollToPage(page) } }
-        val atOpen = pager.currentPage == openPage
-        DisposableEffect(atOpen, openPage) {
-            onToday(if (atOpen) null else ({ goTo(openPage) }))
-            onDispose { onToday(null) }
-        }
         val labels = remember(plan, start, count, today, locale) {
             (0 until count).map { page ->
                 val date = dateOf(page)
@@ -91,7 +85,7 @@ fun DayScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, onToday
             }
         }
         Column(modifier) {
-            ChipStrip(labels, pager.currentPage, DayChipWidth, onSelect = goTo)
+            ChipStrip(labels, pager.currentPage, DayChipWidth, stringResource(R.string.back_to_today), onSelect = goTo)
             HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
                 DayPage(plan, dateOf(page), now, onOpen)
             }

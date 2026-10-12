@@ -24,7 +24,8 @@
     <string name="cancelled">fällt aus</string>
     <string name="lecture_free">Vorlesungsfrei</string>
     <string name="week_number">KW %1$d</string>
-    <string name="this_week">Heute</string>
+    <string name="back_to_today">Zurück zu heute</string>
+    <string name="back_to_this_week">Zurück zu dieser Woche</string>
     <string name="semester_starts">Das Semester beginnt am %1$s.</string>
     <string name="plan_ended">Keine weiteren Termine. Der letzte war am %1$s.</string>
     <string name="today_free">Heute vorlesungsfrei.</string>

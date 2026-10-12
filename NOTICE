@@ -8,7 +8,8 @@ Icons
             ic_qr_code_scanner.xml (scan a QR code), ic_file_open.xml (pick a friend's file),
             ic_edit.xml (rename a friend), ic_delete.xml (remove a friend), ic_close.xml (close),
             ic_warning.xml (the QR code leaves details out), ic_favorite.xml and
-            ic_favorite_filled.xml (favorite friends: "favorite", fill 0 and fill 1)
+            ic_favorite_filled.xml (favorite friends: "favorite", fill 0 and fill 1),
+            ic_chevron_left.xml and ic_chevron_right.xml (back to this week / today)
   Source:   Material Symbols, Outlined, weight 400, 24px, by Google
             https://fonts.google.com/icons
             https://github.com/google/material-design-icons

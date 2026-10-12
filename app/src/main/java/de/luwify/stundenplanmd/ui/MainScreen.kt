@@ -14,7 +14,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,8 +59,6 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     var tab by rememberSaveable { mutableStateOf(Tab.WEEK) }
     var selected by remember { mutableStateOf<Timed?>(null) }
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
-    // Registered by the visible screen: jumps back to the current week/day, null while already there.
-    var goToday by remember { mutableStateOf<(() -> Unit)?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var addChoice by rememberSaveable { mutableStateOf(false) }
     var scanning by rememberSaveable { mutableStateOf(false) }
@@ -175,9 +172,6 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             )
                         },
                         actions = {
-                            if (plan?.isEmpty == false) {
-                                TextButton(onClick = { goToday?.invoke() }, enabled = goToday != null) { Text(stringResource(R.string.this_week)) }
-                            }
                             plan?.takeIf { !it.isMe }?.person?.let { friend ->
                                 FavoriteButton(friend.favorite, friend.displayName) { vm.setFavorite(friend.id, !friend.favorite) }
                             }
@@ -220,8 +214,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         when {
                             p == null -> Unit
                             p.isEmpty -> EmptyState(onImport)
-                            tab == Tab.WEEK -> WeekScreen(p, now, onOpen = { selected = it }, onToday = { goToday = it }, modifier = Modifier.fillMaxSize())
-                            else -> DayScreen(p, now, onOpen = { selected = it }, onToday = { goToday = it }, modifier = Modifier.fillMaxSize())
+                            tab == Tab.WEEK -> WeekScreen(p, now, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
+                            else -> DayScreen(p, now, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
                         }
                     }
                     val item = selected

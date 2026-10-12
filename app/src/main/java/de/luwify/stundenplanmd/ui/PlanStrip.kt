@@ -1,6 +1,22 @@
 package de.luwify.stundenplanmd.ui
 
 import android.provider.Settings
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.res.painterResource
+import de.luwify.stundenplanmd.R
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.snap
@@ -55,13 +71,16 @@ class ChipLabel(val top: String, val bottom: String, val muted: Boolean, val cur
 /**
  * Horizontally scrolling row of chips: the [selected] one is filled with the accent, the [ChipLabel.current] one (this
  * week / today) outlined. Chips at the edges are cut off on purpose; the selected chip is kept centered where the
- * ends of the list allow.
+ * ends of the list allow. While the current chip is scrolled out of view (less than half of it shows), a small round
+ * arrow at that edge points toward it; tapping it selects the current chip.
  */
 @Composable
 fun ChipStrip(
     labels: List<ChipLabel>,
     selected: Int,
     chipWidth: Dp,
+    /** Description of the arrow back to the current chip ("Back to this week"). */
+    backLabel: String,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -75,14 +94,66 @@ fun ChipStrip(
         val offset = -((viewport - chipPx) / 2)
         if (animate) state.animateScrollToItem(selected, offset) else state.scrollToItem(selected, offset)
     }
-    LazyRow(
-        modifier.fillMaxWidth(),
-        state = state,
-        contentPadding = PaddingValues(horizontal = StripPadding, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(ChipGap),
+    val current = labels.indexOfFirst { it.current }
+    // -1: the current chip is off to the left, 1: to the right, 0: visible (or there is none).
+    val away by remember(state, current) {
+        derivedStateOf {
+            if (current < 0) return@derivedStateOf 0
+            val info = state.layoutInfo
+            val item = info.visibleItemsInfo.firstOrNull { it.index == current }
+            when {
+                item != null -> {
+                    val shown = minOf(item.offset + item.size, info.viewportEndOffset) - maxOf(item.offset, info.viewportStartOffset)
+                    if (shown * 2 >= item.size) 0 else if (item.offset < info.viewportStartOffset) -1 else 1
+                }
+                info.visibleItemsInfo.isEmpty() -> 0
+                current < info.visibleItemsInfo.first().index -> -1
+                else -> 1
+            }
+        }
+    }
+    Box(modifier.fillMaxWidth()) {
+        LazyRow(
+            Modifier.fillMaxWidth(),
+            state = state,
+            contentPadding = PaddingValues(horizontal = StripPadding, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(ChipGap),
+        ) {
+            itemsIndexed(labels) { i, label ->
+                StripChip(label, selected = i == selected, animate = animate, onClick = { onSelect(i) }, Modifier.width(chipWidth))
+            }
+        }
+        for (side in listOf(-1, 1)) {
+            AnimatedVisibility(
+                visible = away == side,
+                modifier = Modifier.align(if (side < 0) Alignment.CenterStart else Alignment.CenterEnd).padding(horizontal = 6.dp),
+                enter = if (animate) fadeIn(tween(FadeMillis)) + scaleIn(tween(FadeMillis), initialScale = 0.6f) else EnterTransition.None,
+                exit = if (animate) fadeOut(tween(FadeMillis)) + scaleOut(tween(FadeMillis), targetScale = 0.6f) else ExitTransition.None,
+            ) {
+                BackToCurrentButton(side, backLabel, onClick = { onSelect(current) })
+            }
+        }
+    }
+}
+
+/** Small round tonal button with a chevron pointing toward the current chip ([side] -1 = left). */
+@Composable
+private fun BackToCurrentButton(side: Int, label: String, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = scheme.secondaryContainer,
+        contentColor = scheme.onSecondaryContainer,
+        shadowElevation = 3.dp,
+        modifier = Modifier.size(36.dp),
     ) {
-        itemsIndexed(labels) { i, label ->
-            StripChip(label, selected = i == selected, animate = animate, onClick = { onSelect(i) }, Modifier.width(chipWidth))
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                painterResource(if (side < 0) R.drawable.ic_chevron_left else R.drawable.ic_chevron_right),
+                contentDescription = label,
+                modifier = Modifier.size(22.dp),
+            )
         }
     }
 }
