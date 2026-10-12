@@ -27,3 +27,10 @@ tasks.register<JavaExec>("planReport") {
     mainClass.set("de.luwify.stundenplanmd.core.PlanReportKt")
     workingDir = rootDir
 }
+
+// Dev tool, see PlanCompare.kt.
+tasks.register<JavaExec>("planCompare") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("de.luwify.stundenplanmd.core.PlanCompareKt")
+    workingDir = rootDir
+}
