@@ -49,7 +49,8 @@ remote_tags="$(GIT_TERMINAL_PROMPT=0 timeout 30 git ls-remote --tags "$WORK_REMO
 if [[ -z "$(git branch -r --contains HEAD --list "$WORK_REMOTE/$WORK_BRANCH")" ]]; then
     WARNINGS+=("HEAD ist noch nicht auf $WORK_REMOTE/$WORK_BRANCH (laut letztem Fetch/Push): der Tag-Push nimmt die Commits mit, der Branch bleibt aber zurück")
 fi
-pin="$(grep -v '^[[:space:]]*#' release/signing-cert.sha256 | tr -d '[:space:]' | tr 'A-F' 'a-f')"
+# Accepts apksigner format (lowercase hex) and keytool format (uppercase, colons, optional "SHA256:" label).
+pin="$(grep -v '^[[:space:]]*#' release/signing-cert.sha256 | tr -d '[:space:]' | sed -E 's/^[Ss][Hh][Aa]-?256://' | tr -d ':' | tr 'A-F' 'a-f')"
 pin_ok=1
 [[ "$pin" =~ ^[0-9a-f]{64}$ ]] || pin_ok=0
 if ((pin_ok == 0)); then

@@ -1,4 +1,1 @@
-# SHA-256 digest of the release signing certificate (alias luwify in release.jks), as printed by
-# `apksigner verify --print-certs` ("Signer #1 certificate SHA-256 digest"). Public information.
-# tools/release.sh refuses to release while this is unset or the APK's certificate differs.
-UNSET
+D7:17:D7:0F:F7:FC:19:6D:0E:5E:FD:BE:D3:39:A4:BF:E0:A0:1C:BF:BB:DD:66:DE:75:11:15:CD:94:15:49:AF
