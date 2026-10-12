@@ -66,6 +66,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size as GSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -194,12 +195,26 @@ private fun QrInfo(
     if (tooLarge) Text(stringResource(R.string.qr_too_large), textAlign = align)
     if (showHowTo) Text(stringResource(R.string.qr_how_to), textAlign = align, style = MaterialTheme.typography.bodyMedium)
     if (omitsDetails && !tooLarge) {
-        Text(
-            stringResource(R.string.qr_incomplete),
-            textAlign = align,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // Warning icon in the error color (>= 3:1 on the page, see ThemeContrastTest), centred on the first text line.
+        val style = MaterialTheme.typography.bodySmall
+        val lineHeight = with(LocalDensity.current) { style.lineHeight.toDp() }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.height(lineHeight), contentAlignment = Alignment.Center) {
+                Icon(
+                    painterResource(R.drawable.ic_warning),
+                    contentDescription = stringResource(R.string.qr_incomplete_icon),
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+            Text(
+                stringResource(R.string.qr_incomplete),
+                Modifier.weight(1f, fill = !centered),
+                textAlign = align,
+                style = style,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
     if (omitsDetails || tooLarge) {
         OutlinedButton(onClick = onShareFile) {

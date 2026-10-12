@@ -185,4 +185,5 @@
     <string name="detail_together">Zusammen mit</string>
     <string name="together_you">dir</string>
     <string name="qr_incomplete">Der QR-Code enthält nicht alle Details (z. B. Notizen). Für alles: als Datei teilen.</string>
+    <string name="qr_incomplete_icon">Hinweis: nicht vollständig</string>
 </resources>

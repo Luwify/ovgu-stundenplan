@@ -42,6 +42,7 @@ class ThemeContrastTest {
         check("change text/page", m.highlightText, s.background, text, failures)
         check("badge text", m.onHighlight, m.highlight, text, failures)
         check("now line (error)/background", s.error, s.background, 3.0, failures)
+        check("QR warning icon (error)/surface", s.error, s.surface, 3.0, failures)
         check("change border/page", m.highlight, s.background, 3.0, failures)
         check("change border/card", m.highlight, card, 3.0, failures)
         // Week/day strip chips: selected = primary fill, today = primary outline on a card-filled or recessed chip
