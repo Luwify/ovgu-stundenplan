@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.res.painterResource
 import de.luwify.stundenplanmd.R
 import androidx.compose.animation.animateColorAsState
@@ -87,13 +89,15 @@ fun ChipStrip(
     val animate = animationsEnabled()
     val chipPx = with(LocalDensity.current) { chipWidth.roundToPx() }
     val state = rememberLazyListState(initialFirstVisibleItemIndex = (selected - 1).coerceAtLeast(0))
-    LaunchedEffect(selected) {
+    suspend fun center(index: Int) {
         val info = state.layoutInfo
         val viewport = info.viewportEndOffset - info.viewportStartOffset
-        if (viewport <= 0) return@LaunchedEffect
+        if (viewport <= 0) return
         val offset = -((viewport - chipPx) / 2)
-        if (animate) state.animateScrollToItem(selected, offset) else state.scrollToItem(selected, offset)
+        if (animate) state.animateScrollToItem(index, offset) else state.scrollToItem(index, offset)
     }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(selected) { center(selected) }
     val current = labels.indexOfFirst { it.current }
     // -1: the current chip is off to the left, 1: to the right, 0: visible (or there is none).
     val away by remember(state, current) {
@@ -130,7 +134,8 @@ fun ChipStrip(
                 enter = if (animate) fadeIn(tween(FadeMillis)) + scaleIn(tween(FadeMillis), initialScale = 0.6f) else EnterTransition.None,
                 exit = if (animate) fadeOut(tween(FadeMillis)) + scaleOut(tween(FadeMillis), targetScale = 0.6f) else ExitTransition.None,
             ) {
-                BackToCurrentButton(side, backLabel, onClick = { onSelect(current) })
+                // The pager may already be there with only the strip scrolled away: bring the chip back as well.
+                BackToCurrentButton(side, backLabel, onClick = { onSelect(current); scope.launch { center(current) } })
             }
         }
     }

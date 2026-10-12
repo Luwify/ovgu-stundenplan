@@ -33,22 +33,48 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 
 /**
- * Sits between a page's content and the vertical people pager: the content scrolls first, and a drag only moves the
+ * Sits between a page's content and the vertical people [pager]: the content scrolls first, and a drag only moves the
  * pager when it started with the content already at its top or bottom edge. A drag or fling that scrolled the
- * content never spills over into the next person.
+ * content never spills over into the next person. The pager does not take leftover scroll from a child that started
+ * the drag, so this connection moves it and settles it on a page itself.
  */
-class EdgeOnlyConnection : NestedScrollConnection {
+class EdgeOnlyConnection(private val pager: PagerState, private val animate: Boolean) : NestedScrollConnection {
     private var contentMoved = false
+
+    private fun movePager(dy: Float): Offset = Offset(0f, -pager.dispatchRawDelta(-dy))
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
+        // Halfway between two people: the pager follows the finger first, the content stays put.
+        if (source == NestedScrollSource.UserInput && pager.currentPageOffsetFraction != 0f) movePager(available.y) else Offset.Zero
 
     override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
         if (consumed.y != 0f) contentMoved = true
-        return if (contentMoved) available.copy(x = 0f) else Offset.Zero
+        return when {
+            contentMoved -> available.copy(x = 0f)
+            source == NestedScrollSource.UserInput && available.y != 0f -> movePager(available.y)
+            else -> Offset.Zero
+        }
     }
 
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
         val swallow = contentMoved
         contentMoved = false
-        return if (swallow) available.copy(x = 0f) else Velocity.Zero
+        val fraction = pager.currentPageOffsetFraction
+        if (!swallow && fraction != 0f) {
+            val page = pager.currentPage
+            val target = when {
+                available.y < -FLING && fraction > 0f -> page + 1
+                available.y > FLING && fraction < 0f -> page - 1
+                else -> page
+            }.coerceIn(0, pager.pageCount - 1)
+            if (animate) pager.animateScrollToPage(target) else pager.scrollToPage(target)
+        }
+        return available.copy(x = 0f)
+    }
+
+    private companion object {
+        /** px/s: a flick this fast goes on to the next person even before halfway. */
+        const val FLING = 800f
     }
 }
 

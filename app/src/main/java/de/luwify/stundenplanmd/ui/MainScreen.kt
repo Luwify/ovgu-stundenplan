@@ -80,6 +80,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
 
     // Vertical pager over my plan and my friends: follows the drawer selection and selects whoever it settles on.
     val pages by vm.pages.collectAsStateWithLifecycle()
+    val animate = animationsEnabled()
     val people = rememberPagerState(initialPage = pages.indexOfFirst { it.person.id == selectedId }.coerceAtLeast(0)) { pages.size }
     val latestPages by rememberUpdatedState(pages)
     LaunchedEffect(people) {
@@ -237,7 +238,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         VerticalPager(people, Modifier.fillMaxSize(), key = { pages.getOrNull(it)?.person?.id ?: it }) { i ->
                             val page = pages[i]
                             val active = i == people.settledPage
-                            val edge = remember { EdgeOnlyConnection() }
+                            val edge = remember(people, animate) { EdgeOnlyConnection(people, animate) }
                             Box(Modifier.fillMaxSize().nestedScroll(edge)) {
                                 when {
                                     page.isEmpty -> EmptyState(onImport)
