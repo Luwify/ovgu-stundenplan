@@ -13,7 +13,7 @@ import java.util.Locale
 
 /**
  * Dev tool: prints what the app would make of an export, e.g.
- * `./gradlew :core:planReport --args="private/plan.ics 4"` (path, number of weeks).
+ * `./gradlew :core:planReport --args="private/<export>.ics 4"` (path, number of weeks).
  */
 fun main(args: Array<String>) {
     val result = LsfImport.parse(File(args[0]).readText())

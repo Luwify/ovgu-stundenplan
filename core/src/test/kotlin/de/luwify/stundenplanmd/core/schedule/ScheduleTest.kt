@@ -102,7 +102,7 @@ class ScheduleTest {
     @Test
     fun eachCancelledSlotIsReplacedOnce() {
         val s = Schedule(
-            listOf(ev("100000000001", "2026-10-14T09:00", weekly), ev("100000000002", "2026-11-04T09:00", room = "G01-1"), ev("100000000003", "2026-11-05T09:00")),
+            listOf(ev("100000000001", "2026-10-14T09:00", weekly), ev("100000000002", "2026-11-04T09:00", room = "K03-1"), ev("100000000003", "2026-11-05T09:00")),
         )
         assertEquals(listOf("CHANGED", "EXTRA"), s.occurrences.filter { it.status != Status.Regular }.map { if (it.status is Status.Changed) "CHANGED" else "EXTRA" })
     }

@@ -1,7 +1,7 @@
 # Stundenplan MD
 
-Android app for my OvGU Magdeburg timetable, imported from the LSF iCalendar export ("iCal-Export" of the
-Stundenplan). Offline only: the plan is stored on the device and appears instantly.
+Android timetable app for students at the OvGU Magdeburg, imported from the LSF iCalendar export ("iCal-Export" of
+the Stundenplan). Offline only: the plan is stored on the device and appears instantly.
 
 - Import via file picker or "Open with"/share of an `.ics` file; re-importing keeps your course settings.
 - Week view (Mon–Fri, swipe between weeks, overlapping events side by side) and a Today list.
