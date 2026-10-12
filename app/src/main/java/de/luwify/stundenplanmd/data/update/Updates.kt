@@ -231,6 +231,11 @@ class Updates(context: Context, private val settings: UpdateSettings, private va
         job?.cancel()
     }
 
+    /** Closes the "installing" state when the system installer doesn't report back (e.g. stopped by Play Protect). */
+    fun forgetInstall() {
+        if (_download.value is DownloadState.Installing) _download.value = DownloadState.Idle
+    }
+
     fun dismissFailure() {
         if (_download.value is DownloadState.Failed) _download.value = DownloadState.Idle
     }

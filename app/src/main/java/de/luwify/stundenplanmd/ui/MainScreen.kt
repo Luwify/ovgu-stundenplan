@@ -40,6 +40,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
@@ -78,7 +79,6 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     var friendDetails by rememberSaveable { mutableStateOf(false) }
     val update by vm.updates.state.collectAsStateWithLifecycle()
     val download by vm.updates.download.collectAsStateWithLifecycle()
-    val announcement by vm.updates.announcement.collectAsStateWithLifecycle()
     var updateDialog by rememberSaveable { mutableStateOf<Int?>(null) }
     // Week and day shown, shared by everyone's plan (null = this week / today until the user moves).
     var week by rememberSaveable { mutableStateOf<LocalDate?>(null) }
@@ -98,15 +98,17 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     }
 
     // A check found a newer version: one snackbar per version, "Anzeigen" opens the update dialog.
-    LaunchedEffect(announcement) {
-        val release = announcement ?: return@LaunchedEffect
-        vm.updates.announcement.value = null
-        val r = snackbar.showSnackbar(
-            res.getString(R.string.update_snackbar, release.versionName),
-            actionLabel = res.getString(R.string.update_show),
-            duration = SnackbarDuration.Long,
-        )
-        if (r == SnackbarResult.ActionPerformed) updateDialog = release.versionCode
+    // (Collected, not keyed on the value: clearing it must not cancel the snackbar.)
+    LaunchedEffect(vm) {
+        vm.updates.announcement.filterNotNull().collect { release ->
+            vm.updates.announcement.value = null
+            val r = snackbar.showSnackbar(
+                res.getString(R.string.update_snackbar, release.versionName),
+                actionLabel = res.getString(R.string.update_show),
+                duration = SnackbarDuration.Long,
+            )
+            if (r == SnackbarResult.ActionPerformed) updateDialog = release.versionCode
+        }
     }
 
     fun share(action: ShareAction) {

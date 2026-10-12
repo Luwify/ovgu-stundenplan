@@ -465,7 +465,10 @@ fun UpdateDialogs(updates: Updates, download: DownloadState) {
                 TextButton(onClick = { minimizedFor = release.versionCode }) { Text(stringResource(R.string.update_minimize)) }
             },
             dismissButton = {
-                if (download !is DownloadState.Installing) {
+                if (download is DownloadState.Installing) {
+                    // Android may never report back (e.g. Play Protect stops the install): never trap the user here.
+                    TextButton(onClick = updates::forgetInstall) { Text(stringResource(R.string.close)) }
+                } else {
                     TextButton(onClick = updates::cancel) { Text(stringResource(R.string.cancel)) }
                 }
             },
