@@ -16,8 +16,15 @@ Requirements: JDK 21 and the Android SDK (compileSdk 37). Put `sdk.dir=/path/to/
 
 ```bash
 ./gradlew testDebugUnitTest assembleDebug lint   # unit tests (incl. :core), debug APK, lint
-./gradlew assembleRelease                        # R8-minified APK (signed with the debug key)
-./gradlew installRelease                         # install on a connected device
+./gradlew assembleRelease                        # R8-minified APK, needs the release signing properties
+```
+
+Release builds are signed with the maintainer's key; they need the Gradle properties `LUWIFY_STORE_FILE`,
+`LUWIFY_STORE_PASSWORD`, `LUWIFY_KEY_ALIAS` and `LUWIFY_KEY_PASSWORD` and fail without them. To build your own
+release, point them at your own keystore. The version lives in `version.properties`.
+
+```bash
+./gradlew installDebug                           # debug build "Plan Preview" (debug key, own package)
 ```
 
 Min SDK 26, target SDK 37. Modules: `:core` (pure Kotlin/JVM: iCal parser, model, occurrence expansion, change
