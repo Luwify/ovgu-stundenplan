@@ -5,7 +5,10 @@ import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
 import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Event
+import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.model.Plan
+import de.luwify.stundenplanmd.core.share.SharedPlan
+import kotlinx.coroutines.runBlocking
 import de.luwify.stundenplanmd.core.model.Subjects
 import de.luwify.stundenplanmd.data.settings.ColorRole
 import de.luwify.stundenplanmd.data.settings.CustomBase
@@ -24,6 +27,7 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.io.IOException
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 class PersistenceTest {
@@ -83,6 +87,81 @@ class PersistenceTest {
         val read = PlanStore(d).read() as StoreRead.Ok
         assertEquals("N4x", read.data.courseSettings.getValue("lsf:900022").shortName)
         assertEquals(15277667, read.data.courseSettings.getValue("lsf:900022").color)
+    }
+
+    /** Version 1 (first release, before friends) with a real-shaped plan: migrated to 2, nothing lost, old file kept. */
+    @Test
+    fun version1IsMigratedToFriends() {
+        val d = dir()
+        val v1 = PlanStore(d, current = 1, steps = emptyMap()).also { it.write(data) }.let { File(d, "data.json").readText() }
+            .let { kotlinx.serialization.json.Json.parseToJsonElement(it) as JsonObject }
+            .let { o -> JsonObject(o - "friendSettings" - "share") }.toString()
+        File(d, "data.json").writeText(v1)
+        val read = PlanStore(d).read() as StoreRead.Ok
+        assertEquals(1, read.migratedFrom)
+        assertUserDataSurvived(read.data)
+        assertEquals(emptyMap<String, Any>(), read.data.friendSettings)
+        assertEquals(MyShare(), read.data.share)
+        assertEquals(v1, File(d, "data.json.v1").readText())
+        assertEquals(2, (PlanStore(d).read() as StoreRead.Ok).data.version)
+    }
+
+    private val friendId = "0123456789abcdef"
+    private val withFriend = data.copy(
+        people = data.people + Person(friendId, "Tom", isMe = false, localName = "Tommy"),
+        plans = data.plans + Plan(
+            friendId, Instant.parse("2026-10-12T08:00:00Z"), "share",
+            listOf(event("900066000001", "Numerik N4 (VL)").copy(notes = "kurz…", notesShortened = true)),
+            exportedOn = LocalDate.parse("2026-10-12"), planDate = LocalDate.parse("2026-10-10"),
+            sharedSettings = mapOf("lsf:900066" to CourseSetting("lsf:900066", "Numerik N4 (VL)", null, "Mathe", 0x00FF00)),
+        ),
+        friendSettings = mapOf(friendId to mapOf("lsf:900066" to CourseSetting("lsf:900066", "Numerik N4 (VL)", null, "MA", 0x0000FF))),
+        share = MyShare("fedcba9876543210", "Ich selbst"),
+    )
+
+    @Test
+    fun friendsRoundTripInStoreAndBackup() {
+        val d = dir()
+        PlanStore(d).write(withFriend)
+        assertEquals(withFriend, (PlanStore(d).read() as StoreRead.Ok).data)
+        val backup = BackupCodec.decode(BackupCodec.encode(withFriend, null, theme)) as BackupResult.Ok
+        assertEquals(withFriend, backup.backup.data)
+    }
+
+    private fun shared(name: String, events: List<Event>) = SharedPlan(
+        friendId, name, LocalDate.parse("2026-10-12"), LocalDate.parse("2026-10-11"), events,
+        mapOf("lsf:900066" to CourseSetting("lsf:900066", "Numerik N4 (VL)", null, "Mathe", 0x00FF00)), complete = false,
+    )
+
+    @Test
+    fun friendImportReplacesTheirPlanAndKeepsMySettingsForThem() = runBlocking {
+        val repo = PlanRepository(dir())
+        repo.load()
+        val first = repo.importFriend(shared("Tom", listOf(event("900066000001", "Numerik N4 (VL)")))) as FriendImport.Imported
+        assertFalse(first.replaced)
+        repo.renameFriend(friendId, "Tommy")
+        repo.updateFriendSettings(friendId) { it + ("lsf:900066" to CourseSetting("lsf:900066", "Numerik N4 (VL)", null, "MA", 0x0000FF)) }
+
+        val second = repo.importFriend(shared("Thomas", listOf(event("900066000002", "Numerik N4 (VL)"), event("900077000001", "Neu")))) as FriendImport.Imported
+        assertTrue(second.replaced)
+        val d = repo.data.value!!
+        assertEquals(1, d.friends.size)
+        assertEquals("Thomas", d.person(friendId)!!.name)
+        assertEquals("Tommy", d.person(friendId)!!.displayName)
+        assertEquals(2, d.planOf(friendId)!!.events.size)
+        assertEquals(LocalDate.parse("2026-10-11"), d.planOf(friendId)!!.planDate)
+        assertEquals("MA", d.friendSettings.getValue(friendId).getValue("lsf:900066").shortName)
+
+        val identity = repo.shareIdentity("Ich")
+        assertTrue(identity.id!!.matches(Regex("[0-9a-f]{16}")))
+        assertEquals(identity, repo.shareIdentity())
+        assertEquals(FriendImport.Own, repo.importFriend(shared("Ich", emptyList()).copy(personId = identity.id!!)))
+
+        val before = repo.deleteFriend(friendId)!!
+        assertTrue(repo.data.value!!.friends.isEmpty())
+        assertFalse(friendId in repo.data.value!!.friendSettings)
+        repo.restore(before)
+        assertEquals("Tommy", repo.data.value!!.person(friendId)!!.displayName)
     }
 
     /** Simulated format 2 in which `settings` was renamed to `courseSettings`; a version 1 file with the old name is migrated. */

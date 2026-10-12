@@ -90,6 +90,37 @@ object Subjects {
         return out
     }
 
+    /**
+     * Settings for every course of [events] with the style as shown: short name and color of its subject, automatic
+     * colors resolved by [autoColor] (subject index -> color). Shared with friends and used for courses we both take.
+     */
+    fun resolved(events: List<Event>, settings: Map<String, CourseSetting>, autoColor: (Int) -> Int): Map<String, CourseSetting> {
+        val subjects = build(events, settings)
+        return subjects.withIndex().flatMap { (i, subject) ->
+            subject.courses.map { c ->
+                val base = settings[c.key] ?: CourseSetting(c.key, c.title)
+                c.key to base.copy(shortName = subject.shortName, color = subject.color ?: autoColor(i))
+            }
+        }.toMap()
+    }
+
+    /**
+     * Settings for showing a friend's plan, per course: my [local] override for that friend, else [mine] (resolved, for
+     * courses I take too, so they look like in my plan), else the friend's [shared] defaults, else automatic.
+     */
+    fun forFriend(
+        events: List<Event>,
+        local: Map<String, CourseSetting>,
+        mine: Map<String, CourseSetting>,
+        shared: Map<String, CourseSetting>,
+    ): Map<String, CourseSetting> = courses(events).mapNotNull { c ->
+        (local[c.key] ?: mine[c.key] ?: shared[c.key])?.let { c.key to it }
+    }.toMap()
+
+    /** What an edit of [shown] (e.g. [setStyle] on [forFriend]'s result) changed: stored as my local override. */
+    fun overrides(local: Map<String, CourseSetting>, shown: Map<String, CourseSetting>, edited: Map<String, CourseSetting>) =
+        local + edited.filter { (key, value) -> shown[key] != value }
+
     private fun normalize(title: String) = LsfText.normalizeSpaces(title).lowercase()
 
     private val typeOrder = listOf("V", "V/Ü", "Ü", "S", "P")

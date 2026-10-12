@@ -69,4 +69,43 @@ class SubjectsTest {
         assertEquals(2, out.getValue("lsf:900099").color)
         assertEquals(setOf("lsf:123456", "lsf:900099", "lsf:999999", "lsf:900176"), out.keys)
     }
+
+    @Test
+    fun resolvedFillsAutomaticColorsPerSubject() {
+        val settings = mapOf("lsf:900154" to CourseSetting("lsf:900154", "x", shortName = "GFT", color = 7))
+        val resolved = Subjects.resolved(events, settings) { 1000 + it }
+        val subjects = Subjects.build(events, emptyMap())
+        assertEquals(Subjects.courses(events).map { it.key }.toSet(), resolved.keys)
+        assertEquals(7, resolved.getValue("lsf:900198").color) // same subject as the styled course
+        assertEquals("GFT", resolved.getValue("lsf:900198").shortName)
+        val other = subjects.indexOfFirst { s -> s.courses.none { it.key == "lsf:900154" } }
+        assertEquals(1000 + other, resolved.getValue(subjects[other].courses.first().key).color)
+    }
+
+    @Test
+    fun friendPlanUsesLocalThenMineThenTheirs() {
+        val m3vl = events.first { it.courseKey == "lsf:900066" }
+        val theirs = m3vl.copy(uid = "777777000001", title = "Numerik N4 (GÜ XYZ)", summary = "Numerik N4 (GÜ XYZ)", category = "Übung (Ü)")
+        val friend = listOf(m3vl, theirs)
+        val mine = Subjects.resolved(events, emptyMap()) { 0x111111 }
+        val shared = mapOf(
+            "lsf:900066" to CourseSetting("lsf:900066", "Numerik N4 (VL)", shortName = "Mathe", color = 0x222222),
+            "lsf:777777" to CourseSetting("lsf:777777", "Numerik N4 (GÜ XYZ)", shortName = "Mathe", color = 0x222222),
+        )
+        var shown = Subjects.forFriend(friend, emptyMap(), mine, shared)
+        assertEquals(0x111111, shown.getValue("lsf:900066").color) // a course I take: my color
+        assertEquals(0x222222, shown.getValue("lsf:777777").color) // only theirs: their default
+        // In one subject, the first course in type order (V before Ü) sets the style: mine.
+        assertEquals(0x111111, Subjects.build(friend, shown).single().color)
+
+        // Editing their subject stores only what changed as my local override, which then wins.
+        val subject = Subjects.build(friend, shown).single()
+        val edited = Subjects.setStyle(shown, subject, "N4", 0x333333)
+        val local = Subjects.overrides(emptyMap(), shown, edited)
+        assertEquals(setOf("lsf:900066", "lsf:777777"), local.keys)
+        shown = Subjects.forFriend(friend, local, mine, shared)
+        assertEquals(listOf(0x333333, 0x333333), listOf(shown.getValue("lsf:900066").color, shown.getValue("lsf:777777").color))
+        // Without anything: automatic (no entry).
+        assertEquals(emptyMap<String, CourseSetting>(), Subjects.forFriend(listOf(theirs), emptyMap(), emptyMap(), emptyMap()))
+    }
 }

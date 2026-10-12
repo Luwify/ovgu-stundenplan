@@ -13,17 +13,28 @@ import java.time.ZoneId
 /** All plan times are wall-clock times in this zone (the LSF export uses TZID=Europe/Berlin). */
 val PlanZone: ZoneId = ZoneId.of("Europe/Berlin")
 
-/** Me or a friend whose plan was imported. v1 only has me. */
+/**
+ * Me or a friend whose plan was imported. A friend's [id] is the random id from their share, [name] the name they
+ * shared; [localName] is my rename (kept when they share again).
+ */
 @Serializable
-data class Person(val id: String, val name: String, val isMe: Boolean)
+data class Person(val id: String, val name: String, val isMe: Boolean, val localName: String? = null) {
+    val displayName: String get() = localName?.takeIf { it.isNotBlank() } ?: name
+}
 
 @Serializable
 data class Plan(
     val personId: String,
     val importedAt: Instant,
-    /** PRODID of the source file, e.g. "QIS-LSF HIS eG". */
+    /** PRODID of the source file, e.g. "QIS-LSF HIS eG"; "share" for a friend's plan. */
     val source: String? = null,
     val events: List<Event>,
+    /** Friend's plan: the day they shared it. */
+    val exportedOn: LocalDate? = null,
+    /** Friend's plan: the day they imported their .ics ("Stand"). Mine: see [importedAt]. */
+    val planDate: LocalDate? = null,
+    /** Friend's plan: their subjects, short names and colors, used as defaults (keyed by course key). */
+    val sharedSettings: Map<String, CourseSetting> = emptyMap(),
 )
 
 /** One VEVENT: a single appointment or a weekly series. */

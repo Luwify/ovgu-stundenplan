@@ -5,6 +5,7 @@ import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.model.Plan
 import de.luwify.stundenplanmd.core.model.Subjects
+import de.luwify.stundenplanmd.core.share.SharedPlan
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,9 +17,13 @@ import kotlinx.serialization.Serializable
 import java.io.File
 import java.time.Instant
 
+/** How I appear in shares: [id] is made at the first share, [name] asked then. */
+@Serializable
+data class MyShare(val id: String? = null, val name: String? = null)
+
 /**
- * Everything the app stores. People and plans are lists from the start (me + imported friends later);
- * course settings are mine (how I see courses), keyed by course key.
+ * Everything the app stores: me and friends (people + plans), my course settings (keyed by course key) and, per
+ * friend id, my local settings for their courses.
  */
 @Serializable
 data class StoredData(
@@ -26,12 +31,26 @@ data class StoredData(
     val people: List<Person> = listOf(Person(ME, "Ich", isMe = true)),
     val plans: List<Plan> = emptyList(),
     val courseSettings: Map<String, CourseSetting> = emptyMap(),
+    val friendSettings: Map<String, Map<String, CourseSetting>> = emptyMap(),
+    val share: MyShare = MyShare(),
 ) {
-    val myPlan: Plan? get() = plans.firstOrNull { it.personId == ME }
+    val myPlan: Plan? get() = planOf(ME)
+    val friends: List<Person> get() = people.filter { !it.isMe }
+
+    fun planOf(personId: String): Plan? = plans.firstOrNull { it.personId == personId }
+    fun person(id: String): Person? = people.firstOrNull { it.id == id }
 
     companion object {
         const val ME = "me"
     }
+}
+
+sealed interface FriendImport {
+    /** [replaced]: a plan of this person was there before. [previous] allows undo. */
+    data class Imported(val person: Person, val replaced: Boolean, val previous: StoredData) : FriendImport
+
+    /** My own share. */
+    data object Own : FriendImport
 }
 
 sealed interface ImportOutcome {
@@ -89,6 +108,65 @@ class PlanRepository(dir: File) {
     suspend fun updateSettings(transform: (Map<String, CourseSetting>) -> Map<String, CourseSetting>) = mutex.withLock {
         val current = _data.value ?: return@withLock
         write(current.copy(courseSettings = transform(current.courseSettings)))
+    }
+
+    /** Adds or replaces a friend's plan; my rename and local settings for them are kept. */
+    suspend fun importFriend(shared: SharedPlan): FriendImport = mutex.withLock {
+        val current = _data.value ?: StoredData()
+        if (shared.personId == current.share.id || shared.personId == StoredData.ME) return@withLock FriendImport.Own
+        val old = current.person(shared.personId)
+        val person = (old ?: Person(shared.personId, shared.name, isMe = false)).copy(name = shared.name)
+        val plan = Plan(
+            personId = shared.personId,
+            importedAt = Instant.now(),
+            source = "share",
+            events = shared.events,
+            exportedOn = shared.exportedOn,
+            planDate = shared.planDate,
+            sharedSettings = shared.settings,
+        )
+        val local = current.friendSettings[shared.personId]
+        write(
+            current.copy(
+                people = if (old == null) current.people + person else current.people.map { if (it.id == person.id) person else it },
+                plans = current.plans.filterNot { it.personId == shared.personId } + plan,
+                friendSettings = if (local == null) current.friendSettings else current.friendSettings + (shared.personId to Subjects.carryOver(local, shared.events)),
+            ),
+        )
+        FriendImport.Imported(person, replaced = old != null, previous = current)
+    }
+
+    /** Null or blank: back to the name they shared. */
+    suspend fun renameFriend(id: String, name: String?) = mutex.withLock {
+        val current = _data.value ?: return@withLock
+        write(current.copy(people = current.people.map { if (it.id == id && !it.isMe) it.copy(localName = name?.trim()?.ifEmpty { null }) else it }))
+    }
+
+    /** Removes the friend, their plan and my settings for them; returns the previous state for undo. */
+    suspend fun deleteFriend(id: String): StoredData? = mutex.withLock {
+        val current = _data.value ?: return@withLock null
+        if (id == StoredData.ME) return@withLock null
+        write(
+            current.copy(
+                people = current.people.filterNot { it.id == id },
+                plans = current.plans.filterNot { it.personId == id },
+                friendSettings = current.friendSettings - id,
+            ),
+        )
+        current
+    }
+
+    suspend fun updateFriendSettings(id: String, transform: (Map<String, CourseSetting>) -> Map<String, CourseSetting>) = mutex.withLock {
+        val current = _data.value ?: return@withLock
+        write(current.copy(friendSettings = current.friendSettings + (id to transform(current.friendSettings[id].orEmpty()))))
+    }
+
+    /** My share identity; the id is made on first use. [name] null keeps the stored one. */
+    suspend fun shareIdentity(name: String? = null): MyShare = mutex.withLock {
+        val current = _data.value ?: StoredData()
+        val next = MyShare(current.share.id ?: PersonIds.new(), name?.trim()?.ifEmpty { null } ?: current.share.name)
+        if (next != current.share) write(current.copy(share = next))
+        next
     }
 
     private suspend fun write(next: StoredData) {

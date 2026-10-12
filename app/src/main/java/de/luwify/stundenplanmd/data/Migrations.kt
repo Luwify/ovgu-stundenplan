@@ -13,10 +13,21 @@ class MigrationException(message: String) : Exception(message)
  * stored data must survive every update.
  */
 object Migrations {
-    const val CURRENT = 1
+    const val CURRENT = 2
 
-    /** Version n -> n+1. Empty while the format is still the first one. */
-    val STEPS: Map<Int, (JsonObject) -> JsonObject> = emptyMap()
+    /** Version n -> n+1. */
+    val STEPS: Map<Int, (JsonObject) -> JsonObject> = mapOf(
+        // 2: friends. New: `friendSettings` (my local course settings per friend), `share` (my share id and name);
+        // Person.localName, Plan.exportedOn/planDate/sharedSettings and Event.notesShortened have defaults.
+        1 to { o ->
+            JsonObject(
+                o + mapOf(
+                    "friendSettings" to (o["friendSettings"] ?: JsonObject(emptyMap())),
+                    "share" to (o["share"] ?: JsonObject(emptyMap())),
+                ),
+            )
+        },
+    )
 
     /** Version of a stored object; a file without the field is the first format. */
     fun versionOf(obj: JsonObject): Int = (obj["version"] as? JsonPrimitive)?.intOrNull ?: 1
