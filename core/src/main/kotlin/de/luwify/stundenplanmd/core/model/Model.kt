@@ -42,6 +42,8 @@ data class Event(
     val start: LocalDateTime,
     val end: LocalDateTime,
     val recurrence: Recurrence? = null,
+    /** [notes] are incomplete: a friend's plan shared by QR carries only short notes. */
+    val notesShortened: Boolean = false,
 ) {
     /** See [CourseKeys]. */
     val courseKey: String get() = CourseKeys.of(uid, title)

@@ -5,6 +5,8 @@ import de.luwify.stundenplanmd.core.model.Subjects
 import de.luwify.stundenplanmd.core.schedule.Change
 import de.luwify.stundenplanmd.core.schedule.Schedule
 import de.luwify.stundenplanmd.core.schedule.Status
+import de.luwify.stundenplanmd.core.share.ShareCodec
+import de.luwify.stundenplanmd.core.share.SharedPlan
 import java.io.File
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -23,6 +25,9 @@ fun main(args: Array<String>) {
 
     println("${result.events.size} events, ${schedule.occurrences.size} occurrences, ${schedule.firstDate} – ${schedule.lastDate}, source ${result.source}")
     result.warnings.forEach { println("WARNING $it") }
+    val shared = SharedPlan("0000000000000000", "Name", java.time.LocalDate.now(), java.time.LocalDate.now(), result.events, emptyMap(), complete = false)
+    val qr = ShareCodec.qrText(shared)
+    println("share: QR ${qr.length} chars (max ${ShareCodec.QR_MAX_CHARS}), file ${ShareCodec.file(shared).size} B")
 
     val from = schedule.firstDate?.let { Schedule.monday(it.atStartOfDay()) } ?: return
     println("\n== Occurrences, $weeks weeks from $from ==")
