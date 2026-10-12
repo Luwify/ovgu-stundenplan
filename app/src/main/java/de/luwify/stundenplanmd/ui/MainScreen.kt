@@ -65,7 +65,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var addChoice by rememberSaveable { mutableStateOf(false) }
     var scanning by rememberSaveable { mutableStateOf(false) }
-    var qrText by remember { mutableStateOf<String?>(null) }
+    var qr by remember { mutableStateOf<MyQr?>(null) }
     var askName by rememberSaveable { mutableStateOf<ShareAction?>(null) }
     var editShareName by rememberSaveable { mutableStateOf(false) }
     var friendDetails by rememberSaveable { mutableStateOf(false) }
@@ -78,7 +78,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 myShare.name == null -> askName = action
                 action == ShareAction.FILE -> vm.writeShareFile()?.let { openShareSheet(context, it) }
                     ?: snackbar.showSnackbar(res.getString(R.string.share_failed))
-                else -> qrText = vm.myQrText() ?: run { snackbar.showSnackbar(res.getString(R.string.share_failed)); null }
+                else -> qr = vm.myQr() ?: run { snackbar.showSnackbar(res.getString(R.string.share_failed)); null }
             }
         }
     }
@@ -240,13 +240,14 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         if (scanning) {
             ScanScreen(onScanned = { text -> scanning = false; vm.importScanned(text) }, onClose = { scanning = false })
         }
-        qrText?.let { text ->
+        qr?.let { code ->
             QrShowScreen(
-                text = text,
+                text = code.text,
+                omitsDetails = code.omitsDetails,
                 name = myShare.name.orEmpty(),
                 stand = standText(myPlan?.planDate),
-                onShareFile = { qrText = null; share(ShareAction.FILE) },
-                onClose = { qrText = null },
+                onShareFile = { qr = null; share(ShareAction.FILE) },
+                onClose = { qr = null },
             )
         }
     }

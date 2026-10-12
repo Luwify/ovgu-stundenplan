@@ -74,6 +74,21 @@ object ShareCodec {
 
     fun qrText(plan: SharedPlan): String = QR_PREFIX + Base45.encode(payload(plan, complete = false))
 
+    /**
+     * True when the QR code leaves out something the file has: a shortened or dropped note, or a raw SUMMARY that is
+     * more than "title (lecturers)" (the QR rebuilds neither).
+     */
+    fun qrOmitsDetails(plan: SharedPlan): Boolean = plan.events.any { e ->
+        Body.note(e, complete = false).second || !summaryCovered(e)
+    }
+
+    private fun summaryCovered(e: Event): Boolean {
+        val summary = LsfText.normalizeSpaces(e.summary)
+        val title = LsfText.normalizeSpaces(e.title)
+        return summary == title || summary == "$title (${e.lecturers.joinToString(", ")})" ||
+            summary == LsfText.normalizeSpaces("$title (${e.lecturers.joinToString(",")})")
+    }
+
     fun file(plan: SharedPlan): ByteArray = FILE_MAGIC + payload(plan, complete = true)
 
     /** A file's bytes: binary (`SPMD` + payload) or a saved QR text (`SPMD:`, which also starts with the magic). */
@@ -234,7 +249,7 @@ object ShareCodec {
         }
 
         /** Note to send and whether it is incomplete. QR: series lose their notes, single events keep a short one. */
-        private fun note(e: Event, complete: Boolean): Pair<String?, Boolean> {
+        fun note(e: Event, complete: Boolean): Pair<String?, Boolean> {
             val text = e.notes.takeIf { it.isNotBlank() }
             if (complete || text == null) return text to e.notesShortened
             if (e.recurrence != null) return null to true

@@ -190,4 +190,5 @@
     <string name="together_marker">Together with friends</string>
     <string name="detail_together">Together with</string>
     <string name="together_you">you</string>
+    <string name="qr_incomplete">The QR code doesn\'t contain every detail (e.g. notes). For everything: share as a file.</string>
 </resources>

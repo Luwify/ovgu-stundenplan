@@ -34,6 +34,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -77,7 +80,10 @@ fun PlanDrawer(
     onShare: () -> Unit,
     onQr: () -> Unit,
 ) {
-    ModalDrawerSheet {
+    // About 80 % of the window, at most 320 dp: leaves a comfortable scrim on the right to tap the drawer closed.
+    val window = LocalWindowInfo.current.containerSize
+    val width = with(LocalDensity.current) { (window.width.toDp() * 0.8f).coerceAtMost(320.dp) }
+    ModalDrawerSheet(Modifier.width(width)) {
         Column(Modifier.fillMaxHeight().navigationBarsPadding()) {
             Text(
                 stringResource(R.string.app_name),

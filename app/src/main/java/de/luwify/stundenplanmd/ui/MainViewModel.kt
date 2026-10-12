@@ -110,6 +110,9 @@ data class PlanUi(
     }
 }
 
+/** My QR code's text; [omitsDetails]: the file share has more (notes, ...). */
+data class MyQr(val text: String, val omitsDetails: Boolean)
+
 /** A friend in the drawer: name, "Stand" and their schedule for the now-line. */
 data class FriendEntry(val person: Person, val planDate: LocalDate?, val schedule: Schedule)
 
@@ -368,7 +371,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    suspend fun myQrText(): String? = mySharedPlan()?.let { withContext(Dispatchers.Default) { ShareCodec.qrText(it) } }
+    /** My plan as QR text, and whether the QR leaves out details the file has. */
+    suspend fun myQr(): MyQr? = mySharedPlan()?.let { withContext(Dispatchers.Default) { MyQr(ShareCodec.qrText(it), ShareCodec.qrOmitsDetails(it)) } }
 
     /** Writes my plan as a share file into cache/share (for the share sheet); null on failure. */
     suspend fun writeShareFile(): File? {

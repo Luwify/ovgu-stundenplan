@@ -171,4 +171,20 @@ class ShareCodecTest {
         }.toByteArray()
         assertTrue(ShareCodec.decode(bomb) is ShareResult.Broken)
     }
+
+    @Test
+    fun qrSaysWhenItLeavesSomethingOut() {
+        val base = Event(
+            uid = "222222000001", summary = "Test (Meier, Schulz)", title = "Test", lecturers = listOf("Meier", "Schulz"),
+            start = LocalDateTime.parse("2026-10-14T13:00"), end = LocalDateTime.parse("2026-10-14T15:00"),
+        )
+        assertFalse(ShareCodec.qrOmitsDetails(plan(listOf(base, base.copy(uid = "222222000002", notes = "Raum ändert sich")))))
+        assertFalse(ShareCodec.qrOmitsDetails(plan(listOf(base.copy(summary = "Test  (Meier,Schulz)")))))
+        // A long note of a single event, any note of a series, a SUMMARY with more than title and lecturers.
+        assertTrue(ShareCodec.qrOmitsDetails(plan(listOf(base.copy(notes = "x".repeat(ShareCodec.QR_NOTE_CHARS + 1))))))
+        assertTrue(ShareCodec.qrOmitsDetails(plan(listOf(base.copy(notes = "kurz", recurrence = Recurrence(until = Instant.parse("2026-11-30T22:59:00Z")))))))
+        assertTrue(ShareCodec.qrOmitsDetails(plan(listOf(base.copy(summary = "Test (Meier, Schulz) Gruppe B")))))
+        // The real-shaped fixture has series notes: the hint is shown.
+        assertTrue(ShareCodec.qrOmitsDetails(plan()))
+    }
 }

@@ -25,6 +25,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -101,10 +102,11 @@ private fun OverlayHeader(title: String, onClose: () -> Unit) {
 
 /**
  * My plan as a QR code to scan with the other phone. Always dark modules on white with a quiet zone (whatever the
- * theme), at full brightness and with the screen kept on while shown.
+ * theme), at full brightness and with the screen kept on while shown. The code is as large as the smaller side of the
+ * space left allows, never larger; in landscape name and "Stand" sit next to it.
  */
 @Composable
-fun QrShowScreen(text: String, name: String, stand: String, onShareFile: () -> Unit, onClose: () -> Unit) {
+fun QrShowScreen(text: String, omitsDetails: Boolean, name: String, stand: String, onShareFile: () -> Unit, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
     val activity = LocalActivity.current
     DisposableEffect(activity) {
@@ -127,37 +129,83 @@ fun QrShowScreen(text: String, name: String, stand: String, onShareFile: () -> U
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             OverlayHeader(stringResource(R.string.qr_title), onClose)
-            Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+            BoxWithConstraints(
+                Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).padding(16.dp),
             ) {
-                Text(name, style = MaterialTheme.typography.titleMedium)
-                Text(stand, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (qr == null) {
-                    Text(stringResource(R.string.qr_too_large), textAlign = TextAlign.Center)
-                } else {
-                    val matrix = qr.matrix
-                    Canvas(
-                        Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(8.dp)).background(Color.White),
-                    ) {
-                        val modules = matrix.width + 8 // 4 modules quiet zone on each side
-                        val cell = floor(size.width / modules)
-                        val origin = (size.width - cell * matrix.width) / 2
-                        for (y in 0 until matrix.height) for (x in 0 until matrix.width) {
-                            if (matrix.get(x, y).toInt() == 1) {
-                                drawRect(Color.Black, Offset(origin + x * cell, origin + y * cell), GSize(cell, cell))
-                            }
-                        }
-                    }
-                    Text(stringResource(R.string.qr_how_to), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                val landscape = maxWidth > maxHeight
+                val info: @Composable () -> Unit = {
+                    QrInfo(name, stand, showHowTo = qr != null, tooLarge = qr == null, omitsDetails = omitsDetails, onShareFile = onShareFile)
                 }
-                OutlinedButton(onClick = onShareFile) {
-                    Icon(painterResource(R.drawable.ic_share), contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(8.dp))
-                    Text(stringResource(R.string.share_as_file))
+                if (qr == null) {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) { info() }
+                } else if (landscape) {
+                    // Code on the left as tall as the space allows; the rest next to it.
+                    val side = minOf(maxHeight, maxWidth * 0.6f)
+                    Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        QrCode(qr.matrix, Modifier.size(side))
+                        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) { info() }
+                    }
+                } else {
+                    // Portrait: name and Stand above, hints and the file button below; keep room for them.
+                    val side = minOf(maxWidth, maxHeight - 230.dp).coerceAtLeast(160.dp)
+                    Column(
+                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(name, style = MaterialTheme.typography.titleMedium)
+                        Text(stand, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        QrCode(qr.matrix, Modifier.size(side))
+                        QrInfo(null, null, showHowTo = true, tooLarge = false, omitsDetails = omitsDetails, onShareFile = onShareFile, centered = true)
+                    }
                 }
             }
+        }
+    }
+}
+
+/** The modules on white, the quiet zone (4 modules) included in [modifier]'s size, snapped to whole pixels. */
+@Composable
+private fun QrCode(matrix: com.google.zxing.qrcode.encoder.ByteMatrix, modifier: Modifier) {
+    Canvas(modifier.clip(RoundedCornerShape(8.dp)).background(Color.White)) {
+        val modules = matrix.width + 8
+        val cell = floor(size.minDimension / modules)
+        val origin = (size.minDimension - cell * matrix.width) / 2
+        for (y in 0 until matrix.height) for (x in 0 until matrix.width) {
+            if (matrix.get(x, y).toInt() == 1) drawRect(Color.Black, Offset(origin + x * cell, origin + y * cell), GSize(cell, cell))
+        }
+    }
+}
+
+/** Name and Stand (landscape), how to scan, what the QR leaves out, and the file button. */
+@Composable
+private fun QrInfo(
+    name: String?,
+    stand: String?,
+    showHowTo: Boolean,
+    tooLarge: Boolean,
+    omitsDetails: Boolean,
+    onShareFile: () -> Unit,
+    centered: Boolean = false,
+) {
+    val align = if (centered) TextAlign.Center else TextAlign.Start
+    if (name != null) Text(name, style = MaterialTheme.typography.titleMedium)
+    if (stand != null) Text(stand, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (tooLarge) Text(stringResource(R.string.qr_too_large), textAlign = align)
+    if (showHowTo) Text(stringResource(R.string.qr_how_to), textAlign = align, style = MaterialTheme.typography.bodyMedium)
+    if (omitsDetails && !tooLarge) {
+        Text(
+            stringResource(R.string.qr_incomplete),
+            textAlign = align,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (omitsDetails || tooLarge) {
+        OutlinedButton(onClick = onShareFile) {
+            Icon(painterResource(R.drawable.ic_share), contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(8.dp))
+            Text(stringResource(R.string.share_as_file))
         }
     }
 }
