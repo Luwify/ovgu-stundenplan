@@ -59,7 +59,17 @@ data class Event(
     /** See [CourseKeys]. */
     val courseKey: String get() = CourseKeys.of(uid, title)
     val type: CourseType get() = CourseType.parse(category)
+
+    /** Hint below the notes: only when a QR import really shortened or dropped them. */
+    val noteHint: NoteHint
+        get() = when {
+            !notesShortened -> NoteHint.NONE
+            notes.isBlank() -> NoteHint.NOT_SENT
+            else -> NoteHint.SHORTENED
+        }
 }
+
+enum class NoteHint { NONE, SHORTENED, NOT_SENT }
 
 /** LOCATION "K18 - K18-012 (60 Pl.)" split into its parts; [raw] is always kept. */
 @Serializable

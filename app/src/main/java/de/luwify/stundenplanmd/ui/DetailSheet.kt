@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.model.Event
+import de.luwify.stundenplanmd.core.model.NoteHint
 import de.luwify.stundenplanmd.core.model.Subject
 import de.luwify.stundenplanmd.core.schedule.Cancellation
 import de.luwify.stundenplanmd.core.schedule.Occurrence
@@ -81,9 +82,13 @@ fun DetailSheet(plan: PlanUi, item: Timed, onEditSubject: (Subject) -> Unit, onD
                 Field(stringResource(R.string.detail_together), with.joinToString(", ") { if (it == de.luwify.stundenplanmd.data.StoredData.ME) you else plan.names[it] ?: "?" })
             }
             if (event.lecturers.isNotEmpty()) Field(stringResource(R.string.detail_lecturers), event.lecturers.joinToString(", "))
-            if (event.notes.isNotBlank() || event.notesShortened) {
-                val hint = stringResource(if (event.notes.isBlank()) R.string.notes_not_sent else R.string.notes_shortened)
-                Field(stringResource(R.string.detail_notes), listOf(event.notes, hint).filter { it.isNotBlank() }.joinToString("\n\n"))
+            val hint = when (event.noteHint) {
+                NoteHint.NONE -> null
+                NoteHint.SHORTENED -> stringResource(R.string.notes_shortened)
+                NoteHint.NOT_SENT -> stringResource(R.string.notes_not_sent)
+            }
+            if (event.notes.isNotBlank() || hint != null) {
+                Field(stringResource(R.string.detail_notes), listOfNotNull(event.notes.takeIf { it.isNotBlank() }, hint).joinToString("\n\n"))
             }
             if (event.summary != event.title) Field(stringResource(R.string.detail_lsf_title), event.summary)
 

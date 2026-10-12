@@ -128,6 +128,24 @@ class PersistenceTest {
         assertEquals(withFriend, backup.backup.data)
     }
 
+    /** Data stored before the note-hint fix: my notes and a friend's file import carry no flag, so no hint shows. */
+    @Test
+    fun storedNotesFromBeforeTheHintFixShowNoHint() {
+        val d = dir()
+        val mine = event("900022000001", "Numerik N4 (HSÜ)").copy(notes = "Bitte Skript mitbringen")
+        val stored = withFriend.copy(
+            plans = listOf(
+                Plan(StoredData.ME, Instant.parse("2026-10-12T07:07:15Z"), "QIS-LSF HIS eG", listOf(mine)),
+                withFriend.plans.last().copy(events = listOf(mine.copy(notes = "Lange Notiz aus der Datei"))),
+            ),
+            version = 2,
+        )
+        val json = (kotlinx.serialization.json.Json.parseToJsonElement(PlanStore(d).also { it.write(stored) }.let { File(d, "data.json").readText() }) as JsonObject)
+        File(d, "data.json").writeText(JsonObject(json + ("version" to JsonPrimitive(2))).toString())
+        val loaded = (PlanStore(d).read() as StoreRead.Ok).data
+        loaded.plans.flatMap { it.events }.forEach { assertEquals(de.luwify.stundenplanmd.core.model.NoteHint.NONE, it.noteHint) }
+    }
+
     private fun shared(name: String, events: List<Event>) = SharedPlan(
         friendId, name, LocalDate.parse("2026-10-12"), LocalDate.parse("2026-10-11"), events,
         mapOf("lsf:900066" to CourseSetting("lsf:900066", "Numerik N4 (VL)", null, "Mathe", 0x00FF00)), complete = false,
