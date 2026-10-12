@@ -1,6 +1,5 @@
 package de.luwify.stundenplanmd.data
 
-import androidx.core.util.AtomicFile
 import de.luwify.stundenplanmd.core.ical.LsfImport
 import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Person
@@ -14,7 +13,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.time.Instant
 
@@ -24,7 +22,7 @@ import java.time.Instant
  */
 @Serializable
 data class StoredData(
-    val version: Int = 1,
+    val version: Int = Migrations.CURRENT,
     val people: List<Person> = listOf(Person(ME, "Ich", isMe = true)),
     val plans: List<Plan> = emptyList(),
     val courseSettings: Map<String, CourseSetting> = emptyMap(),
@@ -43,21 +41,21 @@ sealed interface ImportOutcome {
     data object NoEvents : ImportOutcome
 }
 
-/** One JSON file in app storage, written atomically; loaded once at start (a few kB, instant). */
-class PlanRepository(private val dir: File) {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    private val file get() = AtomicFile(File(dir, "data.json"))
+/** Plan and settings in app storage ([PlanStore]); loaded once at start (a few kB, instant). */
+class PlanRepository(dir: File) {
+    private val store = PlanStore(dir)
     private val mutex = Mutex()
     private val _data = MutableStateFlow<StoredData?>(null)
 
     /** Null while loading. */
     val data: StateFlow<StoredData?> = _data.asStateFlow()
 
-    suspend fun load() = mutex.withLock {
-        if (_data.value != null) return@withLock
-        _data.value = withContext(Dispatchers.IO) {
-            runCatching { json.decodeFromString(StoredData.serializer(), file.readFully().decodeToString()) }.getOrNull()
-        } ?: StoredData()
+    /** What loading found; [StoreRead.Unreadable] must be shown to the user (their file was set aside). */
+    suspend fun load(): StoreRead? = mutex.withLock {
+        if (_data.value != null) return@withLock null
+        val read = withContext(Dispatchers.IO) { store.read() }
+        _data.value = (read as? StoreRead.Ok)?.data ?: StoredData()
+        read
     }
 
     /** Replaces my plan; course settings are kept and carried over to changed course ids by title. */
@@ -73,12 +71,20 @@ class PlanRepository(private val dir: File) {
                 courseSettings = Subjects.carryOver(current.courseSettings, result.events),
             )
             write(next)
-            withContext(Dispatchers.IO) { File(dir, "me.ics").writeText(text) }
+            withContext(Dispatchers.IO) { store.writeIcs(text) }
             ImportOutcome.Imported(result.events.size, current)
         }
     }
 
     suspend fun restore(previous: StoredData) = mutex.withLock { write(previous) }
+
+    suspend fun readIcs(): String? = withContext(Dispatchers.IO) { store.readIcs() }
+
+    /** Replaces plan, settings and the raw import ([ics] null removes it): backup import and its undo. */
+    suspend fun replaceAll(data: StoredData, ics: String?) = mutex.withLock {
+        write(data)
+        withContext(Dispatchers.IO) { store.writeIcs(ics) }
+    }
 
     suspend fun updateSettings(transform: (Map<String, CourseSetting>) -> Map<String, CourseSetting>) = mutex.withLock {
         val current = _data.value ?: return@withLock
@@ -86,18 +92,7 @@ class PlanRepository(private val dir: File) {
     }
 
     private suspend fun write(next: StoredData) {
-        withContext(Dispatchers.IO) {
-            dir.mkdirs()
-            val f = file
-            val out = f.startWrite()
-            try {
-                out.write(json.encodeToString(StoredData.serializer(), next).encodeToByteArray())
-                f.finishWrite(out)
-            } catch (e: Exception) {
-                f.failWrite(out)
-                throw e
-            }
-        }
+        withContext(Dispatchers.IO) { store.write(next) }
         _data.value = next
     }
 }

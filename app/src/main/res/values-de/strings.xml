@@ -105,4 +105,24 @@
         <item quantity="one">%1$d Veranstaltung</item>
         <item quantity="other">%1$d Veranstaltungen</item>
     </plurals>
+    <string name="settings_backup">Sicherung</string>
+    <string name="backup_hint">Eine Datei mit Stundenplan, Original-.ics, Fächern, Farben und Design. Es wird nichts hochgeladen; du wählst, wohin die Datei geht.</string>
+    <string name="backup_export">Sicherung exportieren</string>
+    <string name="backup_import">Sicherung importieren</string>
+    <string name="backup_exported">Sicherung gespeichert.</string>
+    <string name="backup_failed">Die Sicherung konnte nicht gespeichert oder gelesen werden.</string>
+    <string name="backup_not_a_backup">Das ist keine Sicherung von Stundenplan MD.</string>
+    <string name="backup_too_new">Diese Sicherung stammt von einer neueren App-Version. Bitte zuerst die App aktualisieren.</string>
+    <string name="backup_restored">Sicherung importiert.</string>
+    <string name="backup_confirm_title">Sicherung importieren?</string>
+    <string name="backup_confirm_body">Das ersetzt\n• deinen Stundenplan: %1$s\n  durch den der Sicherung: %2$s\n• deine Fächer-Einstellungen (%3$d Fächer) durch die der Sicherung (%4$d Kurse mit Einstellungen)\n• dein Design\n\nDu kannst das direkt danach rückgängig machen.</string>
+    <string name="backup_made_at">Sicherung vom %1$s.</string>
+    <string name="backup_replace">Ersetzen</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="backup_now_empty">keiner</string>
+    <string name="data_unreadable">Deine gespeicherten Daten konnten nicht gelesen werden. Die Datei wurde als %1$s aufgehoben und nicht verändert.</string>
+    <plurals name="backup_events">
+        <item quantity="one">%1$d Termin</item>
+        <item quantity="other">%1$d Termine</item>
+    </plurals>
 </resources>

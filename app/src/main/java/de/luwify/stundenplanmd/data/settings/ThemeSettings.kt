@@ -23,6 +23,30 @@ class ThemeSettings(private val store: DataStore<Preferences>) {
     private val customGlowKey = booleanPreferencesKey("custom_theme_glow")
     private val customOverridesKey = stringPreferencesKey("custom_theme_overrides")
 
+    private val schemaKey = intPreferencesKey("schema_version")
+
+    /**
+     * Brings stored preferences to [SCHEMA]. Keys are only ever added or renamed with a step here, never dropped; a
+     * store written by a newer app is left alone.
+     */
+    suspend fun migrate() {
+        store.edit { migratePrefs(it) }
+    }
+
+    /** Applies the migration steps (none yet) and stamps the version. */
+    fun migratePrefs(prefs: androidx.datastore.preferences.core.MutablePreferences) {
+        val version = prefs[schemaKey] ?: 1
+        if (version > SCHEMA) return
+        // steps: if (version < 2) { ...rename keys... }
+        prefs[schemaKey] = SCHEMA
+    }
+
+    /** Sets the whole theme at once (backup import and its undo). */
+    suspend fun restore(choice: ThemeChoice) {
+        setThemeMode(choice.mode)
+        setCustomTheme(choice.custom)
+    }
+
     val themeMode: Flow<ThemeMode> = store.data.map { ThemeMode.fromKey(it[themeKey]) }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -47,5 +71,9 @@ class ThemeSettings(private val store: DataStore<Preferences>) {
             if (spec.overrides.isEmpty()) it.remove(customOverridesKey)
             else it[customOverridesKey] = CustomThemeSpec.encodeOverrides(spec.overrides)
         }
+    }
+
+    companion object {
+        const val SCHEMA = 1
     }
 }

@@ -59,7 +59,7 @@ import java.time.format.FormatStyle
 
 /** The settings page (gear in the top bar): theme, subjects, the imported plan. An overlay closed with back. */
 @Composable
-fun SettingsScreen(vm: MainViewModel, plan: PlanUi?, onEditSubject: (Subject) -> Unit, onImport: () -> Unit, onBack: () -> Unit) {
+fun SettingsScreen(vm: MainViewModel, plan: PlanUi?, onEditSubject: (Subject) -> Unit, onImport: () -> Unit, onExportBackup: () -> Unit, onImportBackup: () -> Unit, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     var showColors by rememberSaveable { mutableStateOf(false) }
@@ -133,6 +133,21 @@ fun SettingsScreen(vm: MainViewModel, plan: PlanUi?, onEditSubject: (Subject) ->
                                 Icon(ImportIcon, null, Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(stringResource(R.string.import_file))
+                            }
+                        }
+                    }
+
+                    item(key = "backup-title") { SectionHeading(stringResource(R.string.settings_backup)) }
+                    item(key = "backup") {
+                        Column {
+                            Text(
+                                stringResource(R.string.backup_hint),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Row(Modifier.padding(top = 8.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = onExportBackup) { Text(stringResource(R.string.backup_export)) }
+                                OutlinedButton(onClick = onImportBackup) { Text(stringResource(R.string.backup_import)) }
                             }
                         }
                     }

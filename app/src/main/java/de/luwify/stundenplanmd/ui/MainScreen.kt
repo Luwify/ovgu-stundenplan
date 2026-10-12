@@ -35,7 +35,7 @@ private enum class Tab { WEEK, DAY }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
+fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Unit, onImportBackup: () -> Unit) {
     val plan by vm.plan.collectAsStateWithLifecycle()
     val now by vm.now.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -57,6 +57,23 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
                         duration = SnackbarDuration.Long,
                     )
                     if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                }
+                is UiMessage.DataUnreadable -> snackbar.showSnackbar(
+                    res.getString(R.string.data_unreadable, msg.keptAs ?: "data.json"),
+                    duration = SnackbarDuration.Indefinite,
+                    withDismissAction = true,
+                )
+                UiMessage.BackupExported -> snackbar.showSnackbar(res.getString(R.string.backup_exported))
+                UiMessage.BackupFailed -> snackbar.showSnackbar(res.getString(R.string.backup_failed))
+                UiMessage.BackupNotABackup -> snackbar.showSnackbar(res.getString(R.string.backup_not_a_backup))
+                UiMessage.BackupTooNew -> snackbar.showSnackbar(res.getString(R.string.backup_too_new))
+                is UiMessage.BackupRestored -> {
+                    val r = snackbar.showSnackbar(
+                        res.getString(R.string.backup_restored),
+                        actionLabel = res.getString(R.string.undo),
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (r == SnackbarResult.ActionPerformed) vm.undoBackup(msg.previous)
                 }
                 UiMessage.ImportFailed -> snackbar.showSnackbar(res.getString(R.string.import_failed))
                 UiMessage.NotACalendar -> snackbar.showSnackbar(res.getString(R.string.import_not_calendar))
@@ -115,9 +132,12 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
             }
         }
         if (showSettings) {
-            SettingsScreen(vm, plan, onEditSubject = { editing = it.key }, onImport = onImport, onBack = { showSettings = false })
+            SettingsScreen(vm, plan, onEditSubject = { editing = it.key }, onImport = onImport, onExportBackup = onExportBackup, onImportBackup = onImportBackup, onBack = { showSettings = false })
         }
     }
+
+    val pending by vm.pendingBackup.collectAsStateWithLifecycle()
+    pending?.let { BackupConfirmDialog(it.backup, plan, onConfirm = vm::confirmBackup, onCancel = vm::cancelBackup) }
 
     val current = plan
     val key = editing

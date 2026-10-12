@@ -111,4 +111,24 @@
         <item quantity="one">%1$d course</item>
         <item quantity="other">%1$d courses</item>
     </plurals>
+    <string name="settings_backup">Backup</string>
+    <string name="backup_hint">One file with your timetable, the original .ics, subjects, colors and theme. Nothing is uploaded; you choose where the file goes.</string>
+    <string name="backup_export">Export backup</string>
+    <string name="backup_import">Import backup</string>
+    <string name="backup_exported">Backup saved.</string>
+    <string name="backup_failed">The backup could not be saved or read.</string>
+    <string name="backup_not_a_backup">This is not a Stundenplan MD backup.</string>
+    <string name="backup_too_new">This backup was made by a newer version of the app. Update the app first.</string>
+    <string name="backup_restored">Backup imported.</string>
+    <string name="backup_confirm_title">Import backup?</string>
+    <string name="backup_confirm_body">This replaces\n• your timetable: %1$s\n  with the backup\'s: %2$s\n• your subject settings (%3$d subjects) with the backup\'s (%4$d courses with settings)\n• your theme\n\nYou can undo this right after.</string>
+    <string name="backup_made_at">Backup made on %1$s.</string>
+    <string name="backup_replace">Replace</string>
+    <string name="cancel">Cancel</string>
+    <string name="backup_now_empty">none</string>
+    <string name="data_unreadable">Your saved data could not be read. The file was kept as %1$s and was not changed.</string>
+    <plurals name="backup_events">
+        <item quantity="one">%1$d event</item>
+        <item quantity="other">%1$d events</item>
+    </plurals>
 </resources>

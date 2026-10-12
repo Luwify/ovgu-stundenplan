@@ -9,6 +9,10 @@ import de.luwify.stundenplanmd.core.model.Course
 import de.luwify.stundenplanmd.core.model.Subject
 import de.luwify.stundenplanmd.core.model.Subjects
 import de.luwify.stundenplanmd.core.schedule.Schedule
+import de.luwify.stundenplanmd.data.Backup
+import de.luwify.stundenplanmd.data.BackupCodec
+import de.luwify.stundenplanmd.data.BackupResult
+import de.luwify.stundenplanmd.data.StoreRead
 import de.luwify.stundenplanmd.data.IcsSource
 import de.luwify.stundenplanmd.data.ImportOutcome
 import de.luwify.stundenplanmd.data.StoredData
@@ -49,7 +53,21 @@ sealed interface UiMessage {
     data object ImportFailed : UiMessage
     data object NotACalendar : UiMessage
     data object NoEvents : UiMessage
+
+    /** The stored plan could not be read; the file was set aside as [keptAs]. */
+    data class DataUnreadable(val keptAs: String?) : UiMessage
+    data object BackupExported : UiMessage
+    data object BackupFailed : UiMessage
+    data object BackupNotABackup : UiMessage
+    data object BackupTooNew : UiMessage
+    data class BackupRestored(val previous: Snapshot) : UiMessage
 }
+
+/** Everything a backup import replaces, kept for undo. */
+data class Snapshot(val data: StoredData, val ics: String?, val theme: ThemeChoice)
+
+/** A backup file read and waiting for the user's confirmation. */
+data class PendingBackup(val backup: Backup)
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val container = (app as StundenplanApp).container
@@ -98,8 +116,67 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _messages = Channel<UiMessage>(Channel.BUFFERED)
     val messages = _messages.receiveAsFlow()
 
+    private val _pendingBackup = MutableStateFlow<PendingBackup?>(null)
+    val pendingBackup: StateFlow<PendingBackup?> = _pendingBackup
+
     init {
-        viewModelScope.launch { repo.load() }
+        viewModelScope.launch {
+            container.theme.migrate()
+            (repo.load() as? StoreRead.Unreadable)?.let { _messages.send(UiMessage.DataUnreadable(it.keptAs)) }
+        }
+    }
+
+    /** Writes everything (plan, raw .ics, settings, theme) as one backup file to [uri]. */
+    fun exportBackup(uri: Uri) {
+        viewModelScope.launch {
+            val ok = runCatching {
+                val data = repo.data.value ?: error("not loaded")
+                val text = BackupCodec.encode(data, repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM))
+                withContext(Dispatchers.IO) {
+                    getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.encodeToByteArray()) }
+                }
+            }.isSuccess
+            _messages.send(if (ok) UiMessage.BackupExported else UiMessage.BackupFailed)
+        }
+    }
+
+    /** Reads a backup file; the user confirms before anything is replaced. */
+    fun readBackup(uri: Uri) {
+        viewModelScope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching { getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } }.getOrNull()
+            }
+            when (val r = text?.let(BackupCodec::decode)) {
+                null -> _messages.send(UiMessage.BackupFailed)
+                is BackupResult.Ok -> _pendingBackup.value = PendingBackup(r.backup)
+                BackupResult.NotABackup -> _messages.send(UiMessage.BackupNotABackup)
+                BackupResult.TooNew -> _messages.send(UiMessage.BackupTooNew)
+                is BackupResult.Broken -> _messages.send(UiMessage.BackupFailed)
+            }
+        }
+    }
+
+    fun cancelBackup() {
+        _pendingBackup.value = null
+    }
+
+    fun confirmBackup() {
+        val backup = _pendingBackup.value?.backup ?: return
+        _pendingBackup.value = null
+        viewModelScope.launch {
+            val before = Snapshot(repo.data.value ?: StoredData(), repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM))
+            runCatching {
+                repo.replaceAll(backup.data, backup.ics)
+                container.theme.restore(backup.theme.toChoice())
+            }.onSuccess { _messages.send(UiMessage.BackupRestored(before)) }.onFailure { _messages.send(UiMessage.BackupFailed) }
+        }
+    }
+
+    fun undoBackup(previous: Snapshot) {
+        viewModelScope.launch {
+            repo.replaceAll(previous.data, previous.ics)
+            container.theme.restore(previous.theme)
+        }
     }
 
     fun import(uri: Uri) {
@@ -112,11 +189,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             repo.load()
             _messages.send(
-                when (val r = repo.importIcs(text)) {
-                    is ImportOutcome.Imported -> UiMessage.Imported(r.events, r.previous)
-                    ImportOutcome.NotACalendar -> UiMessage.NotACalendar
-                    ImportOutcome.NoEvents -> UiMessage.NoEvents
-                },
+                runCatching { repo.importIcs(text) }.fold(
+                    onSuccess = { r ->
+                        when (r) {
+                            is ImportOutcome.Imported -> UiMessage.Imported(r.events, r.previous)
+                            ImportOutcome.NotACalendar -> UiMessage.NotACalendar
+                            ImportOutcome.NoEvents -> UiMessage.NoEvents
+                        }
+                    },
+                    onFailure = { UiMessage.ImportFailed },
+                ),
             )
         }
     }

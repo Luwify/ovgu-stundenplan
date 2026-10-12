@@ -1,0 +1,222 @@
+package de.luwify.stundenplanmd.data
+
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.mutablePreferencesOf
+import androidx.datastore.preferences.core.stringPreferencesKey
+import de.luwify.stundenplanmd.core.model.CourseSetting
+import de.luwify.stundenplanmd.core.model.Event
+import de.luwify.stundenplanmd.core.model.Plan
+import de.luwify.stundenplanmd.core.model.Subjects
+import de.luwify.stundenplanmd.data.settings.ColorRole
+import de.luwify.stundenplanmd.data.settings.CustomBase
+import de.luwify.stundenplanmd.data.settings.CustomThemeSpec
+import de.luwify.stundenplanmd.data.settings.ThemeChoice
+import de.luwify.stundenplanmd.data.settings.ThemeMode
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
+import java.io.IOException
+import java.time.Instant
+import java.time.LocalDateTime
+
+class PersistenceTest {
+    @get:Rule val tmp = TemporaryFolder()
+
+    private fun dir() = tmp.newFolder()
+
+    private fun event(uid: String, title: String) = Event(
+        uid, "$title (Prof)", title, listOf("Prof"), "Vorlesung (V)", null, "",
+        LocalDateTime.parse("2026-10-12T09:00"), LocalDateTime.parse("2026-10-12T11:00"),
+    )
+
+    private val events = listOf(
+        event("900022000001", "Numerik N4 (HSÜ)"),
+        event("900066000001", "Numerik N4 (VL)"),
+        event("900033000001", "Ausgabe GFT III Skript"),
+    )
+
+    /** Short names, colors and a moved course: everything the user sets by hand. */
+    private val settings = mapOf(
+        "lsf:900022" to CourseSetting("lsf:900022", "Numerik N4 (HSÜ)", null, "N4x", 0xE91E63),
+        "lsf:900066" to CourseSetting("lsf:900066", "Numerik N4 (VL)", null, "N4x", 0xE91E63),
+        "lsf:900033" to CourseSetting("lsf:900033", "Ausgabe GFT III Skript", subject = Subjects.autoKey("Numerik N4 (VL)"), shortName = "N4x", color = 0xE91E63),
+    )
+
+    private val data = StoredData(
+        plans = listOf(Plan(StoredData.ME, Instant.parse("2026-10-12T07:07:15Z"), "QIS-LSF HIS eG", events)),
+        courseSettings = settings,
+    )
+
+    private fun assertUserDataSurvived(loaded: StoredData) {
+        assertEquals(events, loaded.myPlan!!.events)
+        assertEquals(settings, loaded.courseSettings)
+        val subjects = Subjects.build(loaded.myPlan!!.events, loaded.courseSettings)
+        val m3 = subjects.single { it.shortName == "N4x" }
+        assertEquals(0xE91E63, m3.color)
+        assertEquals(3, m3.courses.size) // the moved course is still in the subject
+    }
+
+    @Test
+    fun currentFormatRoundTrips() {
+        val d = dir()
+        PlanStore(d).write(data)
+        val read = PlanStore(d).read() as StoreRead.Ok
+        assertEquals(null, read.migratedFrom)
+        assertUserDataSurvived(read.data)
+        assertEquals(Migrations.CURRENT, read.data.version)
+    }
+
+    @Test
+    fun fileAsWrittenByTheFirstReleaseStillLoads() {
+        val d = dir()
+        File(d, "data.json").writeText(
+            """{"version":1,"people":[{"id":"me","name":"Ich","isMe":true}],"plans":[],"courseSettings":
+            {"lsf:900022":{"courseKey":"lsf:900022","title":"Numerik N4 (HSÜ)","shortName":"N4x","color":15277667}},"futureField":1}""",
+        )
+        val read = PlanStore(d).read() as StoreRead.Ok
+        assertEquals("N4x", read.data.courseSettings.getValue("lsf:900022").shortName)
+        assertEquals(15277667, read.data.courseSettings.getValue("lsf:900022").color)
+    }
+
+    /** Simulated format 2 in which `settings` was renamed to `courseSettings`; a version 1 file with the old name is migrated. */
+    private val rename: Map<Int, (JsonObject) -> JsonObject> = mapOf(
+        1 to { o -> JsonObject(o.filterKeys { it != "settings" } + ("courseSettings" to o.getValue("settings"))) },
+    )
+
+    @Test
+    fun olderVersionIsMigratedAndTheOldFileKept() {
+        val d = dir()
+        val old = PlanStore(d, current = 1).also { it.write(data) }.let { File(d, "data.json").readText() }
+            .replace("\"courseSettings\"", "\"settings\"")
+        File(d, "data.json").writeText(old)
+        val store = PlanStore(d, current = 2, steps = rename)
+        val read = store.read() as StoreRead.Ok
+        assertEquals(1, read.migratedFrom)
+        assertUserDataSurvived(read.data)
+        assertEquals(old, File(d, "data.json.v1").readText())
+        // rewritten in the new format: loads again without migration
+        val again = PlanStore(d, current = 2, steps = rename).read() as StoreRead.Ok
+        assertEquals(null, again.migratedFrom)
+        assertUserDataSurvived(again.data)
+    }
+
+    @Test
+    fun unreadableFileIsKeptNotOverwritten() {
+        val d = dir()
+        File(d, "data.json").writeText("{ this is not json")
+        val store = PlanStore(d)
+        val read = store.read() as StoreRead.Unreadable
+        assertEquals("data.json.broken", read.keptAs)
+        assertEquals("{ this is not json", File(d, "data.json.broken").readText())
+        assertFalse(File(d, "data.json").exists())
+        // the app goes on with an empty state and writes a new file: the broken one stays
+        store.write(StoredData())
+        assertEquals("{ this is not json", File(d, "data.json.broken").readText())
+        // a second broken file does not replace the first
+        File(d, "data.json").writeText("[1]")
+        assertTrue(PlanStore(d).read() is StoreRead.Unreadable)
+        assertEquals("{ this is not json", File(d, "data.json.broken").readText())
+        assertEquals("[1]", File(d, "data.json.broken.1").readText())
+    }
+
+    @Test
+    fun fileFromANewerAppIsKeptNotDiscarded() {
+        val d = dir()
+        val text = """{"version":99,"plans":[],"shiny":"new"}"""
+        File(d, "data.json").writeText(text)
+        assertTrue(PlanStore(d).read() is StoreRead.Unreadable)
+        assertEquals(text, File(d, "data.json.broken").readText())
+    }
+
+    @Test
+    fun failedWriteKeepsThePreviousFile() {
+        val d = dir()
+        val store = PlanStore(d)
+        store.write(data)
+        val before = File(d, "data.json").readText()
+        try {
+            AtomicFiles.write(File(d, "data.json")) { out ->
+                out.write("{\"version\":1,\"half".encodeToByteArray())
+                throw IOException("disk full")
+            }
+            throw AssertionError("expected IOException")
+        } catch (_: IOException) {
+        }
+        assertEquals(before, File(d, "data.json").readText())
+        assertFalse(File(d, "data.json.tmp").exists())
+        assertUserDataSurvived((PlanStore(d).read() as StoreRead.Ok).data)
+    }
+
+    @Test
+    fun leftoverBackupOfAnInterruptedOldStyleWriteIsRestored() {
+        val d = dir()
+        PlanStore(d).write(data)
+        val good = File(d, "data.json").readText()
+        File(d, "data.json.bak").writeText(good)
+        File(d, "data.json").writeText("{\"version\":1,\"hal") // half-written
+        assertUserDataSurvived((PlanStore(d).read() as StoreRead.Ok).data)
+    }
+
+    @Test
+    fun missingFileIsAFreshStart() {
+        assertEquals(StoreRead.Fresh, PlanStore(dir()).read())
+    }
+
+    private val theme = ThemeChoice(
+        ThemeMode.CUSTOM,
+        CustomThemeSpec(CustomBase.BLACK, 0x00FF88, glow = true, overrides = mapOf(ColorRole.HIGHLIGHT to 0xFF6B9D)),
+    )
+
+    @Test
+    fun backupRoundTripsEverything() {
+        val ics = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"
+        val text = BackupCodec.encode(data, ics, theme, Instant.parse("2026-10-12T10:00:00Z"))
+        val ok = BackupCodec.decode(text) as BackupResult.Ok
+        assertUserDataSurvived(ok.backup.data)
+        assertEquals(ics, ok.backup.ics)
+        assertEquals(theme, ok.backup.theme.toChoice())
+        assertEquals("2026-10-12T10:00:00Z", ok.backup.exportedAt)
+    }
+
+    @Test
+    fun backupWithoutIcsAndGarbageAreHandled() {
+        assertEquals(null, (BackupCodec.decode(BackupCodec.encode(data, null, theme)) as BackupResult.Ok).backup.ics)
+        assertEquals(BackupResult.NotABackup, BackupCodec.decode("""{"hello":1}"""))
+        assertTrue(BackupCodec.decode("nope") !is BackupResult.Ok)
+        assertTrue(BackupCodec.decode("{\"format\":\"stundenplanmd-backup\",\"version\":1,\"data\":[1]}") is BackupResult.Broken)
+        assertEquals(BackupResult.TooNew, BackupCodec.decode("""{"format":"stundenplanmd-backup","version":7,"data":{}}"""))
+        val newerData = """{"format":"stundenplanmd-backup","version":1,"data":{"version":42}}"""
+        assertEquals(BackupResult.TooNew, BackupCodec.decode(newerData))
+    }
+
+    @Test
+    fun themePreferencesAreStampedAndNeverLost() {
+        val prefs = mutablePreferencesOf(stringPreferencesKey("theme_mode") to "amoled")
+        de.luwify.stundenplanmd.data.settings.ThemeSettings(FakeStore).migratePrefs(prefs)
+        assertEquals("amoled", prefs[stringPreferencesKey("theme_mode")])
+        assertEquals(de.luwify.stundenplanmd.data.settings.ThemeSettings.SCHEMA, prefs[intPreferencesKey("schema_version")])
+        val newer = mutablePreferencesOf(intPreferencesKey("schema_version") to 9)
+        de.luwify.stundenplanmd.data.settings.ThemeSettings(FakeStore).migratePrefs(newer)
+        assertEquals(9, newer[intPreferencesKey("schema_version")])
+    }
+
+    @Test
+    fun versionOfAFileWithoutTheFieldIsTheFirstFormat() {
+        assertEquals(1, Migrations.versionOf(JsonObject(emptyMap())))
+        assertEquals(3, Migrations.versionOf(JsonObject(mapOf("version" to JsonPrimitive(3)))))
+        assertNotNull(Migrations.migrate(JsonObject(emptyMap())))
+    }
+}
+
+private object FakeStore : androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> {
+    override val data = kotlinx.coroutines.flow.emptyFlow<androidx.datastore.preferences.core.Preferences>()
+    override suspend fun updateData(transform: suspend (androidx.datastore.preferences.core.Preferences) -> androidx.datastore.preferences.core.Preferences) =
+        throw UnsupportedOperationException()
+}

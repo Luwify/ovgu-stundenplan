@@ -36,6 +36,12 @@ class MainActivity : ComponentActivity() {
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri != null) vm.import(uri)
             }
+            val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+                if (uri != null) vm.exportBackup(uri)
+            }
+            val importBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri != null) vm.readBackup(uri)
+            }
             val theme by vm.theme.collectAsStateWithLifecycle()
             // AMOLED is always dark: black bars with light icons whatever the system setting is. A custom theme
             // with a fixed base gets matching bar icons; everything else follows the system (auto).
@@ -66,7 +72,12 @@ class MainActivity : ComponentActivity() {
             // Nothing until the stored theme is known (a few ms), so the wrong theme never flashes.
             theme?.let {
                 StundenplanTheme(it.mode, it.custom) {
-                    MainScreen(vm, onImport = { picker.launch(PICKER_TYPES) })
+                    MainScreen(
+                        vm,
+                        onImport = { picker.launch(PICKER_TYPES) },
+                        onExportBackup = { exportLauncher.launch("stundenplan-sicherung-${java.time.LocalDate.now()}.json") },
+                        onImportBackup = { importBackupLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                    )
                 }
             }
         }
