@@ -34,6 +34,12 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
@@ -195,26 +201,32 @@ private fun QrInfo(
     if (tooLarge) Text(stringResource(R.string.qr_too_large), textAlign = align)
     if (showHowTo) Text(stringResource(R.string.qr_how_to), textAlign = align, style = MaterialTheme.typography.bodyMedium)
     if (omitsDetails && !tooLarge) {
-        // Warning icon in the error color (>= 3:1 on the page, see ThemeContrastTest), centred on the first text line.
-        val style = MaterialTheme.typography.bodySmall
-        val lineHeight = with(LocalDensity.current) { style.lineHeight.toDp() }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.height(lineHeight), contentAlignment = Alignment.Center) {
+        // Warning icon in the error color (>= 3:1 on the page, see ThemeContrastTest), inline at the start of the
+        // text so it is centred and wraps together with it.
+        val iconDescription = stringResource(R.string.qr_incomplete_icon)
+        val errorColor = MaterialTheme.colorScheme.error
+        val text = buildAnnotatedString {
+            appendInlineContent("warning", "!")
+            append("  ")
+            append(stringResource(R.string.qr_incomplete))
+        }
+        val inline = mapOf(
+            "warning" to InlineTextContent(Placeholder(16.sp, 16.sp, PlaceholderVerticalAlign.TextCenter)) {
                 Icon(
                     painterResource(R.drawable.ic_warning),
-                    contentDescription = stringResource(R.string.qr_incomplete_icon),
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(16.dp),
+                    contentDescription = iconDescription,
+                    tint = errorColor,
+                    modifier = Modifier.fillMaxSize(),
                 )
-            }
-            Text(
-                stringResource(R.string.qr_incomplete),
-                Modifier.weight(1f, fill = !centered),
-                textAlign = align,
-                style = style,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+            },
+        )
+        Text(
+            text,
+            inlineContent = inline,
+            textAlign = align,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
     if (omitsDetails || tooLarge) {
         OutlinedButton(onClick = onShareFile) {
