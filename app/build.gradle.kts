@@ -17,6 +17,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Installs beside the real app (own data), for tests with fake data. Never test on de.luwify.stundenplanmd.
+            applicationIdSuffix = ".preview"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
