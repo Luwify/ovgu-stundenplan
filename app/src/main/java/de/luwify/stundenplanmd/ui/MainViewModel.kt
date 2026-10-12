@@ -71,12 +71,17 @@ data class PlanUi(
     val together: Map<OccurrenceKey, List<String>> = emptyMap(),
     /** Display names of friends by id. */
     val names: Map<String, String> = emptyMap(),
+    /** Ids of my favorite friends. */
+    val favorites: Set<String> = emptySet(),
 ) {
     val isEmpty: Boolean get() = schedule.events.isEmpty()
     val isMe: Boolean get() = person.isMe
 
     /** Who else attends [item] (person ids); empty for cancellations. */
     fun togetherWith(item: Timed): List<String> = (item as? Occurrence)?.let { together[OccurrenceKey.of(it)] }.orEmpty()
+
+    /** At least one favorite friend attends [item]: the together icon turns red. */
+    fun withFavorite(item: Timed): Boolean = togetherWith(item).any { it in favorites }
 
     companion object {
         fun of(data: StoredData, personId: String): PlanUi {
@@ -105,6 +110,7 @@ data class PlanUi(
                 exportedOn = plan?.exportedOn,
                 together = Together.of(schedule, others),
                 names = data.friends.associate { it.id to it.displayName },
+                favorites = data.friends.filter { it.favorite }.map { it.id }.toSet(),
             )
         }
     }

@@ -183,14 +183,7 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
                     textDecoration = if (cancelled) TextDecoration.LineThrough else null,
                 )
                 TypeLabel(item.event.type.short, border = c.stripe, text = scheme.onSurface)
-                if (plan.togetherWith(item).isNotEmpty()) {
-                    Icon(
-                        painterResource(R.drawable.ic_group),
-                        contentDescription = stringResource(R.string.together_marker),
-                        tint = scheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
+                if (plan.togetherWith(item).isNotEmpty()) TogetherBadge(plan.withFavorite(item), 24.dp)
                 if (running) {
                     Text(
                         stringResource(R.string.now),

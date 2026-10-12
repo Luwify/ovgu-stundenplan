@@ -101,6 +101,8 @@
     <string name="color_section_cards">Today list and changes</string>
     <string name="color_card_border_hint">With the card border option a 3:1 edge</string>
     <string name="color_highlight">Changes</string>
+    <string name="together_marker_favorite">Together with a favorite friend</string>
+    <string name="favorite">Favorite</string>
     <string name="favorite_toggle">%1$s as favorite</string>
     <string name="drawer_reorder_hint">Long-press and drag to reorder</string>
     <string name="color_favorite">Favorites</string>

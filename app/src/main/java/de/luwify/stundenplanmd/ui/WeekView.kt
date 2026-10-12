@@ -296,19 +296,14 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
             .then(if (cancelled) Modifier.semantics { contentDescription = cancelledText } else Modifier),
     ) {
         Box(Modifier.fillMaxHeight().width(3.dp).background(c.stripe))
-        // Attended with friends: a group icon at the top right; in narrow split lanes next to the type label instead,
+        // Attended with friends: a group badge at the top right; in narrow split lanes next to the type label instead,
         // so the title keeps the full width.
         val shared = plan.togetherWith(item).isNotEmpty()
-        val sharedLabel = stringResource(R.string.together_marker)
+        val favorite = plan.withFavorite(item)
         if (shared && !narrow) {
-            Icon(
-                painterResource(R.drawable.ic_group),
-                contentDescription = sharedLabel,
-                tint = c.content,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp).size(13.dp),
-            )
+            TogetherBadge(favorite, 15.dp, Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp))
         }
-        Column(Modifier.fillMaxSize().padding(start = 6.dp, end = if (shared && !narrow) 13.dp else 3.dp, top = 3.dp, bottom = 3.dp)) {
+        Column(Modifier.fillMaxSize().padding(start = 6.dp, end = if (shared && !narrow) 17.dp else 3.dp, top = 3.dp, bottom = 3.dp)) {
             Text(
                 blockName(subject, item),
                 Modifier.weight(1f, fill = false),
@@ -332,7 +327,7 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
             Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
                 TypeLabel(item.event.type.short, border = c.stripe, text = c.content)
                 if (shared && narrow) {
-                    Icon(painterResource(R.drawable.ic_group), contentDescription = sharedLabel, tint = c.content, modifier = Modifier.size(11.dp))
+                    TogetherBadge(favorite, 13.dp)
                 }
                 if (highlight && strong) {
                     Text(
@@ -346,6 +341,23 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
                 }
             }
         }
+    }
+}
+
+/**
+ * "Attended together" marker: the group icon on a small round badge in the surface color, so it stays visible on
+ * every subject color; red (the favorite color, 3:1 on surface) when a favorite friend is there.
+ */
+@Composable
+fun TogetherBadge(favorite: Boolean, size: Dp, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    Box(modifier.size(size).clip(CircleShape).background(scheme.surface), contentAlignment = Alignment.Center) {
+        Icon(
+            painterResource(R.drawable.ic_group),
+            contentDescription = stringResource(if (favorite) R.string.together_marker_favorite else R.string.together_marker),
+            tint = if (favorite) planColors().favorite else scheme.onSurfaceVariant,
+            modifier = Modifier.size(size * 0.74f),
+        )
     }
 }
 

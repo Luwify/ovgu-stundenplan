@@ -33,6 +33,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.model.Event
@@ -77,10 +85,7 @@ fun DetailSheet(plan: PlanUi, item: Timed, onEditSubject: (Subject) -> Unit, onD
             Field(stringResource(R.string.detail_when), "${longDate(item.date, locale)}\n${timeRange(item.start, item.end)}" + rhythm(event, locale)?.let { "\n$it" }.orEmpty())
             Field(stringResource(R.string.detail_room), roomText(event))
             val with = plan.togetherWith(item)
-            if (with.isNotEmpty()) {
-                val you = stringResource(R.string.together_you)
-                Field(stringResource(R.string.detail_together), with.joinToString(", ") { if (it == de.luwify.stundenplanmd.data.StoredData.ME) you else plan.names[it] ?: "?" })
-            }
+            if (with.isNotEmpty()) TogetherField(plan, with)
             if (event.lecturers.isNotEmpty()) Field(stringResource(R.string.detail_lecturers), event.lecturers.joinToString(", "))
             val hint = when (event.noteHint) {
                 NoteHint.NONE -> null
@@ -135,6 +140,32 @@ private fun StatusBox(item: Timed) {
                 )
             }
         }
+    }
+}
+
+/** Who else attends: favorite friends first, each with a heart, then the others (and me in a friend's plan). */
+@Composable
+private fun TogetherField(plan: PlanUi, ids: List<String>) {
+    val you = stringResource(R.string.together_you)
+    val heart = stringResource(R.string.favorite)
+    val red = planColors().favorite
+    val (favorites, others) = ids.partition { it in plan.favorites }
+    fun name(id: String) = if (id == de.luwify.stundenplanmd.data.StoredData.ME) you else plan.names[id] ?: "?"
+    val text = buildAnnotatedString {
+        (favorites + others).forEachIndexed { i, id ->
+            if (i > 0) append(", ")
+            if (id in plan.favorites) { appendInlineContent("heart", "♥"); append(" ") }
+            append(name(id))
+        }
+    }
+    val inline = mapOf(
+        "heart" to InlineTextContent(Placeholder(16.sp, 16.sp, PlaceholderVerticalAlign.TextCenter)) {
+            Icon(painterResource(R.drawable.ic_favorite_filled), contentDescription = heart, tint = red, modifier = Modifier.fillMaxSize())
+        },
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(stringResource(R.string.detail_together), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text, inlineContent = inline, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
