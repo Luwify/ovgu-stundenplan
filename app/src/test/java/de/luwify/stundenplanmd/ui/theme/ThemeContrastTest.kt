@@ -44,6 +44,13 @@ class ThemeContrastTest {
         check("now line (error)/background", s.error, s.background, 3.0, failures)
         check("change border/page", m.highlight, s.background, 3.0, failures)
         check("change border/card", m.highlight, card, 3.0, failures)
+        // Week/day strip chips: selected = primary fill, today = primary outline on a card-filled or recessed chip
+        check("chip selected text/fill", s.onPrimary, s.primary, text, failures)
+        check("chip selected fill/background", s.primary, s.background, 3.0, failures)
+        check("chip today outline/card chip", s.primary, card, 3.0, failures)
+        check("chip today outline/background (muted chip)", s.primary, s.background, 3.0, failures)
+        check("chip text/card chip", s.onSurface, card, text, failures)
+        check("chip muted text/background", s.onSurfaceVariant, s.background, text, failures)
         check("chip outline/background", s.outline, s.background, 3.0, failures)
         check("card hairline/background", m.cardBorder, s.background, cardEdgeMin, failures)
     }

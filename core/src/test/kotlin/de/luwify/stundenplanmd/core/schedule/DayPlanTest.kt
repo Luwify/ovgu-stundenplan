@@ -100,4 +100,21 @@ class DayPlanTest {
         assertEquals(listOf("11:00:0/1", "13:00:0/1"), lanes("11:00" to "13:00", "13:00" to "15:00"))
         assertEquals(listOf("08:00:0/3", "08:30:1/3", "09:00:2/3"), lanes("08:00" to "12:00", "08:30" to "10:00", "09:00" to "10:00"))
     }
+
+    @Test
+    fun weekRangeStartsOneWeekBeforeTheFirstEvent() {
+        val first = Schedule.monday(schedule.firstDate!!.atStartOfDay())
+        val weeks = Navigation.weeks(schedule, first)
+        assertEquals(first.minusWeeks(1), weeks.first())
+        assertEquals(Schedule.monday(schedule.lastDate!!.atStartOfDay()), weeks.last())
+        // the week to open is always inside, even far away
+        assertTrue(Navigation.weeks(schedule, d("2030-01-07")).contains(d("2030-01-07")))
+    }
+
+    @Test
+    fun dayToOpenIsTheDayOfTheTodayView() {
+        assertEquals(d("2026-10-12"), Navigation.dayToOpen(schedule, LocalDateTime.parse("2026-10-12T07:00")))
+        assertEquals(schedule.firstDate, Navigation.dayToOpen(schedule, LocalDateTime.parse("2020-01-01T07:00")))
+        assertEquals(schedule.lastDate, Navigation.dayToOpen(schedule, LocalDateTime.parse("2035-01-01T07:00")))
+    }
 }

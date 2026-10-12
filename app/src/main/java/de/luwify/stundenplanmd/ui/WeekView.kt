@@ -22,13 +22,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -75,62 +73,45 @@ private val Gutter = 26.dp
 private val BlockTitleStyle = TextStyle(hyphens = Hyphens.Auto, lineBreak = LineBreak.Paragraph)
 private val MinHour = 40.dp
 
-/** Mon–Fri grid, one page per week; opens on this week (next week on weekends). */
+/** Week strip above a Mon–Fri grid, one pager page per week; opens on this week (next week on weekends). */
 @Composable
-fun WeekScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, modifier: Modifier = Modifier) {
+fun WeekScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, onToday: ((() -> Unit)?) -> Unit, modifier: Modifier = Modifier) {
     val schedule = plan.schedule
     val openMonday = Navigation.weekToOpen(now.toLocalDate())
     val firstMonday = Schedule.monday(schedule.firstDate!!.atStartOfDay())
     val lastMonday = Schedule.monday(schedule.lastDate!!.atStartOfDay())
-    val start = minOf(firstMonday, openMonday)
-    val end = maxOf(lastMonday, openMonday)
-    val count = ChronoUnit.WEEKS.between(start, end).toInt() + 1
-    val openPage = ChronoUnit.WEEKS.between(start, openMonday).toInt()
+    val weeks = remember(schedule, openMonday) { Navigation.weeks(schedule, openMonday) }
+    val start = weeks.first()
+    val openPage = weeks.indexOf(openMonday)
+    val thisMonday = now.toLocalDate().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
 
-    key(start, count) {
-        val pager = rememberPagerState(initialPage = openPage) { count }
+    key(start, weeks.size) {
+        val pager = rememberPagerState(initialPage = openPage) { weeks.size }
         val scope = rememberCoroutineScope()
-        Column(modifier) {
-            val monday = start.plusWeeks(pager.currentPage.toLong())
-            WeekHeader(
-                monday = monday,
-                isOpenWeek = pager.currentPage == openPage,
-                onPrev = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } },
-                onNext = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } },
-                onToday = { scope.launch { pager.animateScrollToPage(openPage) } },
-                canPrev = pager.currentPage > 0,
-                canNext = pager.currentPage < count - 1,
-            )
-            HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
-                WeekPage(plan, start.plusWeeks(page.toLong()), now, openMonday, firstMonday, lastMonday, onOpen)
+        val animate = animationsEnabled()
+        val locale = appLocale()
+        val goTo: (Int) -> Unit = { page -> scope.launch { if (animate) pager.animateScrollToPage(page) else pager.scrollToPage(page) } }
+        val atOpen = pager.currentPage == openPage
+        DisposableEffect(atOpen, openPage) {
+            onToday(if (atOpen) null else ({ goTo(openPage) }))
+            onDispose { onToday(null) }
+        }
+        val labels = remember(plan, weeks, thisMonday, locale) {
+            weeks.map { monday ->
+                ChipLabel(
+                    top = weekLabel(monday, locale),
+                    bottom = "${monday.dayOfMonth}.${monday.monthValue}. - ${monday.plusDays(4).let { "${it.dayOfMonth}.${it.monthValue}." }}",
+                    muted = schedule.week(monday).days.all { it.occurrences.isEmpty() },
+                    current = monday == thisMonday,
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun WeekHeader(
-    monday: LocalDate,
-    isOpenWeek: Boolean,
-    onPrev: () -> Unit,
-    onNext: () -> Unit,
-    onToday: () -> Unit,
-    canPrev: Boolean,
-    canNext: Boolean,
-) {
-    val locale = appLocale()
-    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onPrev, enabled = canPrev) { Icon(ChevronLeftIcon, stringResource(R.string.previous_week)) }
-        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(stringResource(R.string.week_number, weekNumber(monday)), style = MaterialTheme.typography.titleMedium)
-            Text(
-                "${dayAndDate(monday, locale)} – ${dayAndDate(monday.plusDays(4), locale)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Column(modifier) {
+            ChipStrip(labels, pager.currentPage, WeekChipWidth, onSelect = goTo)
+            HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
+                WeekPage(plan, weeks[page], now, openMonday, firstMonday, lastMonday, onOpen)
+            }
         }
-        if (!isOpenWeek) TextButton(onClick = onToday) { Text(stringResource(R.string.this_week)) }
-        IconButton(onClick = onNext, enabled = canNext) { Icon(ChevronRightIcon, stringResource(R.string.next_week)) }
     }
 }
 

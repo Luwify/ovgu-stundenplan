@@ -25,8 +25,6 @@
     <string name="lecture_free">Vorlesungsfrei</string>
     <string name="week_number">KW %1$d</string>
     <string name="this_week">Heute</string>
-    <string name="previous_week">Vorige Woche</string>
-    <string name="next_week">Nächste Woche</string>
     <string name="semester_starts">Das Semester beginnt am %1$s.</string>
     <string name="plan_ended">Keine weiteren Termine. Der letzte war am %1$s.</string>
     <string name="today_free">Heute vorlesungsfrei.</string>
@@ -34,9 +32,10 @@
     <string name="today_heading">Heute, %1$s</string>
     <string name="tomorrow_heading">Morgen, %1$s</string>
     <string name="now">jetzt</string>
+    <string name="no_events_day">Keine Termine.</string>
     <string name="cancelled_full">Fällt aus</string>
     <string name="tab_week">Woche</string>
-    <string name="tab_today">Heute</string>
+    <string name="tab_day">Tag</string>
     <string name="detail_when">Wann</string>
     <string name="detail_room">Raum</string>
     <string name="detail_lecturers">Lehrende</string>

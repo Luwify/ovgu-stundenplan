@@ -14,6 +14,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,7 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.schedule.Timed
 
-private enum class Tab { WEEK, TODAY }
+private enum class Tab { WEEK, DAY }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +43,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(Tab.WEEK) }
     var selected by remember { mutableStateOf<Timed?>(null) }
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
+    // Registered by the visible screen: jumps back to the current week/day, null while already there.
+    var goToday by remember { mutableStateOf<(() -> Unit)?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(vm) {
@@ -68,6 +71,9 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
                 TopAppBar(
                     title = { Text(stringResource(R.string.app_name)) },
                     actions = {
+                        if (plan?.isEmpty == false) {
+                            TextButton(onClick = { goToday?.invoke() }, enabled = goToday != null) { Text(stringResource(R.string.this_week)) }
+                        }
                         IconButton(onClick = { showSettings = true }) {
                             Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings))
                         }
@@ -84,10 +90,10 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
                             label = { Text(stringResource(R.string.tab_week)) },
                         )
                         NavigationBarItem(
-                            selected = tab == Tab.TODAY,
-                            onClick = { tab = Tab.TODAY },
+                            selected = tab == Tab.DAY,
+                            onClick = { tab = Tab.DAY },
                             icon = { Icon(TodayIcon, null) },
-                            label = { Text(stringResource(R.string.tab_today)) },
+                            label = { Text(stringResource(R.string.tab_day)) },
                         )
                     }
                 }
@@ -99,8 +105,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit) {
                 when {
                     p == null -> Unit
                     p.isEmpty -> EmptyState(onImport)
-                    tab == Tab.WEEK -> WeekScreen(p, now, onOpen = { selected = it }, Modifier.fillMaxSize())
-                    else -> TodayScreen(p, now, onOpen = { selected = it }, Modifier.fillMaxSize())
+                    tab == Tab.WEEK -> WeekScreen(p, now, onOpen = { selected = it }, onToday = { goToday = it }, modifier = Modifier.fillMaxSize())
+                    else -> DayScreen(p, now, onOpen = { selected = it }, onToday = { goToday = it }, modifier = Modifier.fillMaxSize())
                 }
                 val item = selected
                 if (p != null && item != null) {

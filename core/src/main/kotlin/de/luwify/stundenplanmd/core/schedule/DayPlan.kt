@@ -46,6 +46,25 @@ object Navigation {
         return if (today.dayOfWeek >= DayOfWeek.SATURDAY) monday.plusWeeks(1) else monday
     }
 
+    /**
+     * Mondays of the weeks the strips and pagers cover: from one week before the first event to the week of the
+     * last one, widened to include [open] (the plan may lie in the future or the past).
+     */
+    fun weeks(schedule: Schedule, open: LocalDate): List<LocalDate> {
+        val first = schedule.firstDate ?: return listOf(open)
+        val start = minOf(Schedule.monday(first.atStartOfDay()).minusWeeks(1), open)
+        val end = maxOf(Schedule.monday(schedule.lastDate!!.atStartOfDay()), open)
+        return generateSequence(start) { it.plusWeeks(1) }.takeWhile { !it.isAfter(end) }.toList()
+    }
+
+    /** The day the day view opens on: [today]'s day, the next one with events, the first (before) or last (after) day. */
+    fun dayToOpen(schedule: Schedule, now: LocalDateTime): LocalDate = when (val v = today(schedule, now)) {
+        TodayView.NoPlan -> now.toLocalDate()
+        is TodayView.BeforeStart -> v.day.date
+        is TodayView.Ended -> v.last
+        is TodayView.Day -> v.day.date
+    }
+
     fun today(schedule: Schedule, now: LocalDateTime): TodayView {
         val first = schedule.firstDate ?: return TodayView.NoPlan
         val last = schedule.lastDate!!

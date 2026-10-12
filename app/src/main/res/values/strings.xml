@@ -27,8 +27,6 @@
     <string name="lecture_free">No lectures</string>
     <string name="week_number">Week %1$d</string>
     <string name="this_week">Today</string>
-    <string name="previous_week">Previous week</string>
-    <string name="next_week">Next week</string>
     <string name="semester_starts">The semester starts on %1$s.</string>
     <string name="plan_ended">No more events. The last one was on %1$s.</string>
     <string name="today_free">No lectures today.</string>
@@ -36,9 +34,10 @@
     <string name="today_heading">Today, %1$s</string>
     <string name="tomorrow_heading">Tomorrow, %1$s</string>
     <string name="now">now</string>
+    <string name="no_events_day">No events.</string>
     <string name="cancelled_full">Cancelled</string>
     <string name="tab_week">Week</string>
-    <string name="tab_today">Today</string>
+    <string name="tab_day">Day</string>
     <string name="detail_when">When</string>
     <string name="detail_room">Room</string>
     <string name="detail_lecturers">Lecturers</string>

@@ -40,6 +40,9 @@ fun longDate(date: LocalDate, locale: Locale): String = date.format(DateTimeForm
 
 fun weekNumber(monday: LocalDate) = monday.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
 
+/** "KW 42" (German) or "Week 42": the ISO week number. */
+fun weekLabel(monday: LocalDate, locale: Locale): String = (if (locale.language == "de") "KW " else "Week ") + weekNumber(monday)
+
 /** Name shown on a block: the subject's short name, else its title stem (the type has its own label). */
 fun blockName(subject: Subject?, item: Timed): String = subject?.displayName ?: item.event.title
 

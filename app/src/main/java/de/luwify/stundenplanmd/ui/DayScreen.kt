@@ -16,12 +16,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -33,66 +39,90 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.schedule.Cancellation
-import de.luwify.stundenplanmd.core.schedule.DayPlan
 import de.luwify.stundenplanmd.core.schedule.Navigation
 import de.luwify.stundenplanmd.core.schedule.Occurrence
 import de.luwify.stundenplanmd.core.schedule.Status
 import de.luwify.stundenplanmd.core.schedule.Timed
-import de.luwify.stundenplanmd.core.schedule.TodayView
+import de.luwify.stundenplanmd.core.schedule.Schedule
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import de.luwify.stundenplanmd.ui.theme.SubjectColors
 import de.luwify.stundenplanmd.ui.theme.planColors
 import java.time.LocalDateTime
 
-/** Today's events, or the next day with events; cancellations of the current and next week included. */
+/** Day strip above a pager with one page per weekday (Mon–Fri); opens on today or the next day with events. */
 @Composable
-fun TodayScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, modifier: Modifier = Modifier) {
-    val view = remember(plan, now) { Navigation.today(plan.schedule, now) }
-    val locale = appLocale()
+fun DayScreen(plan: PlanUi, now: LocalDateTime, onOpen: (Timed) -> Unit, onToday: ((() -> Unit)?) -> Unit, modifier: Modifier = Modifier) {
+    val schedule = plan.schedule
     val today = now.toLocalDate()
-    LazyColumn(modifier, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        when (view) {
-            TodayView.NoPlan -> Unit
-            is TodayView.Ended -> item { InfoCard(stringResource(R.string.plan_ended, longDate(view.last, locale))) }
-            is TodayView.BeforeStart -> {
-                item { InfoCard(stringResource(R.string.semester_starts, longDate(view.day.date, locale))) }
-                dayItems(plan, view.day, withCancellations = false, now, onOpen) {
-                    longDate(view.day.date, locale)
-                }
+    val openDate = Navigation.dayToOpen(schedule, now)
+    val weeks = remember(schedule, openDate) { Navigation.weeks(schedule, Schedule.monday(openDate.atStartOfDay())) }
+    val start = weeks.first()
+    val count = weeks.size * 5
+    fun pageOf(date: LocalDate) =
+        (ChronoUnit.WEEKS.between(start, Schedule.monday(date.atStartOfDay())).toInt() * 5 + minOf(date.dayOfWeek.value - 1, 4)).coerceIn(0, count - 1)
+    fun dateOf(page: Int): LocalDate = start.plusWeeks((page / 5).toLong()).plusDays((page % 5).toLong())
+    val openPage = pageOf(openDate)
+
+    key(start, count) {
+        val pager = rememberPagerState(initialPage = openPage) { count }
+        val scope = rememberCoroutineScope()
+        val animate = animationsEnabled()
+        val locale = appLocale()
+        val goTo: (Int) -> Unit = { page -> scope.launch { if (animate) pager.animateScrollToPage(page) else pager.scrollToPage(page) } }
+        val atOpen = pager.currentPage == openPage
+        DisposableEffect(atOpen, openPage) {
+            onToday(if (atOpen) null else ({ goTo(openPage) }))
+            onDispose { onToday(null) }
+        }
+        val labels = remember(plan, start, count, today, locale) {
+            (0 until count).map { page ->
+                val date = dateOf(page)
+                ChipLabel(
+                    top = dayShort(date, locale),
+                    bottom = "${date.dayOfMonth}.${date.monthValue}.",
+                    muted = schedule.on(date).isEmpty(),
+                    current = date == today,
+                )
             }
-            is TodayView.Day -> {
-                if (view.skippedFree.isNotEmpty()) {
-                    item {
-                        val text = if (view.skippedFree.size == 1 && view.skippedFree.first() == today) {
-                            stringResource(R.string.today_free)
-                        } else {
-                            stringResource(R.string.free_until, longDate(view.skippedFree.last(), locale))
-                        }
-                        InfoCard(text)
-                    }
-                }
-                dayItems(plan, view.day, view.withCancellations, now, onOpen) {
-                    when (view.day.date) {
-                        today -> stringResource(R.string.today_heading, longDate(view.day.date, locale))
-                        today.plusDays(1) -> stringResource(R.string.tomorrow_heading, longDate(view.day.date, locale))
-                        else -> longDate(view.day.date, locale)
-                    }
-                }
+        }
+        Column(modifier) {
+            ChipStrip(labels, pager.currentPage, DayChipWidth, onSelect = goTo)
+            HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
+                DayPage(plan, dateOf(page), now, onOpen)
             }
         }
     }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.dayItems(
-    plan: PlanUi,
-    day: DayPlan,
-    withCancellations: Boolean,
-    now: LocalDateTime,
-    onOpen: (Timed) -> Unit,
-    heading: @Composable () -> String,
-) {
-    item { Text(heading(), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 4.dp)) }
-    items(day.items(withCancellations), key = { "${it.event.uid}@${it.start}" }) { item ->
-        TodayRow(plan, item, now, onClick = { onOpen(item) })
+@Composable
+private fun DayPage(plan: PlanUi, date: LocalDate, now: LocalDateTime, onOpen: (Timed) -> Unit) {
+    val schedule = plan.schedule
+    val day = remember(plan, date) { schedule.day(date) }
+    val locale = appLocale()
+    val today = now.toLocalDate()
+    // Cancellations are shown for the current and next week only, as before.
+    val near = date.isBefore(today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).plusWeeks(2))
+    val items = remember(day, near) { day.items(near) }
+    val heading = when (date) {
+        today -> stringResource(R.string.today_heading, longDate(date, locale))
+        today.plusDays(1) -> stringResource(R.string.tomorrow_heading, longDate(date, locale))
+        else -> longDate(date, locale)
+    }
+    val message = when {
+        day.free -> stringResource(R.string.lecture_free)
+        items.isNotEmpty() -> null
+        schedule.firstDate?.let { date.isBefore(it) } == true -> stringResource(R.string.semester_starts, longDate(schedule.firstDate!!, locale))
+        schedule.lastDate?.let { date.isAfter(it) } == true -> stringResource(R.string.plan_ended, longDate(schedule.lastDate!!, locale))
+        else -> stringResource(R.string.no_events_day)
+    }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { Text(heading, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 4.dp)) }
+        if (message != null) item { InfoCard(message) }
+        items(items, key = { "${it.event.uid}@${it.start}" }) { item ->
+            TodayRow(plan, item, now, onClick = { onOpen(item) })
+        }
     }
 }
 
