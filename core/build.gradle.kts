@@ -41,3 +41,10 @@ tasks.register<JavaExec>("shareFile") {
     mainClass.set("de.luwify.stundenplanmd.core.ShareFileKt")
     workingDir = rootDir
 }
+
+// Release tool, see ManifestTool.kt (used by tools/release.sh and tools/withdraw.sh).
+tasks.register<JavaExec>("manifest") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("de.luwify.stundenplanmd.core.ManifestToolKt")
+    workingDir = rootDir
+}
