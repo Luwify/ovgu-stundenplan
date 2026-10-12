@@ -1,7 +1,10 @@
 package de.luwify.stundenplanmd.data
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 
 /** A stored file that can't be brought to the current format (newer app version, or a gap in the steps). */
@@ -13,7 +16,7 @@ class MigrationException(message: String) : Exception(message)
  * stored data must survive every update.
  */
 object Migrations {
-    const val CURRENT = 2
+    const val CURRENT = 3
 
     /** Version n -> n+1. */
     val STEPS: Map<Int, (JsonObject) -> JsonObject> = mapOf(
@@ -26,6 +29,16 @@ object Migrations {
                     "share" to (o["share"] ?: JsonObject(emptyMap())),
                 ),
             )
+        },
+        // 3: the order of `people` is the drawer order (was sorted by name on screen): friends are put in the order
+        // they were shown, so nothing jumps. Person.favorite has a default.
+        2 to { o ->
+            val people = (o["people"] as? JsonArray).orEmpty().map { it as JsonObject }
+            fun isMe(p: JsonObject) = (p["isMe"] as? JsonPrimitive)?.booleanOrNull == true
+            fun shown(p: JsonObject) = ((p["localName"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: (p["name"] as? JsonPrimitive)?.contentOrNull.orEmpty()).lowercase()
+            val (me, friends) = people.partition(::isMe)
+            if (people.isEmpty()) o else JsonObject(o + ("people" to JsonArray(me + friends.sortedBy(::shown))))
         },
     )
 

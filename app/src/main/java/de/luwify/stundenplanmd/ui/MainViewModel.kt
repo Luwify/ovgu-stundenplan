@@ -194,7 +194,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val friends: StateFlow<List<FriendEntry>> = repo.data.filterNotNull().map { data ->
         data.friends.map { p -> data.planOf(p.id).let { FriendEntry(p, it?.planDate, Schedule(it?.events.orEmpty())) } }
-            .sortedBy { it.person.displayName.lowercase() }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Wall-clock time, updated at every full minute (now line, Today list). */
@@ -421,6 +420,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 repo.updateFriendSettings(p.person.id) { local -> Subjects.overrides(local, p.settings, Subjects.move(p.settings, course, target, p.subjects)) }
             }
         }
+    }
+
+    fun reorderFriends(ids: List<String>) {
+        viewModelScope.launch { repo.reorderFriends(ids) }
+    }
+
+    fun setFavorite(id: String, favorite: Boolean) {
+        viewModelScope.launch { repo.setFavorite(id, favorite) }
     }
 
     fun renameFriend(id: String, name: String?) {

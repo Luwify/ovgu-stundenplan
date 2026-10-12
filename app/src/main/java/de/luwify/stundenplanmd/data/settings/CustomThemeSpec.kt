@@ -27,6 +27,9 @@ enum class ColorRole(val key: String) {
 
     /** Border and badge of changed and extra appointments. */
     HIGHLIGHT("highlight"),
+
+    /** Hearts and the together icon with a favorite friend. */
+    FAVORITE("favorite"),
     ;
 
     companion object {

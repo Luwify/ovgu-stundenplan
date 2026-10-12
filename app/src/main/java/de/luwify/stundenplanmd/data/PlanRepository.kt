@@ -22,7 +22,7 @@ import java.time.Instant
 data class MyShare(val id: String? = null, val name: String? = null)
 
 /**
- * Everything the app stores: me and friends (people + plans), my course settings (keyed by course key) and, per
+ * Everything the app stores: me and friends (people + plans; the order of [people] is the drawer order), my course settings (keyed by course key) and, per
  * friend id, my local settings for their courses.
  */
 @Serializable
@@ -140,6 +140,20 @@ class PlanRepository(dir: File) {
     suspend fun renameFriend(id: String, name: String?) = mutex.withLock {
         val current = _data.value ?: return@withLock
         write(current.copy(people = current.people.map { if (it.id == id && !it.isMe) it.copy(localName = name?.trim()?.ifEmpty { null }) else it }))
+    }
+
+    /** New drawer order of the friends ([ids]); unknown ids are ignored, missing friends keep their place at the end. */
+    suspend fun reorderFriends(ids: List<String>) = mutex.withLock {
+        val current = _data.value ?: return@withLock
+        val rank = ids.withIndex().associate { it.value to it.index }
+        val (me, friends) = current.people.partition { it.isMe }
+        val next = me + friends.sortedBy { rank[it.id] ?: Int.MAX_VALUE }
+        if (next != current.people) write(current.copy(people = next))
+    }
+
+    suspend fun setFavorite(id: String, favorite: Boolean) = mutex.withLock {
+        val current = _data.value ?: return@withLock
+        write(current.copy(people = current.people.map { if (it.id == id && !it.isMe) it.copy(favorite = favorite) else it }))
     }
 
     /** Removes the friend, their plan and my settings for them; returns the previous state for undo. */

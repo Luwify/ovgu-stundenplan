@@ -62,6 +62,7 @@ private val GENERAL = listOf(
 private val CARDS = listOf(
     ColorEntry(ColorRole.CARD_BORDER, R.string.color_card_border, R.string.color_card_border_hint),
     ColorEntry(ColorRole.HIGHLIGHT, R.string.color_highlight, R.string.color_highlight_hint),
+    ColorEntry(ColorRole.FAVORITE, R.string.color_favorite, R.string.color_favorite_hint),
 )
 
 private fun Color.rgb() = toArgb() and 0xFFFFFF
@@ -83,6 +84,7 @@ fun ColorEditorScreen(spec: CustomThemeSpec, onChange: (CustomThemeSpec) -> Unit
         ColorRole.TEXT -> scheme.onSurface
         ColorRole.CARD_BORDER -> plan.cardBorder
         ColorRole.HIGHLIGHT -> plan.highlight
+        ColorRole.FAVORITE -> plan.favorite
     }
     fun requested(role: ColorRole?): Int? = if (role == null) spec.accent else spec.overrides[role]
 

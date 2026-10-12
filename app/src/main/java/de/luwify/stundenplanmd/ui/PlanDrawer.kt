@@ -13,11 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -40,12 +43,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.schedule.NowStatus
+import de.luwify.stundenplanmd.ui.theme.planColors
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -76,6 +81,8 @@ fun PlanDrawer(
     selected: String,
     now: LocalDateTime,
     onSelect: (String) -> Unit,
+    onReorder: (List<String>) -> Unit,
+    onFavorite: (String, Boolean) -> Unit,
     onAdd: () -> Unit,
     onShare: () -> Unit,
     onQr: () -> Unit,
@@ -90,27 +97,33 @@ fun PlanDrawer(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(start = 28.dp, top = 20.dp, bottom = 12.dp),
             )
+            val meSelected = selected == my?.person?.id || friends.none { it.person.id == selected }
             NavigationDrawerItem(
                 label = {
-                    Column {
-                        Text(stringResource(R.string.my_plan))
-                        if (my != null && !my.isEmpty) {
-                            Text(standText(my.planDate), style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
+                    PersonLabel(stringResource(R.string.my_plan), meSelected, listOfNotNull(my?.takeIf { !it.isEmpty }?.let { standText(it.planDate) }))
                 },
-                selected = selected == my?.person?.id || friends.none { it.person.id == selected },
+                selected = meSelected,
                 onClick = { onSelect(de.luwify.stundenplanmd.data.StoredData.ME) },
-                modifier = Modifier.padding(horizontal = 12.dp),
+                modifier = Modifier.padding(horizontal = 12.dp).height(if (my?.isEmpty == false) 64.dp else 56.dp),
             )
             HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 8.dp))
             Text(
                 stringResource(R.string.friends),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 28.dp, top = 4.dp, bottom = 4.dp),
+                modifier = Modifier.padding(start = 28.dp, top = 4.dp, bottom = if (friends.size > 1) 0.dp else 4.dp),
             )
-            LazyColumn(Modifier.weight(1f)) {
+            if (friends.size > 1) {
+                Text(
+                    stringResource(R.string.drawer_reorder_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 28.dp, bottom = 4.dp),
+                )
+            }
+            val listState = rememberLazyListState()
+            val reorder = rememberColumnReorder(friends, listState, key = { it.person.id }, onReorder = onReorder)
+            LazyColumn(Modifier.weight(1f).then(reorder.gestures), state = listState, userScrollEnabled = !reorder.isDragging) {
                 if (friends.isEmpty()) {
                     item {
                         Text(
@@ -121,21 +134,19 @@ fun PlanDrawer(
                         )
                     }
                 }
-                items(friends, key = { it.person.id }) { f ->
+                items(reorder.order, key = { it.person.id }) { f ->
                     val status = nowText(NowStatus.of(f.schedule, now))
+                    val isSelected = selected == f.person.id
+                    val dragging = f.person.id == reorder.draggedKey
                     NavigationDrawerItem(
-                        label = {
-                            Column(Modifier.padding(vertical = 6.dp)) {
-                                Text(f.person.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(standText(f.planDate), style = MaterialTheme.typography.bodySmall)
-                                if (status != null) {
-                                    Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                            }
-                        },
-                        selected = selected == f.person.id,
+                        label = { PersonLabel(f.person.displayName, isSelected, listOfNotNull(standText(f.planDate), status)) },
+                        badge = { FavoriteButton(f.person.favorite, f.person.displayName) { onFavorite(f.person.id, !f.person.favorite) } },
+                        selected = isSelected || dragging,
                         onClick = { onSelect(f.person.id) },
-                        modifier = Modifier.padding(horizontal = 12.dp).height(if (status != null) 76.dp else 60.dp),
+                        modifier = Modifier
+                            .reorderItem(this, reorder, f.person.id)
+                            .padding(horizontal = 12.dp)
+                            .height(if (status != null) 84.dp else 64.dp),
                     )
                 }
             }
@@ -146,6 +157,38 @@ fun PlanDrawer(
                 DrawerAction(R.drawable.ic_qr_code_2, stringResource(R.string.qr_action), onQr)
             }
         }
+    }
+}
+
+/** Name prominent (titleMedium, semi-bold), Stand and now-line small below it. Selected rows keep the item's content color. */
+@Composable
+private fun PersonLabel(name: String, selected: Boolean, lines: List<String>) {
+    val scheme = MaterialTheme.colorScheme
+    val content = LocalContentColor.current
+    Column {
+        Text(
+            name,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (selected) content else scheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        for (line in lines) {
+            Text(line, style = MaterialTheme.typography.bodySmall, color = if (selected) content else scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** Heart toggle for a favorite friend: filled in the favorite color, outlined otherwise. */
+@Composable
+fun FavoriteButton(favorite: Boolean, name: String, onToggle: () -> Unit) {
+    IconToggleButton(checked = favorite, onCheckedChange = { onToggle() }) {
+        Icon(
+            painterResource(if (favorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite),
+            contentDescription = stringResource(R.string.favorite_toggle, name),
+            tint = if (favorite) planColors().favorite else LocalContentColor.current,
+        )
     }
 }
 

@@ -15,10 +15,10 @@ val PlanZone: ZoneId = ZoneId.of("Europe/Berlin")
 
 /**
  * Me or a friend whose plan was imported. A friend's [id] is the random id from their share, [name] the name they
- * shared; [localName] is my rename (kept when they share again).
+ * shared; [localName] is my rename (kept when they share again); [favorite] is my heart on them.
  */
 @Serializable
-data class Person(val id: String, val name: String, val isMe: Boolean, val localName: String? = null) {
+data class Person(val id: String, val name: String, val isMe: Boolean, val localName: String? = null, val favorite: Boolean = false) {
     val displayName: String get() = localName?.takeIf { it.isNotBlank() } ?: name
 }
 

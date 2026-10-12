@@ -45,6 +45,11 @@ class ThemeContrastTest {
         check("QR warning icon (error)/surface", s.error, s.surface, 3.0, failures)
         check("change border/page", m.highlight, s.background, 3.0, failures)
         check("change border/card", m.highlight, card, 3.0, failures)
+        check("favorite/together badge (surface)", m.favorite, s.surface, 3.0, failures)
+        check("favorite/drawer sheet", m.favorite, s.surfaceContainerLow, 3.0, failures)
+        check("favorite/page", m.favorite, s.background, 3.0, failures)
+        check("favorite/card", m.favorite, card, 3.0, failures)
+        check("together icon (onSurfaceVariant)/badge", s.onSurfaceVariant, s.surface, 3.0, failures)
         // Week/day strip chips: selected = primary fill, today = primary outline on a card-filled or recessed chip
         check("chip selected text/fill", s.onPrimary, s.primary, text, failures)
         check("chip selected fill/background", s.primary, s.background, 3.0, failures)
@@ -86,6 +91,21 @@ class ThemeContrastTest {
         )
         val s = CustomTheme.scheme(spec, true)
         assertTrue(CustomTheme.planColors(spec, true, s).highlight == Color(0xFFFF6B9D))
+    }
+
+    @Test
+    fun favoriteIsRedByDefaultAndTheCustomWishIsKeptWhereReadable() {
+        for (dark in listOf(false, true)) {
+            val s = (if (dark) DarkColors else LightColors).softened().withCardContrast(dark)
+            val red = systemPlanColors(dark, s).favorite
+            assertTrue("red dark=$dark: $red", red.red > 0.6f && red.green < 0.45f && red.blue < 0.5f)
+        }
+        val spec = de.luwify.stundenplanmd.data.settings.CustomThemeSpec(
+            base = de.luwify.stundenplanmd.data.settings.CustomBase.DARK,
+            overrides = mapOf(ColorRole.FAVORITE to 0xFF8FB0),
+        )
+        val s = CustomTheme.scheme(spec, true)
+        assertTrue(CustomTheme.planColors(spec, true, s).favorite == Color(0xFFFF8FB0))
     }
 
 

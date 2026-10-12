@@ -55,5 +55,5 @@ object AmoledTheme {
     /** A brighter blue edge around the cards (an accent, well above 3:1 on black). */
     val cardBorder = Color(0xFF4F7FD9)
 
-    fun planColors(): PlanColors = planColors(page = scheme.background, card = cardColor, border = cardBorder, borderWidth = 1.dp)
+    fun planColors(): PlanColors = planColors(page = scheme.background, card = cardColor, border = cardBorder, borderWidth = 1.dp, surfaces = favoriteSurfaces(scheme))
 }

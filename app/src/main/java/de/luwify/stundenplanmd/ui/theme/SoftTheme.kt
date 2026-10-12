@@ -108,6 +108,7 @@ object SoftTheme {
             page = scheme.background,
             card = if (darkTheme) scheme.surfaceContainer else scheme.surfaceContainerLowest,
             border = scheme.outlineVariant,
+            surfaces = favoriteSurfaces(scheme),
         )
     }
 }

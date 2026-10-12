@@ -101,6 +101,10 @@
     <string name="color_section_cards">Today list and changes</string>
     <string name="color_card_border_hint">With the card border option a 3:1 edge</string>
     <string name="color_highlight">Changes</string>
+    <string name="favorite_toggle">%1$s as favorite</string>
+    <string name="drawer_reorder_hint">Long-press and drag to reorder</string>
+    <string name="color_favorite">Favorites</string>
+    <string name="color_favorite_hint">Hearts and the together icon when a favorite friend is there</string>
     <string name="color_highlight_hint">Border and badge of changed, extra and cancelled events</string>
     <string name="custom_glow">Card border</string>
     <string name="custom_glow_hint">A visible edge around the cards in the accent color</string>

@@ -103,7 +103,46 @@ class PersistenceTest {
         assertEquals(emptyMap<String, Any>(), read.data.friendSettings)
         assertEquals(MyShare(), read.data.share)
         assertEquals(v1, File(d, "data.json.v1").readText())
-        assertEquals(2, (PlanStore(d).read() as StoreRead.Ok).data.version)
+        assertEquals(Migrations.CURRENT, (PlanStore(d).read() as StoreRead.Ok).data.version)
+    }
+
+    /** Version 2 showed friends sorted by name; version 3 stores that order, so the drawer looks the same. */
+    @Test
+    fun version2KeepsTheShownFriendOrderAndHasNoFavorites() {
+        val d = dir()
+        val people = listOf(
+            Person("b", "zoe", isMe = false), Person(StoredData.ME, "Ich", isMe = true),
+            Person("c", "Anna", isMe = false), Person("a", "Max", isMe = false, localName = "bert"),
+        )
+        PlanStore(d).write(data.copy(people = people))
+        val o = kotlinx.serialization.json.Json.parseToJsonElement(File(d, "data.json").readText()) as JsonObject
+        val v2 = JsonObject(o + ("version" to JsonPrimitive(2)) + ("people" to kotlinx.serialization.json.JsonArray(
+            (o.getValue("people") as kotlinx.serialization.json.JsonArray).map { JsonObject((it as JsonObject) - "favorite") },
+        ))).toString()
+        File(d, "data.json").writeText(v2)
+        val read = PlanStore(d).read() as StoreRead.Ok
+        assertEquals(2, read.migratedFrom)
+        assertUserDataSurvived(read.data)
+        assertEquals(listOf(StoredData.ME, "c", "a", "b"), read.data.people.map { it.id })
+        assertFalse(read.data.people.any { it.favorite })
+        assertEquals(v2, File(d, "data.json.v2").readText())
+    }
+
+    @Test
+    fun friendOrderAndFavoritesArePersistedAndInTheBackup() = runBlocking {
+        val repo = PlanRepository(dir())
+        repo.load()
+        repo.restore(withFriend.copy(people = withFriend.people + Person("1111111111111111", "Anna", isMe = false)))
+        repo.reorderFriends(listOf("1111111111111111", friendId))
+        repo.setFavorite(friendId, true)
+        val d = repo.data.value!!
+        assertEquals(listOf(StoredData.ME, "1111111111111111", friendId), d.people.map { it.id })
+        assertTrue(d.person(friendId)!!.favorite)
+        val again = PlanRepository(File(tmp.root, "x").apply { mkdirs() })
+        PlanStore(File(tmp.root, "x")).write(d)
+        again.load()
+        assertEquals(d, again.data.value)
+        assertEquals(d, (BackupCodec.decode(BackupCodec.encode(d, null, theme)) as BackupResult.Ok).backup.data)
     }
 
     private val friendId = "0123456789abcdef"

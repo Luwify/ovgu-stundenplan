@@ -179,6 +179,8 @@ object CustomTheme {
             border = if (spec.glow) edge else o[ColorRole.CARD_BORDER] ?: scheme.outlineVariant,
             borderWidth = if (spec.glow) 1.dp else Dp.Hairline,
             highlightWish = o[ColorRole.HIGHLIGHT],
+            surfaces = favoriteSurfaces(scheme),
+            favoriteWish = o[ColorRole.FAVORITE],
         )
     }
 }

@@ -95,6 +95,10 @@
     <string name="color_section_cards">Heute-Liste und Änderungen</string>
     <string name="color_card_border_hint">Mit dem Kartenrahmen ein Rand mit 3:1 Kontrast</string>
     <string name="color_highlight">Änderungen</string>
+    <string name="favorite_toggle">%1$s als Favorit</string>
+    <string name="drawer_reorder_hint">Gedrückt halten und ziehen zum Sortieren</string>
+    <string name="color_favorite">Favoriten</string>
+    <string name="color_favorite_hint">Herzen und das Zusammen-Symbol, wenn ein Lieblingsfreund dabei ist</string>
     <string name="color_highlight_hint">Rahmen und Markierung geänderter, zusätzlicher und ausfallender Termine</string>
     <string name="custom_glow">Kartenrahmen</string>
     <string name="custom_glow_hint">Ein sichtbarer Rand um die Karten in der Akzentfarbe</string>

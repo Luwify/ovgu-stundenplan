@@ -151,6 +151,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                     selected = selectedId,
                     now = now,
                     onSelect = { id -> vm.select(id); scope.launch { drawer.close() } },
+                    onReorder = vm::reorderFriends,
+                    onFavorite = vm::setFavorite,
                     onAdd = { addChoice = true; scope.launch { drawer.close() } },
                     onShare = { share(ShareAction.FILE) },
                     onQr = { share(ShareAction.QR) },
@@ -175,6 +177,9 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         actions = {
                             if (plan?.isEmpty == false) {
                                 TextButton(onClick = { goToday?.invoke() }, enabled = goToday != null) { Text(stringResource(R.string.this_week)) }
+                            }
+                            plan?.takeIf { !it.isMe }?.person?.let { friend ->
+                                FavoriteButton(friend.favorite, friend.displayName) { vm.setFavorite(friend.id, !friend.favorite) }
                             }
                             if (plan?.isMe == false) {
                                 IconButton(onClick = { friendDetails = true }) {
