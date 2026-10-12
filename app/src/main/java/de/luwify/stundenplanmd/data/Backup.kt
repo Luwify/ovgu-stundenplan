@@ -35,11 +35,26 @@ data class ThemeBackup(
     }
 }
 
+/** The updater settings in a backup: the automatic check and the version the user said "don't show again" for. */
+@Serializable
+data class UpdatesBackup(
+    val autoCheck: Boolean = true,
+    val skippedCode: Int? = null,
+)
+
 /**
  * What a backup file holds; [ics] is the raw import (null if there was none). [language] is the in-app language key
  * ("system", "de", "en"), null in backups from before version 2: restoring those keeps the current language.
  */
-data class Backup(val data: StoredData, val ics: String?, val theme: ThemeBackup, val exportedAt: String?, val language: String? = null)
+data class Backup(
+    val data: StoredData,
+    val ics: String?,
+    val theme: ThemeBackup,
+    val exportedAt: String?,
+    val language: String? = null,
+    /** Null in backups from before version 3: restoring those keeps the current update settings. */
+    val updates: UpdatesBackup? = null,
+)
 
 sealed interface BackupResult {
     data class Ok(val backup: Backup) : BackupResult
@@ -56,12 +71,32 @@ sealed interface BackupResult {
  */
 object BackupCodec {
     const val FORMAT = "stundenplanmd-backup"
-    /** 2: `language` (in-app language). Older files are read with it missing. */
-    const val VERSION = 2
+    /**
+     * 2: `language` (in-app language). 3: `updates` (automatic check, skipped version). Older files are read through
+     * [upgrade]: the missing parts stay missing, so a restore keeps the current values for them.
+     */
+    const val VERSION = 3
+
+    /** Version n -> n+1 of the backup envelope (the plan data inside has its own [Migrations]). */
+    private val STEPS: Map<Int, (JsonObject) -> JsonObject> = mapOf(
+        1 to { o -> o }, // no language yet: keep the current one
+        2 to { o -> o }, // no update settings yet: keep the current ones
+    )
+
+    /** Brings an older backup envelope to [VERSION], step by step. */
+    fun upgrade(obj: JsonObject): JsonObject {
+        var version = obj["version"]?.jsonPrimitive?.intOrNull ?: 1
+        var out = obj
+        while (version < VERSION) {
+            out = STEPS.getValue(version)(out)
+            version++
+        }
+        return JsonObject(out + ("version" to JsonPrimitive(VERSION)))
+    }
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = false }
 
-    fun encode(data: StoredData, ics: String?, theme: ThemeChoice, language: String, now: Instant = Instant.now()): String {
+    fun encode(data: StoredData, ics: String?, theme: ThemeChoice, language: String, updates: UpdatesBackup, now: Instant = Instant.now()): String {
         val obj = JsonObject(
             buildMap {
                 put("format", JsonPrimitive(FORMAT))
@@ -71,6 +106,7 @@ object BackupCodec {
                 if (ics != null) put("ics", JsonPrimitive(ics))
                 put("theme", json.encodeToJsonElement(ThemeBackup.serializer(), ThemeBackup.of(theme)))
                 put("language", JsonPrimitive(language))
+                put("updates", json.encodeToJsonElement(UpdatesBackup.serializer(), updates))
             },
         )
         return json.encodeToString(JsonObject.serializer(), obj)
@@ -83,6 +119,7 @@ object BackupCodec {
         } else if ((obj["version"]?.jsonPrimitive?.intOrNull ?: 1) > VERSION) {
             BackupResult.TooNew
         } else {
+            val obj = upgrade(obj)
             val data = json.decodeFromJsonElement(StoredData.serializer(), Migrations.migrate(obj.getValue("data").jsonObject))
             val theme = obj["theme"]?.let { json.decodeFromJsonElement(ThemeBackup.serializer(), it) }
                 ?: ThemeBackup.of(ThemeChoice(ThemeMode.SYSTEM))
@@ -90,6 +127,7 @@ object BackupCodec {
                 Backup(
                     data, obj["ics"]?.jsonPrimitive?.content, theme, obj["exportedAt"]?.jsonPrimitive?.content,
                     language = obj["language"]?.jsonPrimitive?.content,
+                    updates = obj["updates"]?.let { json.decodeFromJsonElement(UpdatesBackup.serializer(), it) },
                 ),
             )
         }

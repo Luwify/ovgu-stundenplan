@@ -142,7 +142,7 @@ class PersistenceTest {
         PlanStore(File(tmp.root, "x")).write(d)
         again.load()
         assertEquals(d, again.data.value)
-        assertEquals(d, (BackupCodec.decode(BackupCodec.encode(d, null, theme, "system")) as BackupResult.Ok).backup.data)
+        assertEquals(d, (BackupCodec.decode(BackupCodec.encode(d, null, theme, "system", UpdatesBackup())) as BackupResult.Ok).backup.data)
     }
 
     private val friendId = "0123456789abcdef"
@@ -163,7 +163,7 @@ class PersistenceTest {
         val d = dir()
         PlanStore(d).write(withFriend)
         assertEquals(withFriend, (PlanStore(d).read() as StoreRead.Ok).data)
-        val backup = BackupCodec.decode(BackupCodec.encode(withFriend, null, theme, "system")) as BackupResult.Ok
+        val backup = BackupCodec.decode(BackupCodec.encode(withFriend, null, theme, "system", UpdatesBackup())) as BackupResult.Ok
         assertEquals(withFriend, backup.backup.data)
     }
 
@@ -313,24 +313,41 @@ class PersistenceTest {
     @Test
     fun backupRoundTripsEverything() {
         val ics = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"
-        val text = BackupCodec.encode(data, ics, theme, "en", Instant.parse("2026-10-12T10:00:00Z"))
+        val text = BackupCodec.encode(data, ics, theme, "en", UpdatesBackup(autoCheck = false, skippedCode = 10002), Instant.parse("2026-10-12T10:00:00Z"))
         val ok = BackupCodec.decode(text) as BackupResult.Ok
         assertUserDataSurvived(ok.backup.data)
         assertEquals(ics, ok.backup.ics)
         assertEquals(theme, ok.backup.theme.toChoice())
         assertEquals("2026-10-12T10:00:00Z", ok.backup.exportedAt)
         assertEquals("en", ok.backup.language)
+        assertEquals(UpdatesBackup(autoCheck = false, skippedCode = 10002), ok.backup.updates)
         assertEquals(de.luwify.stundenplanmd.AppLanguage.ENGLISH, de.luwify.stundenplanmd.AppLanguage.fromKey(ok.backup.language))
     }
 
     @Test
+    fun backupVersion2HasNoUpdateSettingsAndKeepsTheCurrentOnes() {
+        val v2 = BackupCodec.encode(data, null, theme, "de", UpdatesBackup(false, 7)).replace("\"version\":${BackupCodec.VERSION}", "\"version\":2")
+            .replace(",\"updates\":{\"autoCheck\":false,\"skippedCode\":7}", "")
+        assertTrue(v2.contains("\"version\":2") && !v2.contains("updates"))
+        val ok = BackupCodec.decode(v2) as BackupResult.Ok
+        assertUserDataSurvived(ok.backup.data)
+        assertEquals("de", ok.backup.language)
+        assertEquals(null, ok.backup.updates)
+        assertEquals(BackupCodec.VERSION, BackupCodec.upgrade(kotlinx.serialization.json.Json.parseToJsonElement(v2) as JsonObject)["version"]?.let { (it as JsonPrimitive).content.toInt() })
+        // Defaults for a block written without the skipped version.
+        val partial = BackupCodec.encode(data, null, theme, "de", UpdatesBackup(true, null))
+        assertEquals(UpdatesBackup(true, null), (BackupCodec.decode(partial) as BackupResult.Ok).backup.updates)
+    }
+
+    @Test
     fun backupVersion1HasNoLanguageAndKeepsTheCurrentOne() {
-        val v1 = BackupCodec.encode(data, null, theme, "de").replace("\"version\":${BackupCodec.VERSION}", "\"version\":1")
-            .replace(",\"language\":\"de\"", "")
+        val v1 = BackupCodec.encode(data, null, theme, "de", UpdatesBackup(false, 7)).replace("\"version\":${BackupCodec.VERSION}", "\"version\":1")
+            .replace(",\"language\":\"de\"", "").replace(",\"updates\":{\"autoCheck\":false,\"skippedCode\":7}", "")
         assertTrue(v1.contains("\"version\":1") && !v1.contains("language"))
         val ok = BackupCodec.decode(v1) as BackupResult.Ok
         assertUserDataSurvived(ok.backup.data)
         assertEquals(null, ok.backup.language)
+        assertEquals(null, ok.backup.updates)
         assertEquals(null, de.luwify.stundenplanmd.AppLanguage.fromKey(null)) // restore leaves the language alone
         assertEquals(de.luwify.stundenplanmd.AppLanguage.SYSTEM, de.luwify.stundenplanmd.AppLanguage.fromKey("system"))
         assertEquals(null, de.luwify.stundenplanmd.AppLanguage.fromKey("fr"))
@@ -338,7 +355,7 @@ class PersistenceTest {
 
     @Test
     fun backupWithoutIcsAndGarbageAreHandled() {
-        assertEquals(null, (BackupCodec.decode(BackupCodec.encode(data, null, theme, "system")) as BackupResult.Ok).backup.ics)
+        assertEquals(null, (BackupCodec.decode(BackupCodec.encode(data, null, theme, "system", UpdatesBackup())) as BackupResult.Ok).backup.ics)
         assertEquals(BackupResult.NotABackup, BackupCodec.decode("""{"hello":1}"""))
         assertTrue(BackupCodec.decode("nope") !is BackupResult.Ok)
         assertTrue(BackupCodec.decode("{\"format\":\"stundenplanmd-backup\",\"version\":1,\"data\":[1]}") is BackupResult.Broken)

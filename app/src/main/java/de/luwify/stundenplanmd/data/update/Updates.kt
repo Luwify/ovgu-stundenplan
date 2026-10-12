@@ -148,6 +148,12 @@ class Updates(context: Context, private val settings: UpdateSettings, private va
         }
     }
 
+    /** For the backup. */
+    suspend fun backupState(): de.luwify.stundenplanmd.data.UpdatesBackup =
+        settings.current().let { de.luwify.stundenplanmd.data.UpdatesBackup(it.autoCheck, it.skippedCode) }
+
+    suspend fun restore(backup: de.luwify.stundenplanmd.data.UpdatesBackup) = settings.restore(backup.autoCheck, backup.skippedCode)
+
     fun setAutoCheck(on: Boolean) {
         scope.launch { settings.setAutoCheck(on) }
     }

@@ -156,7 +156,13 @@ sealed interface UiMessage {
 data class PendingFriend(val plan: SharedPlan, val existing: Person?, val existingPlan: Plan?)
 
 /** Everything a backup import replaces, kept for undo. */
-data class Snapshot(val data: StoredData, val ics: String?, val theme: ThemeChoice, val language: AppLanguage? = null)
+data class Snapshot(
+    val data: StoredData,
+    val ics: String?,
+    val theme: ThemeChoice,
+    val language: AppLanguage? = null,
+    val updates: de.luwify.stundenplanmd.data.UpdatesBackup? = null,
+)
 
 /** A backup file read and waiting for the user's confirmation. */
 data class PendingBackup(val backup: Backup)
@@ -242,7 +248,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val ok = runCatching {
                 val data = repo.data.value ?: error("not loaded")
                 val language = AppLanguage.key(AppLanguage.current(getApplication()))
-                val text = BackupCodec.encode(data, repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), language)
+                val text = BackupCodec.encode(data, repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), language, updates.backupState())
                 withContext(Dispatchers.IO) {
                     getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.encodeToByteArray()) }
                 }
@@ -276,10 +282,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _pendingBackup.value = null
         viewModelScope.launch {
             val app = getApplication<Application>()
-            val before = Snapshot(repo.data.value ?: StoredData(), repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), AppLanguage.current(app))
+            val before = Snapshot(
+                repo.data.value ?: StoredData(), repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), AppLanguage.current(app),
+                updates.backupState(),
+            )
             runCatching {
                 repo.replaceAll(backup.data, backup.ics)
                 container.theme.restore(backup.theme.toChoice())
+                backup.updates?.let { updates.restore(it) }
             }.onSuccess {
                 _messages.send(UiMessage.BackupRestored(before))
                 // Last: a different language recreates the activity (the restored data is saved by then).
@@ -292,6 +302,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.replaceAll(previous.data, previous.ics)
             container.theme.restore(previous.theme)
+            previous.updates?.let { updates.restore(it) }
             previous.language?.let(::applyLanguage)
         }
     }

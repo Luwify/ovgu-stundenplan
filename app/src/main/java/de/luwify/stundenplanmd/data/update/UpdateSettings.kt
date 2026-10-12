@@ -79,6 +79,12 @@ class UpdateSettings(private val store: DataStore<Preferences>) {
 
     suspend fun explainedUnknownSources() = store.edit { it[explainedKey] = true }
 
+    /** Backup import (and its undo): the automatic check and the skipped version. */
+    suspend fun restore(autoCheck: Boolean, skippedCode: Int?) = store.edit {
+        it[autoCheckKey] = autoCheck
+        if (skippedCode == null) it.remove(skippedKey) else it[skippedKey] = skippedCode
+    }
+
     companion object {
         const val SCHEMA = 1
     }
