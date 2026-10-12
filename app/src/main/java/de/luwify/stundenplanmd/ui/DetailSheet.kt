@@ -76,7 +76,10 @@ fun DetailSheet(plan: PlanUi, item: Timed, onEditSubject: (Subject) -> Unit, onD
             Field(stringResource(R.string.detail_when), "${longDate(item.date, locale)}\n${timeRange(item.start, item.end)}" + rhythm(event, locale)?.let { "\n$it" }.orEmpty())
             Field(stringResource(R.string.detail_room), roomText(event))
             if (event.lecturers.isNotEmpty()) Field(stringResource(R.string.detail_lecturers), event.lecturers.joinToString(", "))
-            if (event.notes.isNotBlank()) Field(stringResource(R.string.detail_notes), event.notes)
+            if (event.notes.isNotBlank() || event.notesShortened) {
+                val hint = stringResource(if (event.notes.isBlank()) R.string.notes_not_sent else R.string.notes_shortened)
+                Field(stringResource(R.string.detail_notes), listOf(event.notes, hint).filter { it.isNotBlank() }.joinToString("\n\n"))
+            }
             if (event.summary != event.title) Field(stringResource(R.string.detail_lsf_title), event.summary)
 
             if (subject != null) {

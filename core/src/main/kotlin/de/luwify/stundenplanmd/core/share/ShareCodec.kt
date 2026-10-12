@@ -76,16 +76,20 @@ object ShareCodec {
 
     fun file(plan: SharedPlan): ByteArray = FILE_MAGIC + payload(plan, complete = true)
 
-    /** A file's bytes or a scanned text. */
-    fun parse(bytes: ByteArray): ShareResult =
-        if (bytes.size >= FILE_MAGIC.size && bytes.copyOfRange(0, FILE_MAGIC.size).contentEquals(FILE_MAGIC)) {
+    /** A file's bytes: binary (`SPMD` + payload) or a saved QR text (`SPMD:`, which also starts with the magic). */
+    fun parse(bytes: ByteArray): ShareResult {
+        val text = bytes.copyOfRange(0, minOf(bytes.size, 16)).decodeToString().trimStart('\uFEFF', ' ', '\r', '\n', '\t')
+        return if (text.startsWith(QR_PREFIX)) {
+            parse(bytes.decodeToString())
+        } else if (bytes.size >= FILE_MAGIC.size && bytes.copyOfRange(0, FILE_MAGIC.size).contentEquals(FILE_MAGIC)) {
             decode(bytes.copyOfRange(FILE_MAGIC.size, bytes.size))
         } else {
-            parse(bytes.decodeToString())
+            ShareResult.NotAShare
         }
+    }
 
     fun parse(text: String): ShareResult {
-        val t = text.trim()
+        val t = text.trim().removePrefix("\uFEFF").trim()
         if (!t.startsWith(QR_PREFIX)) return ShareResult.NotAShare
         val bytes = Base45.decode(t.substring(QR_PREFIX.length)) ?: return ShareResult.Broken("not Base45")
         return decode(bytes)
@@ -319,7 +323,8 @@ object ShareCodec {
                 val rule = kinds[i]?.let { k -> if (k is PlainSeries) k.toRecurrence(start, r.bytes((k.slots + 7) / 8)) else k as Recurrence }
                 Event(
                     uid = uids[i]!!,
-                    summary = summaries?.get(i) ?: if (lecturers[i].isEmpty()) title else "$title (${lecturers[i].joinToString(", ")})",
+                    // Not sent by QR: the raw SUMMARY is unknown, so none is claimed.
+                    summary = summaries?.get(i) ?: title,
                     title = title,
                     lecturers = lecturers[i],
                     category = category,

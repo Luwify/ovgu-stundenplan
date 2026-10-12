@@ -179,4 +179,6 @@
     <string name="settings_share">Teilen</string>
     <string name="share_name_setting">Dein Name für Freunde</string>
     <string name="share_name_unset">Noch nicht festgelegt</string>
+    <string name="notes_shortened">(Im QR-Code gekürzt. Eine geteilte Datei enthält die ganze Notiz.)</string>
+    <string name="notes_not_sent">(Nicht im QR-Code enthalten. Eine geteilte Datei enthält die Notiz.)</string>
 </resources>

@@ -72,6 +72,9 @@ class ShareCodecTest {
         assertEquals(LocalDate.of(2026, 10, 12), back.exportedOn)
         assertEquals(LocalDate.of(2026, 10, 11), back.planDate)
         assertFalse(back.complete)
+        // A saved QR text (a file starting with "SPMD:", which begins like the binary magic) reads the same.
+        assertEquals(back, ok(ShareCodec.parse(text.toByteArray())))
+        assertEquals(back, ok(ShareCodec.parse("\uFEFF$text\r\n".toByteArray())))
         assertEquals(fingerprint(Fixture.events), fingerprint(back.events))
         assertEquals(Fixture.events.map { it.uid }.sorted(), back.events.map { it.uid }.sorted())
         val s = back.settings

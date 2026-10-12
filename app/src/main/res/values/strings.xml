@@ -185,4 +185,6 @@
     <string name="settings_share">Sharing</string>
     <string name="share_name_setting">Your name for friends</string>
     <string name="share_name_unset">Not set yet</string>
+    <string name="notes_shortened">(Shortened in the QR code. A shared file has the full note.)</string>
+    <string name="notes_not_sent">(Not included in the QR code. A shared file has the note.)</string>
 </resources>
