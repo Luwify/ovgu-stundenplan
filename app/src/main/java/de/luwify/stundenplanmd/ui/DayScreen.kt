@@ -99,7 +99,7 @@ fun DayScreen(
         }
         Column(modifier) {
             ChipStrip(labels, pager.currentPage, DayChipWidth, stringResource(R.string.back_to_today), onSelect = goTo)
-            HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
+            HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = rememberBeyondPages(active)) { page ->
                 DayPage(plan, dateOf(page), now, onOpen)
             }
         }

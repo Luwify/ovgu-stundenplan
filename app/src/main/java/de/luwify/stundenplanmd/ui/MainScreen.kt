@@ -337,9 +337,16 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             val active = i == people.settledPage
                             val edge = remember(people, animate) { EdgeOnlyConnection(people, animate) }
                             Box(Modifier.fillMaxSize().nestedScroll(edge)) {
-                                // Week and Day fade through each other; pages out of sight switch without animating.
+                                // The visible page switches Week/Day at once, with a fade through. The others (out of sight) follow
+                                // one after the other: switching all of them in one frame composes every person's whole screen.
+                                var shownTab by remember { mutableStateOf(tab) }
+                                val moving = people.isScrollInProgress
+                                LaunchedEffect(tab, active, moving) {
+                                    if (!active && !moving) delay(400L + 150L * kotlin.math.abs(i - people.settledPage))
+                                    shownTab = tab
+                                }
                                 AnimatedContent(
-                                    if (page.isEmpty) null else tab,
+                                    if (page.isEmpty) null else shownTab,
                                     transitionSpec = {
                                         if (animate && active) {
                                             fadeIn(tween(Motion.Medium - Motion.FadeInDelay, Motion.FadeInDelay, LinearEasing)) togetherWith

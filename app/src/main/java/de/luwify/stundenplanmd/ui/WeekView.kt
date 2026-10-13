@@ -26,6 +26,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -126,8 +130,10 @@ fun WeekScreen(
         }
         Column(modifier) {
             ChipStrip(labels, pager.currentPage, WeekChipWidth, stringResource(R.string.back_to_this_week), onSelect = goTo)
-            HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
-                WeekPage(plan, weeks[page], now, openMonday, firstMonday, lastMonday, onOpen)
+            HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = rememberBeyondPages(active)) { page ->
+                // A page composed before it is shown (the pager's neighbors) fills in column by column, not in one frame.
+                val eager = remember { page == pager.currentPage }
+                WeekPage(plan, weeks[page], now, openMonday, firstMonday, lastMonday, eager, onOpen)
             }
         }
     }
@@ -141,6 +147,7 @@ private fun WeekPage(
     openMonday: LocalDate,
     firstMonday: LocalDate,
     lastMonday: LocalDate,
+    eager: Boolean,
     onOpen: (Timed) -> Unit,
 ) {
     val week = remember(plan, monday) { plan.schedule.week(monday) }
@@ -194,9 +201,10 @@ private fun WeekPage(
                         )
                     }
                 }
-                week.days.forEach { day ->
+                week.days.forEachIndexed { index, day ->
                     DayColumn(
                         plan, day, hours.first, hourH,
+                        wait = if (eager) 0 else index + 1,
                         isToday = day.date == today,
                         weekFree = week.free, strong = monday == openMonday, onOpen = onOpen,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -251,6 +259,8 @@ private fun DayColumn(
     day: DayPlan,
     firstHour: Int,
     hourH: Dp,
+    /** Frames to wait before the blocks are composed (spreads a page that is built ahead over several frames). */
+    wait: Int,
     isToday: Boolean,
     weekFree: Boolean,
     strong: Boolean,
@@ -258,10 +268,17 @@ private fun DayColumn(
     modifier: Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    var ready by remember { mutableStateOf(wait == 0) }
+    if (!ready) {
+        LaunchedEffect(Unit) {
+            repeat(wait) { withFrameNanos { } }
+            ready = true
+        }
+    }
     BoxWithConstraints(modifier.background(if (isToday) colors.primary.copy(alpha = 0.07f) else Color.Transparent)) {
         fun y(t: LocalDateTime) = hourH * (Duration.between(t.toLocalDate().atTime(firstHour, 0), t).toMinutes() / 60f)
         when {
-            weekFree -> Unit
+            weekFree || !ready -> Unit
             day.free -> Box(
                 Modifier.fillMaxSize().padding(2.dp).clip(RoundedCornerShape(6.dp)).background(colors.surfaceVariant.copy(alpha = 0.6f)),
                 contentAlignment = Alignment.Center,

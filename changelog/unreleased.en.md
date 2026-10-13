@@ -1,1 +1,2 @@
 - Smoother transitions: settings, QR and version pages fade and slide in and out, dialogs and the appointment sheet use the standard animations, switching Week/Day and people from the menu glides, and a theme change fades the colors. Everything is skipped when the system's "remove animations" is on.
+- Less stutter when switching between Week and Day and when paging: neighbouring pages are built after the screen opened and column by column, and other people switch tabs a moment later.

@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -126,4 +127,19 @@ fun PersonIndicator(pager: PagerState, name: String, modifier: Modifier = Modifi
             )
         }
     }
+}
+
+/**
+ * How many pages a week/day pager keeps composed beyond the visible one: none while the screen appears (so the first
+ * frame composes one page, not three), then [target] once the opening animation is over ([active]: this person is shown).
+ */
+@Composable
+fun rememberBeyondPages(active: Boolean, target: Int = 1): Int {
+    var count by remember { mutableIntStateOf(0) }
+    LaunchedEffect(active) {
+        // Out of sight: later, so that every person's pager does not add its neighbors in the same frame.
+        delay(if (active) Motion.Long + 100L else 1500L)
+        count = target
+    }
+    return count
 }
