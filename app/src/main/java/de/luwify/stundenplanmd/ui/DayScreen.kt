@@ -235,6 +235,13 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
                     fontWeight = FontWeight.SemiBold,
                 )
             }
+            if (item.event.isManual) {
+                Text(
+                    if (plan.isMe) stringResource(R.string.manual_own_course) else stringResource(R.string.manual_own_course_of, plan.person.displayName),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = scheme.primary,
+                )
+            }
             personal?.note?.let { note ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(NoteIcon, stringResource(R.string.note_marker), Modifier.size(16.dp), tint = scheme.onSurfaceVariant)

@@ -131,6 +131,8 @@ fun ManualCourseEditor(
     val setting = existing?.let { plan.settings[it.courseKey] }
     val ownKey = existing?.let { Subjects.ownKey(it.courseKey) }
     var title by rememberSaveable { mutableStateOf(existing?.title.orEmpty()) }
+    // The "title required" hint only once the field was used (not on an empty new form).
+    var titleTouched by rememberSaveable { mutableStateOf(false) }
     var type by rememberSaveable { mutableStateOf(existing?.type ?: ManualType.LECTURE) }
     var subjectKey by rememberSaveable { mutableStateOf(setting?.subject?.takeIf { it != ownKey }) }
     var shortName by rememberSaveable { mutableStateOf(setting?.shortName.orEmpty()) }
@@ -217,9 +219,9 @@ fun ManualCourseEditor(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     OutlinedTextField(
-                        title, { title = it }, Modifier.fillMaxWidth(), singleLine = true,
-                        label = { Text(stringResource(R.string.manual_title)) }, isError = !titleOk,
-                        supportingText = if (titleOk) null else { { Text(stringResource(R.string.manual_title_required)) } },
+                        title, { title = it; titleTouched = true }, Modifier.fillMaxWidth(), singleLine = true,
+                        label = { Text(stringResource(R.string.manual_title)) }, isError = titleTouched && !titleOk,
+                        supportingText = if (titleOk || !titleTouched) null else { { Text(stringResource(R.string.manual_title_required)) } },
                     )
                     Label(stringResource(R.string.manual_type))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
