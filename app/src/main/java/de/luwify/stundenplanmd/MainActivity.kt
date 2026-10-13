@@ -18,6 +18,7 @@ import de.luwify.stundenplanmd.data.settings.ColorRole
 import de.luwify.stundenplanmd.data.settings.CustomBase
 import de.luwify.stundenplanmd.data.settings.ThemeMode
 import de.luwify.stundenplanmd.ui.theme.CustomTheme
+import de.luwify.stundenplanmd.ui.ThemeCrossfade
 import de.luwify.stundenplanmd.ui.theme.StundenplanTheme
 import de.luwify.stundenplanmd.data.IcsSource
 import de.luwify.stundenplanmd.core.share.ShareCodec
@@ -82,6 +83,7 @@ class MainActivity : ComponentActivity() {
             }
             // Nothing until the stored theme is known (a few ms), so the wrong theme never flashes.
             theme?.let {
+              ThemeCrossfade(it.mode to systemDark, de.luwify.stundenplanmd.ui.animationsEnabled()) {
                 StundenplanTheme(it.mode, it.custom) {
                     MainScreen(
                         vm,
@@ -92,6 +94,7 @@ class MainActivity : ComponentActivity() {
                         onPickFriendFile = { friendFileLauncher.launch(arrayOf(ShareCodec.MIME, "application/octet-stream")) },
                     )
                 }
+              }
             }
         }
     }
