@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 // One source of truth for the version: version.properties (semver). versionCode = major*10000 + minor*100 + patch.
@@ -117,6 +118,23 @@ val checkReleaseSigning by tasks.registering {
 tasks.matching { it.name == "preReleaseBuild" || it.name.startsWith("packageRelease") || it.name == "validateSigningRelease" }
     .configureEach { dependsOn(checkReleaseSigning) }
 
+baselineProfile {
+    // One profile for every build type (release, perf): app/src/main/generated/baselineProfiles/baseline-prof.txt.
+    mergeIntoMain = true
+}
+
+// The baseline profile plugin adds nonMinifiedRelease (profile generation) and benchmarkRelease (measuring) after the
+// DSL above is read. They must never be the real app: .preview id and the debug key, like `perf`, so they install over
+// the test copy only. (Checked by the `checkPreviewVariants` task, which the generation depends on.)
+androidComponents {
+    finalizeDsl { dsl ->
+        dsl.buildTypes.matching { it.name == "nonMinifiedRelease" || it.name == "benchmarkRelease" }.configureEach {
+            applicationIdSuffix = ".preview"
+            signingConfig = dsl.signingConfigs.getByName("debug")
+        }
+    }
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(libs.androidx.core.ktx)
@@ -124,6 +142,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.profileinstaller)
+    "baselineProfile"(project(":baselineprofile"))
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.datastore.preferences)

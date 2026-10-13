@@ -61,6 +61,13 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   grid, 80–150 ms). Build type `perf` (`assemblePerf`: R8 like release, not debuggable, debug-signed, `.preview` id)
   for frame times: `dumpsys gfxinfo <pkg>` / `atrace -a <pkg> view gfx`; it installs over the debug copy and keeps
   its test data. A fresh `adb install` is only verified (no AOT); compare runs with the same compile state.
+- Baseline profile: `:baselineprofile` (Macrobenchmark `BaselineProfileGenerator`, `androidx.baselineprofile`) writes
+  `app/src/main/generated/baselineProfiles/baseline-prof.txt` (committed, merged into every build type, rules for ART).
+  Regenerate after big UI changes: debug copy with fake plan + 3 friends installed on the phone (the plugin's
+  `nonMinifiedRelease`/`benchmarkRelease` variants are forced to `.preview` + debug key in `app/build.gradle.kts`, never the
+  real app), then `ANDROID_SERIAL=<serial> ./gradlew :app:generateBaselineProfile` (~6 min; the task uninstalls the copy
+  afterwards). Android applies it only after the first launch at the next idle compile (an `adb install` or an in-app
+  update stays `status=verify` until then).
 - Dev tools (outputs contain no lecturers or notes; exports to compare live in the git-ignored `private/`):
   - `./gradlew :core:planReport --args="private/<export>.ics 4"` prints occurrences, changes/extras, cancellations,
     subjects and the QR/file share size of an export.

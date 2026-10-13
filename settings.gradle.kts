@@ -20,4 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "StundenplanMD"
-include(":app", ":core")
+include(":app", ":core", ":baselineprofile")

@@ -10,6 +10,7 @@ private/
 /build/
 /app/build/
 /core/build/
+/baselineprofile/build/
 /captures/
 .externalNativeBuild/
 .cxx/
