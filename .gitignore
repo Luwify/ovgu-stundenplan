@@ -21,3 +21,6 @@ private/
 # Release settings for the old Forgejo (bridge release only): host, home network, token path. Template in
 # tools/forgejo/README.md.
 /release/forgejo.conf
+
+# History rewrite for the move to GitHub: the real -> fake mappings (real names, rooms, infrastructure). Never commit.
+/tools/history-rewrite/

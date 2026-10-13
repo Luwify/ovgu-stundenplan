@@ -37,8 +37,8 @@ class LsfTextTest {
 
     @Test
     fun summariesWithoutLecturers() {
-        val gti = "Grundlagen der Digitalen Logik (Nachrichtentechnik/Bordnetztechnik) Vorlesung"
-        assertEquals(gti to emptyList<String>(), split(gti))
+        val gdl = "Grundlagen der Digitalen Logik (Nachrichtentechnik/Bordnetztechnik) Vorlesung"
+        assertEquals(gdl to emptyList<String>(), split(gdl))
         for (s in listOf("Numerik N4 (VL)", "Grundlagen der Aktorik (Ü)", "Wellen und Felder (Übung 2)", "Analysis (Seminar)", "Physik (P PQR/STU)", "Kurs"))
             assertEquals(s to emptyList<String>(), split(s))
     }

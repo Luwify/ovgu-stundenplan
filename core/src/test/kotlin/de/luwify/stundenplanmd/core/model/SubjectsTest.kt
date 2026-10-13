@@ -31,15 +31,15 @@ class SubjectsTest {
     @Test
     fun styleAndMove() {
         var settings = emptyMap<String, CourseSetting>()
-        val get = Subjects.build(events, settings).single { it.name == "Grundlagen der Feldtheorie III" }
-        settings = Subjects.setStyle(settings, get, " GFT III ", 0x1565C0)
+        val gft = Subjects.build(events, settings).single { it.name == "Grundlagen der Feldtheorie III" }
+        settings = Subjects.setStyle(settings, gft, " GFT III ", 0x1565C0)
         assertEquals(setOf("lsf:900154", "lsf:900198"), settings.keys)
 
         // Move the Praktikum into GFT III: it takes over the style.
         val subjects = Subjects.build(events, settings)
         val praktikum = subjects.single { it.name.endsWith("Teil2") }.courses.single()
-        settings = Subjects.move(settings, praktikum, get.key, subjects)
-        val merged = Subjects.build(events, settings).single { it.key == get.key }
+        settings = Subjects.move(settings, praktikum, gft.key, subjects)
+        val merged = Subjects.build(events, settings).single { it.key == gft.key }
         assertEquals(listOf("lsf:900154", "lsf:900198", "lsf:900165"), merged.courses.map { it.key })
         assertEquals("GFT III", merged.displayName)
         assertEquals(0x1565C0, merged.color)
@@ -84,9 +84,9 @@ class SubjectsTest {
 
     @Test
     fun friendPlanUsesLocalThenMineThenTheirs() {
-        val m3vl = events.first { it.courseKey == "lsf:900066" }
-        val theirs = m3vl.copy(uid = "777777000001", title = "Numerik N4 (GÜ XYZ)", summary = "Numerik N4 (GÜ XYZ)", category = "Übung (Ü)")
-        val friend = listOf(m3vl, theirs)
+        val n4vl = events.first { it.courseKey == "lsf:900066" }
+        val theirs = n4vl.copy(uid = "777777000001", title = "Numerik N4 (GÜ XYZ)", summary = "Numerik N4 (GÜ XYZ)", category = "Übung (Ü)")
+        val friend = listOf(n4vl, theirs)
         val mine = Subjects.resolved(events, emptyMap()) { 0x111111 }
         val shared = mapOf(
             "lsf:900066" to CourseSetting("lsf:900066", "Numerik N4 (VL)", shortName = "Mathe", color = 0x222222),

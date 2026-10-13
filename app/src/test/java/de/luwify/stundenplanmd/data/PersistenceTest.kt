@@ -62,9 +62,9 @@ class PersistenceTest {
         assertEquals(events, loaded.myPlan!!.events)
         assertEquals(settings, loaded.courseSettings)
         val subjects = Subjects.build(loaded.myPlan!!.events, loaded.courseSettings)
-        val m3 = subjects.single { it.shortName == "N4x" }
-        assertEquals(0xE91E63, m3.color)
-        assertEquals(3, m3.courses.size) // the moved course is still in the subject
+        val n4 = subjects.single { it.shortName == "N4x" }
+        assertEquals(0xE91E63, n4.color)
+        assertEquals(3, n4.courses.size) // the moved course is still in the subject
     }
 
     @Test
