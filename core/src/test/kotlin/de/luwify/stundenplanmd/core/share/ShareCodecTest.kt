@@ -185,6 +185,29 @@ class ShareCodecTest {
     }
 
     @Test
+    fun manualCoursesAndStTravelOnlyInVersion2() {
+        val manual = de.luwify.stundenplanmd.core.schedule.ManualCourses.event(
+            de.luwify.stundenplanmd.core.model.ManualCourse(
+                id = de.luwify.stundenplanmd.core.model.ManualCourse.newId("00000000000000aa"), title = "Lerngruppe",
+                room = "Bibliothek", rhythm = de.luwify.stundenplanmd.core.model.ManualCourse.Rhythm.WEEKLY,
+                startDate = LocalDate.of(2026, 10, 12), endDate = LocalDate.of(2026, 12, 21),
+                start = LocalTime.of(17, 0), end = LocalTime.of(18, 30), st = true,
+            ),
+        ).let { it.copy(recurrence = it.recurrence!!.copy(exdates = setOf(it.start.plusWeeks(2)))) }
+        val withManual = plan(Fixture.events + manual)
+        for (payload in listOf(ShareCodec.payload(withManual, complete = true), ShareCodec.payload(withManual, complete = false))) {
+            assertEquals(2, payload[0].toInt())
+            val back = ok(ShareCodec.decode(payload))
+            assertEquals(manual.copy(summary = back.events.single { it.isManual }.summary), back.events.single { it.isManual })
+            assertEquals(fingerprint(Fixture.events + manual), fingerprint(back.events))
+            assertTrue(back.events.filter { !it.isManual }.none { it.st })
+        }
+        // An s.t. flag alone also needs version 2.
+        assertEquals(2, ShareCodec.version(plan(Fixture.events.mapIndexed { i, e -> if (i == 0) e.copy(st = true) else e })))
+        assertEquals(1, ShareCodec.version(plan()))
+    }
+
+    @Test
     fun rejectsOtherInput() {
         assertEquals(ShareResult.NotAShare, ShareCodec.parse("BEGIN:VCALENDAR\r\n".toByteArray()))
         assertEquals(ShareResult.NotAShare, ShareCodec.parse("hello"))

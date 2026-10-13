@@ -60,7 +60,7 @@ data class Personal(
         }
 
         fun values(event: Event, start: java.time.LocalDateTime, end: java.time.LocalDateTime) =
-            OccurrenceValues("", false, event.location?.room, start.toLocalTime(), end.toLocalTime())
+            OccurrenceValues("", event.st, event.location?.room, start.toLocalTime(), end.toLocalTime())
     }
 }
 
@@ -108,7 +108,7 @@ object PersonalChanges {
         val next = PersonalChange(
             uid, from, series = true, title = title,
             note = desired.note.takeIf { it.isNotBlank() },
-            st = desired.st.takeIf { it },
+            st = desired.st.takeIf { it != o.st },
             room = desired.room?.takeIf { it != o.room },
             start = desired.start.takeIf { timeChanged },
             end = desired.end.takeIf { timeChanged },

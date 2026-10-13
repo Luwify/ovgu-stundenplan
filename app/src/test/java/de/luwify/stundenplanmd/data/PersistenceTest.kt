@@ -7,6 +7,8 @@ import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.model.PersonalChange
+import de.luwify.stundenplanmd.core.model.ManualCourse
+import de.luwify.stundenplanmd.core.model.ManualType
 import de.luwify.stundenplanmd.core.model.Plan
 import de.luwify.stundenplanmd.core.share.SharedPlan
 import kotlinx.coroutines.runBlocking
@@ -157,6 +159,54 @@ class PersistenceTest {
         val restored = BackupCodec.decode(BackupCodec.encode(withChanges, null, theme, "de", UpdatesBackup())) as BackupResult.Ok
         assertEquals(changes, restored.backup.data.personalChanges)
         assertFalse(restored.backup.data.share.withChanges)
+    }
+
+    /** Version 4 (own changes, on a real phone since 2026-10-13) gets manual courses in 5; its changes stay as they are. */
+    @Test
+    fun version4GetsManualCoursesThatSurviveStoreReimportAndBackup() = runBlocking {
+        val d = dir()
+        val change = PersonalChange("900022000001", LocalDate.parse("2026-10-12"), title = "Numerik N4 (HSÜ)", note = "x", st = true)
+        PlanStore(d).write(data.copy(personalChanges = listOf(change)))
+        val o = kotlinx.serialization.json.Json.parseToJsonElement(File(d, "data.json").readText()) as JsonObject
+        val v4 = JsonObject(o - "manualCourses" + ("version" to JsonPrimitive(4))).toString()
+        File(d, "data.json").writeText(v4)
+        val read = PlanStore(d).read() as StoreRead.Ok
+        assertEquals(4, read.migratedFrom)
+        assertUserDataSurvived(read.data)
+        assertEquals(listOf(change), read.data.personalChanges)
+        assertEquals(emptyList<ManualCourse>(), read.data.manualCourses)
+        assertEquals(v4, File(d, "data.json.v4").readText())
+
+        val course = ManualCourse(
+            id = ManualCourse.newId("0123456789abcdef"), title = "Lerngruppe", type = ManualType.SEMINAR, room = "Bibliothek",
+            lecturer = "Tutor", note = "mit Laptop", st = true, rhythm = ManualCourse.Rhythm.BIWEEKLY,
+            startDate = LocalDate.parse("2026-10-13"), endDate = LocalDate.parse("2027-01-26"),
+            start = java.time.LocalTime.parse("17:00"), end = java.time.LocalTime.parse("18:30"), skipFreeWeeks = false,
+        )
+        val repo = PlanRepository(d)
+        repo.load()
+        repo.saveManual(course, CourseSetting(course.courseKey, course.title, shortName = "LG", color = 0x123456))
+        // A re-import of the .ics leaves the manual course and its settings alone.
+        repo.importIcs(File("../core/src/test/resources/lsf_scrubbed.ics").readText())
+        val after = (PlanStore(d).read() as StoreRead.Ok).data
+        assertEquals(listOf(course), after.manualCourses)
+        assertEquals("LG", after.courseSettings.getValue(course.courseKey).shortName)
+        assertTrue(after.myEvents.any { it.uid == course.id && it.st })
+        val restored = BackupCodec.decode(BackupCodec.encode(after, null, theme, "de", UpdatesBackup())) as BackupResult.Ok
+        assertEquals(listOf(course), restored.backup.data.manualCourses)
+        // A backup made with version 4 data restores with no manual courses.
+        val oldBackup = BackupCodec.encode(read.data, null, theme, "de", UpdatesBackup())
+            .let { kotlinx.serialization.json.Json.parseToJsonElement(it) as JsonObject }
+            .let { b -> JsonObject(b + ("data" to JsonObject((b.getValue("data") as JsonObject) - "manualCourses" + ("version" to JsonPrimitive(4))))) }
+        val fromOld = BackupCodec.decode(oldBackup.toString()) as BackupResult.Ok
+        assertEquals(emptyList<ManualCourse>(), fromOld.backup.data.manualCourses)
+        assertEquals(listOf(change), fromOld.backup.data.personalChanges)
+
+        val previous = repo.deleteManual(course.id)!!
+        assertTrue(repo.data.value!!.manualCourses.isEmpty())
+        assertFalse(course.courseKey in repo.data.value!!.courseSettings)
+        repo.restore(previous)
+        assertEquals(listOf(course), repo.data.value!!.manualCourses)
     }
 
     @Test

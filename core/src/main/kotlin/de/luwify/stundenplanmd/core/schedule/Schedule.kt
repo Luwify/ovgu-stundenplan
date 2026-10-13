@@ -34,6 +34,9 @@ sealed interface Timed {
     /** The room shown: mine when I changed it (and LSF did not change this occurrence), else LSF's. */
     val room: String? get() = personal?.takeIf { it.applied && it.roomChanged }?.current?.room ?: event.location?.room
 
+    /** s.t.: by my change, else as the event says (a manual course can be s.t.). */
+    val st: Boolean get() = personal?.st ?: event.st
+
     /** The appointment and original date my changes are keyed by. */
     val ref: OccurrenceRef
 }

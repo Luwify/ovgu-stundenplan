@@ -18,6 +18,8 @@ import de.luwify.stundenplanmd.core.schedule.OccurrenceRef
 import de.luwify.stundenplanmd.core.schedule.OccurrenceValues
 import de.luwify.stundenplanmd.core.schedule.Personal
 import de.luwify.stundenplanmd.core.schedule.PersonalChanges
+import de.luwify.stundenplanmd.core.schedule.ManualCourses
+import de.luwify.stundenplanmd.core.model.ManualCourse
 import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.data.Backup
 import de.luwify.stundenplanmd.AppLanguage
@@ -92,7 +94,7 @@ data class PlanUi(
     companion object {
         /** Me and every friend, in drawer order (my plan first); each schedule is expanded once. */
         fun all(data: StoredData): List<PlanUi> {
-            val schedules = data.plans.associate { it.personId to data.schedule(it) }
+            val schedules = data.plans.associate { it.personId to data.schedule(it) } + (StoredData.ME to data.mySchedule())
             val ids = listOf(StoredData.ME) + data.friends.map { it.id }
             return ids.map { of(data, it, schedules) }
         }
@@ -100,18 +102,18 @@ data class PlanUi(
         fun of(data: StoredData, personId: String, schedules: Map<String, Schedule> = emptyMap()): PlanUi {
             val person = data.person(personId) ?: Person(StoredData.ME, "", isMe = true)
             val plan = data.planOf(person.id)
-            val events = plan?.events.orEmpty()
+            val events = if (person.isMe) data.myEvents else plan?.events.orEmpty()
             val settings = if (person.isMe) data.courseSettings else Subjects.forFriend(
                 events,
                 local = data.friendSettings[person.id].orEmpty(),
-                mine = Subjects.resolved(data.myPlan?.events.orEmpty(), data.courseSettings, SubjectColors::defaultColor),
+                mine = Subjects.resolved(data.myEvents, data.courseSettings, SubjectColors::defaultColor),
                 shared = plan?.sharedSettings.orEmpty(),
             )
             val subjects = Subjects.build(events, settings)
-            val schedule = schedules[person.id] ?: plan?.let(data::schedule) ?: Schedule(events)
+            val schedule = schedules[person.id] ?: if (person.isMe) data.mySchedule() else plan?.let(data::schedule) ?: Schedule(events)
             // In my plan: friends. In a friend's: me and the other friends.
             val others = data.people.filter { it.id != person.id }
-                .mapNotNull { p -> data.planOf(p.id)?.let { p.id to (schedules[p.id] ?: data.schedule(it)) } }
+                .mapNotNull { p -> (schedules[p.id] ?: data.planOf(p.id)?.let(data::schedule))?.let { p.id to it } }
             return PlanUi(
                 person = person,
                 schedule = schedule,
@@ -416,19 +418,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun mySharedPlan(): SharedPlan? {
         val identity = repo.shareIdentity()
         val data = repo.data.value ?: return null
-        val plan = data.myPlan ?: return null
+        val plan = data.myPlan
         val name = identity.name ?: return null
+        // Manual courses go with my own changes ("Eigene Änderungen teilen"), without their notes (notes are mine).
+        val withChanges = data.share.withChanges
+        val events = plan?.events.orEmpty() +
+            if (withChanges) ManualCourses.merge(plan?.events.orEmpty(), data.manualCourses).filter { it.isManual }.map { it.copy(notes = "") } else emptyList()
+        if (events.isEmpty()) return null
         return withContext(Dispatchers.Default) {
             SharedPlan(
                 personId = identity.id!!,
                 name = name,
                 exportedOn = LocalDate.now(PlanZone),
-                planDate = plan.importedAt.atZone(PlanZone).toLocalDate(),
-                events = plan.events,
-                settings = Subjects.resolved(plan.events, data.courseSettings, SubjectColors::defaultColor),
+                planDate = (plan?.importedAt ?: java.time.Instant.now()).atZone(PlanZone).toLocalDate(),
+                events = events,
+                settings = Subjects.resolved(events, data.courseSettings, SubjectColors::defaultColor),
                 complete = true,
                 // Notes never leave the phone ([PersonalChange.forSharing]); the rest only while the setting is on.
-                changes = if (data.share.withChanges) data.personalChanges.mapNotNull { it.forSharing() } else emptyList(),
+                changes = if (withChanges) data.personalChanges.mapNotNull { it.forSharing() } else emptyList(),
             )
         }
     }
@@ -487,7 +494,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Own changes no date of my plan matches any more (after a re-import): the cleanup list in the settings. */
     val orphans: StateFlow<List<PersonalChange>> = repo.data.filterNotNull()
-        .map { PersonalChanges.orphans(it.myPlan?.events.orEmpty(), it.personalChanges) }
+        .map { PersonalChanges.orphans(it.myEvents, it.personalChanges) }
         .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Saves note, s.t., room and time of [p] for that date only or, [series], for every later date of its series. */

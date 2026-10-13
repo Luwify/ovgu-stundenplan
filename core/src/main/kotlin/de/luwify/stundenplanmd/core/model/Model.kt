@@ -57,7 +57,12 @@ data class Event(
     val recurrence: Recurrence? = null,
     /** [notes] are incomplete: a friend's plan shared by QR carries only short notes. */
     val notesShortened: Boolean = false,
+    /** Starts s.t. (a manual course can say so; LSF has no such field). */
+    val st: Boolean = false,
 ) {
+    /** Added by hand ([ManualCourse]), not from LSF. */
+    val isManual: Boolean get() = ManualCourse.isManual(uid)
+
     /** See [CourseKeys]. */
     val courseKey: String get() = CourseKeys.of(uid, title)
     val type: CourseType get() = CourseType.parse(category)
@@ -136,7 +141,11 @@ object CourseKeys {
 
     fun courseId(uid: String): String? = lsfUid.find(uid.trim())?.groupValues?.get(1)
 
-    fun of(uid: String, title: String): String = courseId(uid)?.let { "lsf:$it" } ?: titleKey(title)
+    const val MANUAL_KEY_PREFIX = "manual:"
+
+    /** LSF course id, a manual course's own key (never merged with anything by title), else the title. */
+    fun of(uid: String, title: String): String = courseId(uid)?.let { "lsf:$it" }
+        ?: if (ManualCourse.isManual(uid)) MANUAL_KEY_PREFIX + uid else titleKey(title)
 
     fun titleKey(title: String): String = "title:" + title.trim().replace(spaces, " ").lowercase()
 }

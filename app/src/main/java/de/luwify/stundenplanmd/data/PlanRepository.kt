@@ -2,6 +2,9 @@ package de.luwify.stundenplanmd.data
 
 import de.luwify.stundenplanmd.core.ical.LsfImport
 import de.luwify.stundenplanmd.core.model.CourseSetting
+import de.luwify.stundenplanmd.core.model.Event
+import de.luwify.stundenplanmd.core.model.ManualCourse
+import de.luwify.stundenplanmd.core.schedule.ManualCourses
 import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.core.model.Plan
@@ -40,7 +43,12 @@ data class StoredData(
     val share: MyShare = MyShare(),
     /** My own changes to my plan (notes, s.t., cancellations, rooms, times); kept across re-imports. */
     val personalChanges: List<PersonalChange> = emptyList(),
+    /** Courses I added by hand; the LSF import never touches them. */
+    val manualCourses: List<ManualCourse> = emptyList(),
 ) {
+    /** My events: the LSF import plus the manual courses. */
+    val myEvents: List<Event> get() = ManualCourses.merge(myPlan?.events.orEmpty(), manualCourses)
+
     val myPlan: Plan? get() = planOf(ME)
     val friends: List<Person> get() = people.filter { !it.isMe }
 
@@ -48,7 +56,9 @@ data class StoredData(
     fun person(id: String): Person? = people.firstOrNull { it.id == id }
 
     /** [plan] expanded with the own changes: mine for my plan, the friend's shared ones for theirs. */
-    fun schedule(plan: Plan): Schedule = Schedule(plan.events, if (plan.personId == ME) personalChanges else plan.sharedChanges)
+    fun schedule(plan: Plan): Schedule = if (plan.personId == ME) mySchedule() else Schedule(plan.events, plan.sharedChanges)
+
+    fun mySchedule(): Schedule = Schedule(myEvents, personalChanges)
 
     companion object {
         const val ME = "me"
@@ -190,6 +200,27 @@ class PlanRepository(dir: File) {
         val current = _data.value ?: return@withLock
         val next = transform(current.personalChanges)
         if (next != current.personalChanges) write(current.copy(personalChanges = next))
+    }
+
+    /** Adds or replaces (same id) a manual course and sets its course settings ([setting] null = none). */
+    suspend fun saveManual(course: ManualCourse, setting: CourseSetting?) = mutex.withLock {
+        val current = _data.value ?: StoredData()
+        val courses = if (current.manualCourses.any { it.id == course.id }) {
+            current.manualCourses.map { if (it.id == course.id) course else it }
+        } else {
+            current.manualCourses + course
+        }
+        val settings = if (setting == null) current.courseSettings - course.courseKey else current.courseSettings + (course.courseKey to setting)
+        write(current.copy(manualCourses = courses, courseSettings = settings))
+    }
+
+    /** Removes a manual course with its settings and my changes to it; returns the previous state for undo. */
+    suspend fun deleteManual(id: String): StoredData? = mutex.withLock {
+        val current = _data.value ?: return@withLock null
+        val course = current.manualCourses.firstOrNull { it.id == id } ?: return@withLock null
+        val (courses, changes) = ManualCourses.remove(current.manualCourses, current.personalChanges, id)
+        write(current.copy(manualCourses = courses, personalChanges = changes, courseSettings = current.courseSettings - course.courseKey))
+        current
     }
 
     suspend fun setShareChanges(on: Boolean) = mutex.withLock {

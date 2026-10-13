@@ -57,7 +57,10 @@ sealed interface ShareResult {
  * and notes of series, and caps notes of single events; such events are flagged [Event.notesShortened].
  */
 object ShareCodec {
-    /** 2: own changes appended after the events. A plan without changes is still written as 1, which every app reads. */
+    /**
+     * 2: own changes and the s.t. flags of events appended after the events; manual courses (`manual-` UIDs) only in 2.
+     * A plan without any of them is still written as 1, which every app reads.
+     */
     const val VERSION = 2
     const val QR_PREFIX = "SPMD:"
     val FILE_MAGIC = "SPMD".toByteArray()
@@ -126,7 +129,7 @@ object ShareCodec {
         try {
             d.setInput(body); d.finish()
             val out = ByteArrayOutputStream()
-            out.write(if (plan.changes.none { it.forSharing() != null }) 1 else 2)
+            out.write(version(plan))
             val buf = ByteArray(4096)
             while (!d.finished()) out.write(buf, 0, d.deflate(buf))
             return out.toByteArray()
@@ -134,6 +137,10 @@ object ShareCodec {
             d.end()
         }
     }
+
+    /** 1 when an older app can read everything, else 2 (older apps then say a newer version is needed). */
+    fun version(plan: SharedPlan): Int =
+        if (plan.changes.none { it.forSharing() != null } && plan.events.none { it.isManual || it.st }) 1 else 2
 
     fun decode(payload: ByteArray): ShareResult {
         if (payload.isEmpty()) return ShareResult.Broken("empty")
@@ -266,7 +273,11 @@ object ShareCodec {
             out.bytes(settings.toByteArray())
             out.varint(events.size)
             cols.forEach { out.bytes(it.toByteArray()) }
-            if (shared.isNotEmpty()) { out.varint(shared.size); out.bytes(changes.toByteArray()) }
+            if (version(plan) >= 2) {
+                out.varint(shared.size); out.bytes(changes.toByteArray())
+                val st = events.withIndex().filter { it.value.st }.map { it.index }
+                out.varint(st.size); var last = 0; st.forEach { out.varint(it - last); last = it }
+            }
             return out.toByteArray()
         }
 
@@ -354,7 +365,7 @@ object ShareCodec {
                 start to start.plusMinutes(r.minutes())
             }
             val kinds = List(n) { readRule(r, times[it].first) }
-            val events = List(n) { i ->
+            val events0 = List(n) { i ->
                 val (title, category) = titles[i]
                 val (start, end) = times[i]
                 val rule = kinds[i]?.let { k -> if (k is PlainSeries) k.toRecurrence(start, r.bytes((k.slots + 7) / 8)) else k as Recurrence }
@@ -389,8 +400,11 @@ object ShareCodec {
                     start = time?.first, end = time?.second,
                 )
             }
+            val st = BooleanArray(n)
+            if (version >= 2) { var at = 0L; repeat(r.count(MAX_EVENTS)) { at += r.varint(); require(at < n) { "st" }; st[at.toInt()] = true } }
             require(r.atEnd()) { "trailing data" }
 
+            val events = events0.mapIndexed { i, e -> if (st[i]) e.copy(st = true) else e }
             val titleOf = Subjects.courses(events).associate { it.key to it.title }
             val settings = rawSettings.associate { it.key to CourseSetting(it.key, titleOf[it.key] ?: "", it.subject, it.shortName, it.color) }
             return SharedPlan(personId, name, exportedOn, planDate, events, settings, complete = flags and FLAG_ALL_NOTES != 0, changes = changes)
