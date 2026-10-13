@@ -1,9 +1,19 @@
 package de.luwify.stundenplanmd.core.update
 
-/** Where the updater may connect: the manifest URL and APKs below [downloadPrefix], nothing else. */
+import java.net.URI
+import java.net.URISyntaxException
+
+/**
+ * Where the updater may connect: the manifest URL, APKs below [downloadPrefix], and redirects of those requests to
+ * [redirectPrefixes] or [redirectHosts]; nothing else.
+ */
 data class UpdateSource(
     val manifestUrl: String,
     val downloadPrefix: String,
+    /** URL prefixes a redirect may lead to (on GitHub: this repo's releases, e.g. latest -> the tag). */
+    val redirectPrefixes: List<String> = emptyList(),
+    /** Hosts a redirect may lead to with any path and query (GitHub's CDN serves signed asset URLs). https only. */
+    val redirectHosts: Set<String> = emptySet(),
     /** Only for the debug-build override (a local test server); release sources are https only. */
     val allowHttp: Boolean = false,
 ) {
@@ -18,17 +28,59 @@ data class UpdateSource(
 
     val secure: Boolean get() = manifestUrl.startsWith("https://") && downloadPrefix.startsWith("https://")
 
+    /** Download link of a version as the release script publishes it (for the "share the app" QR code). */
+    fun apkUrl(versionName: String): String = "${downloadPrefix}v$versionName/stundenplan-md-$versionName.apk"
+
+    /**
+     * The next URL after a redirect from [current] with the `Location` header [location] (may be relative), or null
+     * if the redirect leads anywhere else than this source allows: https only, no user info, default port, and
+     * either below one of [redirectPrefixes] (no dot segments, no query) or on one of [redirectHosts].
+     */
+    fun redirect(current: String, location: String?): String? {
+        if (location.isNullOrBlank()) return null
+        val target = try {
+            URI(current).resolve(location.trim())
+        } catch (_: URISyntaxException) {
+            return null
+        } catch (_: IllegalArgumentException) {
+            return null
+        }
+        if (target.scheme != "https" || target.rawUserInfo != null || target.port != -1 || target.rawFragment != null) return null
+        val host = target.host?.lowercase() ?: return null
+        val url = target.toASCIIString()
+        if (host in redirectHosts) return url
+        val prefix = redirectPrefixes.firstOrNull { url.startsWith(it) } ?: return null
+        val rest = url.removePrefix(prefix)
+        if (target.rawQuery != null || rest.isEmpty()) return null
+        if (rest.split('/').any { it == ".." || it == "." || it.isEmpty() || it.contains('%') }) return null
+        return url
+    }
+
     companion object {
-        private const val BASE = "https://github.com/Luwify/ovgu-stundenplan"
+        /** Redirects one request may follow (GitHub: latest -> tag -> CDN = 2). */
+        const val MAX_REDIRECTS = 3
 
-        /** The public release repo (SSO lets anyone read raw/ and releases/download/ there). */
-        val RELEASES = UpdateSource(
-            manifestUrl = "$BASE/releases/latest/download/updates.json",
-            downloadPrefix = "$BASE/releases/download/",
-        )
+        /** GitHub's host for release assets (github.com/.../releases/download/... redirects there). */
+        val GITHUB_ASSET_HOSTS = setOf("release-assets.githubusercontent.com")
 
-        /** Download link of a version as tools/release.sh publishes it (for the "share the app" QR code). */
-        fun apkUrl(versionName: String): String = "$BASE/releases/download/v$versionName/stundenplan-md-$versionName.apk"
+        private val githubManifest = Regex("""^https://github\.com/([A-Za-z0-9-]+)/([A-Za-z0-9._-]+)/releases/latest/download/([A-Za-z0-9._-]+)$""")
+
+        /**
+         * The source for a manifest at `https://github.com/<owner>/<repo>/releases/latest/download/<file>` (the
+         * build's update URL, see app/build.gradle.kts); null for any other URL.
+         */
+        fun forManifestUrl(manifestUrl: String): UpdateSource? {
+            val m = githubManifest.matchEntire(manifestUrl) ?: return null
+            val (owner, repo) = m.destructured
+            if (repo == "." || repo == "..") return null
+            val releases = "https://github.com/$owner/$repo/releases/"
+            return UpdateSource(
+                manifestUrl = manifestUrl,
+                downloadPrefix = "${releases}download/",
+                redirectPrefixes = listOf("${releases}download/"),
+                redirectHosts = GITHUB_ASSET_HOSTS,
+            )
+        }
 
         /** A debug override: the manifest and APKs from one origin, e.g. `http://127.0.0.1:8765/updates.json`. */
         fun override(manifestUrl: String): UpdateSource? {

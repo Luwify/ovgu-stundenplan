@@ -17,6 +17,11 @@ val appVersionCode: Int = run {
     major * 10000 + minor * 100 + patch
 }
 
+// The updater's manifest, per build: `-PupdateManifestUrl=...` or a Gradle property; default = the GitHub repo's latest
+// release. Must have the form https://github.com/<owner>/<repo>/releases/latest/download/<file> (UpdateSource).
+val updateManifestUrl: String = providers.gradleProperty("updateManifestUrl").orNull?.takeIf(String::isNotBlank)
+    ?: "https://github.com/Luwify/ovgu-stundenplan/releases/latest/download/updates.json"
+
 // Release signing: credentials only from Gradle properties (~/.gradle/gradle.properties), never from the repo.
 // Without them release builds fail (checkReleaseSigning below); they never fall back to the debug key.
 val signingProps = listOf("LUWIFY_STORE_FILE", "LUWIFY_STORE_PASSWORD", "LUWIFY_KEY_ALIAS", "LUWIFY_KEY_PASSWORD")
@@ -34,6 +39,7 @@ android {
         targetSdk = 37
         versionCode = appVersionCode
         versionName = appVersion
+        buildConfigField("String", "UPDATE_MANIFEST_URL", "\"$updateManifestUrl\"")
     }
 
     signingConfigs {
@@ -71,6 +77,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     androidResources {

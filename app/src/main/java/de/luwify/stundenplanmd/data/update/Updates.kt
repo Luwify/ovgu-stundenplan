@@ -75,7 +75,7 @@ class Updates(context: Context, private val settings: UpdateSettings, private va
     val installed: InstalledVersion = app.packageManager.getPackageInfo(app.packageName, 0).let { info ->
         InstalledVersion(info.versionName ?: "?", PackageInfoCompat.getLongVersionCode(info).toInt())
     }
-    private val http = UpdateHttp(installed.name)
+    private val http = UpdateHttp(installed.name, source)
 
     private val checking = MutableStateFlow(false)
     private val result = MutableStateFlow(CheckResult.NONE)
@@ -267,7 +267,7 @@ class Updates(context: Context, private val settings: UpdateSettings, private va
     /** Link for a first install (QR code): the newest version's APK, else the installed one's. */
     fun shareLink(): Pair<String, String> {
         val newest = state.value.manifest?.newest?.takeIf { source.allowsApk(it.apkUrl) }
-        return newest?.let { it.versionName to it.apkUrl } ?: (installed.name to UpdateSource.apkUrl(installed.name))
+        return newest?.let { it.versionName to it.apkUrl } ?: (installed.name to source.apkUrl(installed.name))
     }
 
     private fun cleanUp() {

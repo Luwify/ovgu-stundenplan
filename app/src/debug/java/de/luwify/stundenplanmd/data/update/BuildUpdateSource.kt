@@ -11,8 +11,8 @@ import java.io.File
  *   adb shell run-as de.luwify.stundenplanmd.preview sh -c 'echo http://127.0.0.1:8765/updates.json > files/debug_update_url'
  *
  * APKs are then allowed from that origin only (plain http only to 127.0.0.1/localhost, see network_security_config).
- * Delete the file to go back to the real release repo.
+ * Delete the file to go back to the release repo of the build.
  */
 fun buildUpdateSource(context: Context): UpdateSource =
     File(context.filesDir, "debug_update_url").takeIf { it.isFile }?.readText()?.trim()?.let(UpdateSource::override)
-        ?: UpdateSource.RELEASES
+        ?: releaseSource
