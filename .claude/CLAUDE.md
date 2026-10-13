@@ -23,12 +23,12 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
     `titleStem`), `LsfImport` -> `ImportResult(events, source, warnings)`.
   - `model/`: `Event`, `Location`, `Recurrence`, `Plan`, `Person`, `CourseKeys` (UID hypothesis),
     `CourseType`, `Subjects` (grouping, `setStyle`, `move`, `carryOver`, `resolved` = automatic colors filled in,
-    `forFriend`/`overrides` for a friend's plan), `CourseSetting`; kotlinx JSON.
+    `forFriend`/`overrides` for a friend's plan), `CourseSetting`, `PersonalChange` (own changes, see below); kotlinx JSON.
   - `schedule/`: `Expansion` (slots incl. cancelled), `Schedule` (occurrences with `Status`
     Regular/Changed/Extra, unreplaced `cancellations`, `day`/`week`, `hours`), `DayPlan`/`WeekPlan`
     (`free` = all cancelled -> "Vorlesungsfrei"), `Navigation` (`weekToOpen`, `weeks` = strip/pager range from 1 week
     before the first event, `dayToOpen`, `TodayView`), `DayLayout`, `NowStatus` (drawer now-line), `Together`
-    (matching, `OccurrenceKey`).
+    (matching, `OccurrenceKey`), `Personal` (own changes resolved per occurrence, `PersonalChanges` editing + orphans).
   - `share/`: `Base45` (RFC 9285), `ShareCodec` (`SharedPlan`, `ShareResult`, QR text / file, limits).
   - `update/`: `UpdateManifest`, `UpdatePolicy` (see "In-app updater").
 - `:app`: `data/PlanRepository` (one atomic JSON file `files/plans/data.json` + `me.ics`, `StoredData`
@@ -56,6 +56,11 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   surfaceContainerLow, page and card; custom role FAVORITE), `SubjectColors` (tint + stripe, contrast-nudged).
   `TogetherBadge` (WeekView): group icon on a round surface badge, onSurfaceVariant, or the favorite red when a
   favorite friend attends (`PlanUi.withFavorite`).
+- Performance: `MainScreen` keeps every person composed (`composedAround`, one more per idle moment after the start,
+  max 8): otherwise the pager's prefetch composes the page beyond the next one at the start of a drag (a whole week
+  grid, 80–150 ms). Build type `perf` (`assemblePerf`: R8 like release, not debuggable, debug-signed, `.preview` id)
+  for frame times: `dumpsys gfxinfo <pkg>` / `atrace -a <pkg> view gfx`; it installs over the debug copy and keeps
+  its test data. A fresh `adb install` is only verified (no AOT); compare runs with the same compile state.
 - Dev tools (outputs contain no lecturers or notes; exports to compare live in the git-ignored `private/`):
   - `./gradlew :core:planReport --args="private/<export>.ics 4"` prints occurrences, changes/extras, cancellations,
     subjects and the QR/file share size of an export.
@@ -72,10 +77,22 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   Check `isKeyguardShowing` before screenshots. Rotation for layout checks: `settings put system user_rotation 0|1`
   with `accelerometer_rotation 0`; read the values first and restore them.
 
+## Own changes (my plan)
+- `PersonalChange` (`:core`): note, s.t., cancelled for me, room, time. Keyed by appointment UID + original date
+  (`Timed.ref`: for an LSF-moved occurrence the slot it was moved from); `series` = from that date on (optional `until`)
+  for that UID; a single change wins field by field. `Schedule(events, changes)` applies them: cancelled ->
+  `Cancellation.byMe` (no "Vorlesungsfrei"; out of together matching and the now-line), room/time replace LSF's. Where LSF
+  moved or cancelled the date, my room/time/cancel are `overruled`: shown next to the official change, never applied over
+  it. Series edit ends the earlier series the day before. `orphans` (no slot left after a re-import) -> cleanup list in
+  settings, never dropped silently. UI: detail sheet actions (editor, "Fällt für mich aus" + undo, "Termine
+  auswählen"), markers: dashed violet border + pencil (`PlanColors.own`), note icon, s.t. badge; LSF changes keep amber.
+- Sharing: notes never; the rest while `MyShare.withChanges` ("Eigene Änderungen teilen"); friend's in
+  `Plan.sharedChanges`, shown as "Von <Name> geändert".
+
 ## Persistence (user data must survive every update)
 - Files in `files/plans/`: `data.json` (`StoredData`: people (list order = drawer order, me first; `Person.favorite`),
-  plans, courseSettings, friendSettings, share; field `version`, currently 3; step 2 -> 3 sorts friends by shown name,
-  the order v2 displayed) and `me.ics` (raw import). Theme: DataStore `settings` (key `schema_version`).
+  plans, courseSettings, friendSettings, share, personalChanges; field `version`, currently 4; step 2 -> 3 sorts friends
+  by shown name, the order v2 displayed; step 3 -> 4 adds `personalChanges`) and `me.ics` (raw import). Theme: DataStore `settings` (key `schema_version`).
   `data/PlanStore` does the I/O: atomic writes (tmp + fsync + rename, `AtomicFiles`), a leftover `data.json.bak` from
   the old AtomicFile scheme is restored, an unreadable or too-new `data.json` is renamed to `data.json.broken[.n]`
   (never overwritten; the app shows a snackbar), an older version is migrated step by step (`data/Migrations`:
@@ -149,7 +166,9 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   course ids sorted + delta, course settings (course ref, subject key, short name, color), then events column-wise:
   course, appointment id (delta in course), title, category, lecturers, location, note, day offset,
   start/length in quarter hours (escape for other minutes), slot count (0 = single), interval, bitmask of
-  cancelled slots. Escapes for non-LSF UIDs and other RRULEs. Dropped: off-rhythm EXDATEs, PRODID.
+  cancelled slots. Escapes for non-LSF UIDs and other RRULEs. Format 2 appends own changes (UID, date, series/until,
+  s.t., cancelled, room, time; no notes); a plan without shareable changes is still written as 1, so older apps import
+  it (they reject 2 as "newer version"). Dropped: off-rhythm EXDATEs, PRODID.
   QR profile: lecturers, notes only of single events, capped at 80 chars ("…"); series notes dropped; both are
   flagged (`Event.notesShortened`) and the detail sheet says so (`Event.noteHint`; `NoteHintTest` covers
   .ics/file/QR). SUMMARY = title (raw one not sent). File profile: all notes and the raw SUMMARY. A file holding the
