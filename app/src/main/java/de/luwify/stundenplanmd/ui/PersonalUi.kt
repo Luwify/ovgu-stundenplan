@@ -127,7 +127,12 @@ fun MarkerBadge(note: Boolean, size: Dp, modifier: Modifier = Modifier) {
  */
 @Composable
 fun PersonalBox(item: Timed, who: String?) {
-    val p = item.personal ?: return
+    val p = item.personal
+    if (p == null) {
+        // No change of mine, but the course itself (a manual one) can be s.t.
+        if (item.st) StLine()
+        return
+    }
     val scheme = MaterialTheme.colorScheme
     val own = planColors().own
     val locale = appLocale()
@@ -161,12 +166,7 @@ fun PersonalBox(item: Timed, who: String?) {
             }
         }
     }
-    if (p.st) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StBadge(12)
-            Text(stringResource(R.string.st_long), style = MaterialTheme.typography.bodyLarge)
-        }
-    }
+    if (p.st) StLine()
     p.note?.let { note ->
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -182,7 +182,15 @@ fun PersonalBox(item: Timed, who: String?) {
     }
 }
 
-private fun parseTime(text: String): LocalTime? {
+@Composable
+private fun StLine() {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        StBadge(12)
+        Text(stringResource(R.string.st_long), style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+internal fun parseTime(text: String): LocalTime? {
     val t = text.trim().replace('.', ':')
     val m = Regex("^(\\d{1,2})(?::(\\d{2}))?$").find(t) ?: return null
     val h = m.groupValues[1].toInt()

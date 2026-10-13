@@ -65,6 +65,8 @@ fun DetailSheet(
     onEditPersonal: () -> Unit,
     onCancelForMe: (Boolean) -> Unit,
     onPickDates: () -> Unit,
+    onEditManual: () -> Unit,
+    onDeleteManual: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -89,6 +91,13 @@ fun DetailSheet(
             SelectionContainer { Text(event.title, style = MaterialTheme.typography.headlineSmall) }
 
             StatusBox(item)
+            if (event.isManual) {
+                ManualBox(
+                    who = if (plan.isMe) null else plan.person.displayName,
+                    onEdit = onEditManual.takeIf { plan.isMe },
+                    onDelete = onDeleteManual.takeIf { plan.isMe },
+                )
+            }
             PersonalBox(item, who = if (plan.isMe) null else plan.person.displayName)
 
             Field(stringResource(R.string.detail_when), "${longDate(item.date, locale)}\n${timeRange(item.start, item.end)}" + rhythm(event, locale)?.let { "\n$it" }.orEmpty())

@@ -12,3 +12,9 @@ Wochenansicht:
 
 Flüssiger:
 - Das Wischen zwischen dir und deinen Freunden ruckelt nicht mehr, auch nicht beim ersten Mal
+
+Eigene Kurse:
+- Mit dem „+“ oben in deinem Plan fügst du Kurse hinzu, die nicht im LSF stehen: Titel, Art, Fach (vorhandenes oder neues mit Farbe), Raum, Lehrende, Notiz, s.t.
+- Einmalig, wöchentlich oder alle 2 Wochen; in vorlesungsfreien Wochen setzen sie auf Wunsch aus
+- Deutlich als eigener Kurs markiert; bearbeiten und löschen (mit Rückgängig) im Detailblatt; Notizen, Absagen, „Termine auswählen“ und Raum-/Zeitänderungen gehen auch hier
+- Ein neuer Import lässt sie unverändert; sie werden mit „Eigene Änderungen teilen“ geteilt (ohne Notizen)

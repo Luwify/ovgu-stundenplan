@@ -159,6 +159,7 @@ sealed interface UiMessage {
     data object ShareBroken : UiMessage
 
     /** A date cancelled for me ([cancelled]) or back again; undo restores [previous]. */
+    data class ManualDeleted(val title: String, val previous: StoredData) : UiMessage
     data class CancelledForMe(val title: String, val date: LocalDate, val cancelled: Boolean, val previous: List<PersonalChange>) : UiMessage
 }
 
@@ -533,6 +534,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun restorePersonal(previous: List<PersonalChange>) {
         viewModelScope.launch { repo.updatePersonalChanges { previous } }
     }
+
+    /** Adds or replaces a manual course with its subject. */
+    fun saveManual(edit: ManualEdit) {
+        val p = myPlan.value ?: return
+        viewModelScope.launch { repo.saveManual(edit.course, edit.setting(p)) }
+    }
+
+    fun deleteManual(id: String) {
+        viewModelScope.launch {
+            val title = repo.data.value?.manualCourses?.firstOrNull { it.id == id }?.title ?: return@launch
+            val previous = repo.deleteManual(id) ?: return@launch
+            _messages.send(UiMessage.ManualDeleted(title, previous))
+        }
+    }
+
+    fun manualCourse(id: String): ManualCourse? = repo.data.value?.manualCourses?.firstOrNull { it.id == id }
+
+    fun newManualId(): String = ManualCourse.newId(de.luwify.stundenplanmd.data.PersonIds.new())
+
+    /** Default last date of a new series: the end of the imported semester. */
+    fun manualDefaultEnd(start: LocalDate): LocalDate = ManualCourses.defaultEnd(repo.data.value?.myPlan?.events.orEmpty(), start)
 
     fun setShareChanges(on: Boolean) {
         viewModelScope.launch { repo.setShareChanges(on) }

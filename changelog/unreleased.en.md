@@ -12,3 +12,9 @@ Week view:
 
 Smoother:
 - Swiping between you and your friends no longer stutters, not even the first time
+
+Your own courses:
+- The "+" at the top of your plan adds courses that are not in LSF: title, type, subject (an existing one or a new one with a color), room, lecturer, note, s.t.
+- Once, weekly or every 2 weeks; they can pause in lecture-free weeks
+- Clearly marked as your own course; edit and delete (with undo) in the details; notes, cancellations, "Choose dates" and room/time changes work for them too
+- A new import leaves them as they are; they are shared with "Share own changes" (without notes)

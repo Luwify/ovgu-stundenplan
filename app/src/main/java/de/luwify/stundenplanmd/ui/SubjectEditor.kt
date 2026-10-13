@@ -122,7 +122,7 @@ fun SubjectEditor(
 }
 
 @Composable
-private fun Swatch(rgb: Int, selected: Boolean, label: String? = null, onClick: () -> Unit) {
+internal fun Swatch(rgb: Int, selected: Boolean, label: String? = null, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val c = rgbColor(rgb)
     val desc = "#%06X".format(rgb)

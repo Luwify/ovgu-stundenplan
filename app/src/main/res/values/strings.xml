@@ -297,4 +297,33 @@
     <string name="orphan_series">from %1$s</string>
     <string name="orphan_deleted">Change deleted</string>
     <string name="delete">Delete</string>
+    <!-- Manual courses -->
+    <string name="manual_add">Add course</string>
+    <string name="manual_edit">Edit course</string>
+    <string name="manual_delete">Delete course</string>
+    <string name="manual_deleted">%1$s deleted</string>
+    <string name="manual_own_course">Own course</string>
+    <string name="manual_own_course_of">Course added by %1$s</string>
+    <string name="manual_marker">Own course</string>
+    <string name="manual_title">Title</string>
+    <string name="manual_title_required">A title is required</string>
+    <string name="manual_type">Type</string>
+    <string name="manual_type_lecture">Lecture</string>
+    <string name="manual_type_exercise">Exercise</string>
+    <string name="manual_type_lab">Lab</string>
+    <string name="manual_type_seminar">Seminar</string>
+    <string name="manual_type_other">Other</string>
+    <string name="manual_subject">Subject</string>
+    <string name="manual_subject_new">New subject</string>
+    <string name="manual_lecturer">Lecturer (optional)</string>
+    <string name="manual_rhythm">Rhythm</string>
+    <string name="manual_once">Once</string>
+    <string name="manual_weekly">Weekly</string>
+    <string name="manual_biweekly">Every 2 weeks</string>
+    <string name="manual_date">Date</string>
+    <string name="manual_start_date">First date</string>
+    <string name="manual_end_date">Last date</string>
+    <string name="manual_end_before_start">The last date must not be before the first</string>
+    <string name="manual_skip_free">Pause in lecture-free weeks</string>
+    <string name="manual_skip_free_hint">No dates in weeks and on days your imported plan has no lectures</string>
 </resources>

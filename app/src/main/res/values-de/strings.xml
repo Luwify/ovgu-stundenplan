@@ -291,4 +291,33 @@
     <string name="orphan_series">ab %1$s</string>
     <string name="orphan_deleted">Änderung gelöscht</string>
     <string name="delete">Löschen</string>
+    <!-- Eigene Kurse -->
+    <string name="manual_add">Kurs hinzufügen</string>
+    <string name="manual_edit">Kurs bearbeiten</string>
+    <string name="manual_delete">Kurs löschen</string>
+    <string name="manual_deleted">%1$s gelöscht</string>
+    <string name="manual_own_course">Eigener Kurs</string>
+    <string name="manual_own_course_of">Von %1$s hinzugefügter Kurs</string>
+    <string name="manual_marker">Eigener Kurs</string>
+    <string name="manual_title">Titel</string>
+    <string name="manual_title_required">Ein Titel ist nötig</string>
+    <string name="manual_type">Art</string>
+    <string name="manual_type_lecture">Vorlesung</string>
+    <string name="manual_type_exercise">Übung</string>
+    <string name="manual_type_lab">Praktikum</string>
+    <string name="manual_type_seminar">Seminar</string>
+    <string name="manual_type_other">Sonstiges</string>
+    <string name="manual_subject">Fach</string>
+    <string name="manual_subject_new">Neues Fach</string>
+    <string name="manual_lecturer">Lehrende (optional)</string>
+    <string name="manual_rhythm">Rhythmus</string>
+    <string name="manual_once">Einmalig</string>
+    <string name="manual_weekly">Wöchentlich</string>
+    <string name="manual_biweekly">Alle 2 Wochen</string>
+    <string name="manual_date">Datum</string>
+    <string name="manual_start_date">Erster Termin</string>
+    <string name="manual_end_date">Letzter Termin</string>
+    <string name="manual_end_before_start">Der letzte Termin darf nicht vor dem ersten liegen</string>
+    <string name="manual_skip_free">In vorlesungsfreien Wochen aussetzen</string>
+    <string name="manual_skip_free_hint">Keine Termine in Wochen und an Tagen, an denen dein importierter Plan keine Vorlesungen hat</string>
 </resources>

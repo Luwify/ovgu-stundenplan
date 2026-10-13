@@ -77,6 +77,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     var selected by remember { mutableStateOf<Timed?>(null) }
     var personalEdit by remember { mutableStateOf<Timed?>(null) }
     var pickDates by remember { mutableStateOf<Timed?>(null) }
+    var manualEdit by remember { mutableStateOf<ManualTarget?>(null) }
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var addChoice by rememberSaveable { mutableStateOf(false) }
@@ -203,6 +204,14 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                     )
                     if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
                 }
+                is UiMessage.ManualDeleted -> {
+                    val r = snackbar.showSnackbar(
+                        res.getString(R.string.manual_deleted, msg.title),
+                        actionLabel = res.getString(R.string.undo),
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                }
                 is UiMessage.CancelledForMe -> {
                     val date = dayAndDate(msg.date, appLocaleOf(res))
                     val r = snackbar.showSnackbar(
@@ -256,6 +265,11 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         actions = {
                             plan?.takeIf { !it.isMe }?.person?.let { friend ->
                                 FavoriteButton(friend.favorite, friend.displayName) { vm.setFavorite(friend.id, !friend.favorite) }
+                            }
+                            if (plan?.isMe == true) {
+                                IconButton(onClick = { manualEdit = ManualTarget(null) }) {
+                                    Icon(painterResource(R.drawable.ic_add), stringResource(R.string.manual_add))
+                                }
                             }
                             if (plan?.isMe == false) {
                                 IconButton(onClick = { friendDetails = true }) {
@@ -329,6 +343,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             onEditPersonal = { selected = null; personalEdit = item },
                             onCancelForMe = { cancel -> selected = null; vm.setCancelledForMe(item.ref, item.event.title, cancel) },
                             onPickDates = { selected = null; pickDates = item },
+                            onEditManual = { selected = null; manualEdit = ManualTarget(item.event.uid) },
+                            onDeleteManual = { selected = null; vm.deleteManual(item.event.uid) },
                             onDismiss = { selected = null },
                         )
                     }
@@ -415,6 +431,21 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         )
     }
 
+    val mine = myPlan
+    manualEdit?.let { target ->
+        if (mine != null) {
+            ManualCourseEditor(
+                mine,
+                existing = target.id?.let(vm::manualCourse),
+                newId = vm::newManualId,
+                defaultEnd = vm::manualDefaultEnd,
+                today = now.toLocalDate(),
+                onSave = { manualEdit = null; vm.saveManual(it) },
+                onDismiss = { manualEdit = null },
+            )
+        }
+    }
+
     val pending by vm.pendingBackup.collectAsStateWithLifecycle()
     pending?.let { BackupConfirmDialog(it.backup, plan, onConfirm = vm::confirmBackup, onCancel = vm::cancelBackup) }
     val friend by vm.pendingFriend.collectAsStateWithLifecycle()
@@ -434,3 +465,6 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         )
     }
 }
+
+/** The manual course being added ([id] null) or edited. */
+private data class ManualTarget(val id: String?)
