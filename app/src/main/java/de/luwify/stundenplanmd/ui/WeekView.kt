@@ -351,10 +351,17 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
         // so the title keeps the full width.
         val shared = plan.togetherWith(item).isNotEmpty()
         val favorite = plan.withFavorite(item)
-        if (shared && !narrow) {
-            TogetherBadge(favorite, 15.dp, Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp))
+        // Own changes and notes: badges below it, same column (the bottom row is too narrow for more than type and s.t.).
+        val note = personal?.note != null
+        val badges = !narrow && (shared || note || ownChange)
+        if (badges) {
+            Column(Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (shared) TogetherBadge(favorite, 15.dp)
+                if (ownChange) MarkerBadge(note = false, 15.dp)
+                if (note) MarkerBadge(note = true, 15.dp)
+            }
         }
-        Column(Modifier.fillMaxSize().padding(start = 6.dp, end = if (shared && !narrow) 17.dp else 3.dp, top = 3.dp, bottom = 3.dp)) {
+        Column(Modifier.fillMaxSize().padding(start = 6.dp, end = if (badges) 17.dp else 3.dp, top = 3.dp, bottom = 3.dp)) {
             Text(
                 blockName(subject, item),
                 Modifier.weight(1f, fill = false),
@@ -381,8 +388,8 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
                     TogetherBadge(favorite, 13.dp)
                 }
                 if (personal?.st == true) StBadge()
-                if (personal?.note != null) MarkerBadge(note = true, 13.dp)
-                if (ownChange) MarkerBadge(note = false, 13.dp)
+                if (narrow && ownChange) MarkerBadge(note = false, 13.dp)
+                if (narrow && note) MarkerBadge(note = true, 13.dp)
                 if (highlight && strong) {
                     Text(
                         if (status == Status.Extra) "+" else "!",
