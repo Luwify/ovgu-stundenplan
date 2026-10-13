@@ -32,5 +32,5 @@ detection) and `:app` (Android UI); see `CLAUDE.md` for the architecture and the
 
 ## License
 
-Stundenplan MD is licensed under the **GNU General Public License, version 3 or (at your option) any later version**
+Stundenplan MD is licensed under the **GNU General Public License, version 3 or any later version**
 (GPL-3.0-or-later); see [LICENSE](LICENSE). Third-party material, if any: [NOTICE](NOTICE).
