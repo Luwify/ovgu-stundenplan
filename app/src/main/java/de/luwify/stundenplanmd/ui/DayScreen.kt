@@ -239,7 +239,8 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
                 Text(
                     if (plan.isMe) stringResource(R.string.manual_own_course) else stringResource(R.string.manual_own_course_of, plan.person.displayName),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = scheme.primary,
+                    color = scheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
             personal?.note?.let { note ->

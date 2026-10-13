@@ -89,10 +89,21 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 - Sharing: notes never; the rest while `MyShare.withChanges` ("Eigene Änderungen teilen"); friend's in
   `Plan.sharedChanges`, shown as "Von <Name> geändert".
 
+## Manual courses (my plan)
+- `ManualCourse` (`:core`): id `manual-<16 hex>` = UID of its one event (never a 12-digit LSF UID), course key
+  `manual:<id>` (never merged by title); type, room, lecturer, note, `st`, once / weekly / every 2 weeks, start/end date,
+  times, `skipFreeWeeks`. `ManualCourses.merge(lsf, courses)` = my events (`StoredData.myEvents`): EXDATEs on dates in
+  weeks/days the LSF plan alone marks free, so free-week detection is unchanged. Style/subject are normal course settings
+  (new subject = `own:` key). `Event.st` (course-level s.t.; own changes compare against it). Delete removes its settings
+  and my changes to it (undo = previous StoredData). UI: "+" in my top bar -> `ManualCourseEditor`; plus badge
+  (`ManualBadge`) in week/day view, "Eigener Kurs" box with edit/delete in the detail sheet; own-change actions apply.
+- Shared with the own changes (no notes); share format 2 also carries s.t. flags; manual events or s.t. -> version 2.
+  Together: only the exact fallback (no LSF course id).
+
 ## Persistence (user data must survive every update)
 - Files in `files/plans/`: `data.json` (`StoredData`: people (list order = drawer order, me first; `Person.favorite`),
-  plans, courseSettings, friendSettings, share, personalChanges; field `version`, currently 4; step 2 -> 3 sorts friends
-  by shown name, the order v2 displayed; step 3 -> 4 adds `personalChanges`) and `me.ics` (raw import). Theme: DataStore `settings` (key `schema_version`).
+  plans, courseSettings, friendSettings, share, personalChanges, manualCourses; field `version`, currently 5; step 2 -> 3 sorts friends
+  by shown name, the order v2 displayed; step 3 -> 4 adds `personalChanges`; 4 -> 5 adds `manualCourses`; version 4 is on a real device, never change its meaning) and `me.ics` (raw import). Theme: DataStore `settings` (key `schema_version`).
   `data/PlanStore` does the I/O: atomic writes (tmp + fsync + rename, `AtomicFiles`), a leftover `data.json.bak` from
   the old AtomicFile scheme is restored, an unreadable or too-new `data.json` is renamed to `data.json.broken[.n]`
   (never overwritten; the app shows a snackbar), an older version is migrated step by step (`data/Migrations`:
