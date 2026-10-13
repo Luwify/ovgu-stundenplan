@@ -38,6 +38,10 @@ object Motion {
     const val Short = 150
     const val Medium = 250
     const val Long = 300
+
+    /** Screens and dialogs the user opens while working (settings, add): short, so they never hold the user up. */
+    const val ScreenIn = 180
+    const val ScreenOut = 110
     const val FadeInDelay = 90
 
     /** Material 3 "emphasized decelerate" / "emphasized accelerate" (simplified single curves). */
@@ -45,15 +49,15 @@ object Motion {
     val Accelerate = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
     val Standard = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
-    private val Slide = 30.dp
+    private val Slide = 24.dp
 
     /** Shared axis X, forward: slides in from the end while fading in (the fade starts after [FadeInDelay]). */
     @Composable
     fun screenEnter(): EnterTransition {
         if (!animationsEnabled()) return EnterTransition.None
         val px = with(LocalDensity.current) { Slide.roundToPx() }
-        return slideInHorizontally(tween(Long, easing = Decelerate)) { px } +
-            fadeIn(tween(Long - FadeInDelay, FadeInDelay, LinearEasing))
+        return slideInHorizontally(tween(ScreenIn, easing = Decelerate)) { px } +
+            fadeIn(tween(ScreenIn - 60, easing = LinearEasing))
     }
 
     /** Shared axis X, back: slides out to the end while fading out. */
@@ -61,8 +65,8 @@ object Motion {
     fun screenExit(): ExitTransition {
         if (!animationsEnabled()) return ExitTransition.None
         val px = with(LocalDensity.current) { Slide.roundToPx() }
-        return slideOutHorizontally(tween(Medium - 50, easing = Accelerate)) { px } +
-            fadeOut(tween(Short, easing = LinearEasing))
+        return slideOutHorizontally(tween(ScreenOut, easing = Accelerate)) { px } +
+            fadeOut(tween(ScreenOut, easing = LinearEasing))
     }
 }
 
