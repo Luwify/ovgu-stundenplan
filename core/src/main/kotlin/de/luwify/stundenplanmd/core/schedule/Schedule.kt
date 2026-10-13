@@ -149,10 +149,15 @@ class Schedule(val events: List<Event>, val changes: List<PersonalChange> = empt
 
     fun on(date: LocalDate): List<Occurrence> = byDate[date].orEmpty()
 
-    fun day(date: LocalDate) = DayPlan(date, on(date), cancelledByDate[date].orEmpty())
+    // Days and weeks are built once (the schedule never changes): the views ask for them on every page they compose.
+    private val days = java.util.concurrent.ConcurrentHashMap<LocalDate, DayPlan>()
+    private val weeks = java.util.concurrent.ConcurrentHashMap<LocalDate, WeekPlan>()
+
+    fun day(date: LocalDate): DayPlan = days.getOrPut(date) { DayPlan(date, on(date), cancelledByDate[date].orEmpty()) }
 
     /** Monday to Friday of the week starting at [monday]. */
-    fun week(monday: LocalDate) = WeekPlan(monday, (0L until 5L).map { day(monday.plusDays(it)) })
+    fun week(monday: LocalDate): WeekPlan = weeks.getOrPut(monday) { WeekPlan(monday, (0L until 5L).map { day(monday.plusDays(it)) }) }
+
 
     /** Whole hours covering every occurrence and cancellation (for the week grid); 8–18 for an empty plan. */
     val hours: IntRange by lazy {

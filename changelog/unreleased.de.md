@@ -9,3 +9,6 @@ Eigene Änderungen an deinem Plan:
 
 Wochenansicht:
 - Eine dezente Linie zeigt die aktuelle Uhrzeit über die ganze Woche, hinter den Terminen
+
+Flüssiger:
+- Das Wischen zwischen dir und deinen Freunden ruckelt nicht mehr, auch nicht beim ersten Mal

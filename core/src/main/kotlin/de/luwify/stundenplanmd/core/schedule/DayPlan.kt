@@ -15,6 +15,9 @@ data class DayPlan(val date: LocalDate, val occurrences: List<Occurrence>, val c
     /** Occurrences and cancellations by time; cancellations only when [withCancellations]. */
     fun items(withCancellations: Boolean = true): List<Timed> =
         (occurrences + if (withCancellations) cancellations else emptyList()).sortedWith(compareBy({ it.start }, { it.end }))
+
+    /** Every item placed in side-by-side lanes for the week grid (built once). */
+    val placed: List<Placed<Timed>> by lazy { DayLayout.place(items()) }
 }
 
 data class WeekPlan(val monday: LocalDate, val days: List<DayPlan>) {

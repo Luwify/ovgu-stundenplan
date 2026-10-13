@@ -21,6 +21,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -50,6 +53,9 @@ import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.schedule.Timed
 
 private enum class Tab { WEEK, DAY }
+
+/** People kept composed around the shown one (see composedAround); more are composed when swiped to. */
+private const val MAX_COMPOSED_PEOPLE = 8
 
 private enum class ShareAction { FILE, QR }
 
@@ -90,6 +96,17 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     val pages by vm.pages.collectAsStateWithLifecycle()
     val animate = animationsEnabled()
     val people = rememberPagerState(initialPage = pages.indexOfFirst { it.person.id == selectedId }.coerceAtLeast(0)) { pages.size }
+    // Everyone stays composed. Otherwise the pager composes the page beyond the next one when a drag starts (its
+    // prefetch): a whole week grid with ~170 texts in one frame, 80–150 ms on a mid-range phone, at every first drag
+    // toward someone. After the start one more person is added per idle moment, so the first frame stays as fast.
+    var composedAround by remember { mutableIntStateOf(0) }
+    LaunchedEffect(pages.size) {
+        while (composedAround < minOf(pages.size - 1, MAX_COMPOSED_PEOPLE)) {
+            withFrameNanos { }
+            delay(80)
+            composedAround++
+        }
+    }
     val latestPages by rememberUpdatedState(pages)
     LaunchedEffect(people) {
         snapshotFlow { people.settledPage }.collect { i -> latestPages.getOrNull(i)?.let { vm.select(it.person.id) } }
@@ -282,7 +299,10 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     if (pages.isNotEmpty()) {
                         // One page per person (drawer order); week and day stay where they are when switching.
-                        VerticalPager(people, Modifier.fillMaxSize(), key = { pages.getOrNull(it)?.person?.id ?: it }) { i ->
+                        VerticalPager(
+                            people, Modifier.fillMaxSize(), beyondViewportPageCount = composedAround,
+                            key = { pages.getOrNull(it)?.person?.id ?: it },
+                        ) { i ->
                             val page = pages[i]
                             val active = i == people.settledPage
                             val edge = remember(people, animate) { EdgeOnlyConnection(people, animate) }

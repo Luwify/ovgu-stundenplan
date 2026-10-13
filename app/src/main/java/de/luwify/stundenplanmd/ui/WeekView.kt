@@ -62,7 +62,6 @@ import de.luwify.stundenplanmd.core.schedule.DayProgress
 import androidx.compose.ui.unit.sp
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.schedule.Cancellation
-import de.luwify.stundenplanmd.core.schedule.DayLayout
 import de.luwify.stundenplanmd.core.schedule.DayPlan
 import de.luwify.stundenplanmd.core.schedule.Navigation
 import de.luwify.stundenplanmd.core.schedule.Occurrence
@@ -276,7 +275,7 @@ private fun DayColumn(
                 )
             }
             else -> {
-                val placed = remember(day) { DayLayout.place(day.items()) }
+                val placed = day.placed
                 val width = maxWidth
                 for (p in placed) {
                     EventBlock(

@@ -9,3 +9,6 @@ Your own changes to your plan:
 
 Week view:
 - A subtle line shows the current time across the whole week, behind the events
+
+Smoother:
+- Swiping between you and your friends no longer stutters, not even the first time
