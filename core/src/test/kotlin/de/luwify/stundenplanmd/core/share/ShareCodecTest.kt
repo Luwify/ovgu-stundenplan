@@ -3,6 +3,7 @@ package de.luwify.stundenplanmd.core.share
 import de.luwify.stundenplanmd.core.Fixture
 import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Event
+import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.core.model.Location
 import de.luwify.stundenplanmd.core.model.Recurrence
 import de.luwify.stundenplanmd.core.schedule.Schedule
@@ -15,6 +16,7 @@ import java.io.ByteArrayOutputStream
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.LocalDateTime
 import java.util.zip.Deflater
 
@@ -151,6 +153,38 @@ class ShareCodecTest {
     }
 
     @Test
+    fun ownChangesTravelWithoutNotesAndOnlyThenNeedVersion2() {
+        // Without changes the payload stays version 1: older apps still import it.
+        assertEquals(1, ShareCodec.payload(plan(), complete = true)[0].toInt())
+        val series = Fixture.events.first { it.recurrence != null }
+        val single = Fixture.events.first { it.recurrence == null }
+        val changes = listOf(
+            PersonalChange(series.uid, series.start.toLocalDate().plusWeeks(1), title = "x", note = "privat", cancelled = true),
+            PersonalChange(
+                series.uid, series.start.toLocalDate().plusWeeks(2), series = true, until = series.start.toLocalDate().plusWeeks(6),
+                st = true, room = "K22-A", start = LocalTime.of(9, 15), end = LocalTime.of(10, 50),
+            ),
+            PersonalChange(single.uid, single.start.toLocalDate(), st = false),
+            PersonalChange(single.uid, single.start.toLocalDate().minusDays(3), note = "nur Notiz"),
+        )
+        val withChanges = plan().copy(changes = changes)
+        val expected = listOf(
+            changes[0].copy(title = "", note = null),
+            changes[1].copy(title = ""),
+            changes[2],
+        )
+        for (payload in listOf(ShareCodec.payload(withChanges, complete = true), ShareCodec.payload(withChanges, complete = false))) {
+            assertEquals(2, payload[0].toInt())
+            assertEquals(expected, ok(ShareCodec.decode(payload)).changes)
+        }
+        // Only notes: nothing to send, still version 1.
+        assertEquals(1, ShareCodec.payload(plan().copy(changes = listOf(changes[3])), complete = true)[0].toInt())
+        // The same schedule on the receiving side.
+        val back = ok(ShareCodec.parse(ShareCodec.file(withChanges)))
+        assertEquals(Schedule(Fixture.events, expected).cancellations.size, Schedule(back.events, back.changes).cancellations.size)
+    }
+
+    @Test
     fun rejectsOtherInput() {
         assertEquals(ShareResult.NotAShare, ShareCodec.parse("BEGIN:VCALENDAR\r\n".toByteArray()))
         assertEquals(ShareResult.NotAShare, ShareCodec.parse("hello"))
@@ -158,7 +192,7 @@ class ShareCodecTest {
         assertTrue(ShareCodec.looksLikeShare("SPMD:ABC".toByteArray()))
 
         val payload = ShareCodec.payload(plan(), complete = false)
-        assertEquals(ShareResult.TooNew, ShareCodec.decode(byteArrayOf(2) + payload.drop(1)))
+        assertEquals(ShareResult.TooNew, ShareCodec.decode(byteArrayOf((ShareCodec.VERSION + 1).toByte()) + payload.drop(1)))
         assertTrue(ShareCodec.decode(payload.copyOf(payload.size / 2)) is ShareResult.Broken)
         assertTrue(ShareCodec.parse("SPMD:not base45 !") is ShareResult.Broken)
         assertTrue(ShareCodec.decode(byteArrayOf(1, 7, 7, 7)) is ShareResult.Broken)

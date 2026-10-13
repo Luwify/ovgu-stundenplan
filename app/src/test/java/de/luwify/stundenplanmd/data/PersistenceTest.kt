@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.model.Person
+import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.core.model.Plan
 import de.luwify.stundenplanmd.core.share.SharedPlan
 import kotlinx.coroutines.runBlocking
@@ -126,6 +127,36 @@ class PersistenceTest {
         assertEquals(listOf(StoredData.ME, "c", "a", "b"), read.data.people.map { it.id })
         assertFalse(read.data.people.any { it.favorite })
         assertEquals(v2, File(d, "data.json.v2").readText())
+    }
+
+    /** Version 3 had no own changes: migrated to 4 with none, nothing else lost; changes then survive store and backup. */
+    @Test
+    fun version3GetsPersonalChangesThatSurviveStoreAndBackup() {
+        val d = dir()
+        PlanStore(d).write(data)
+        val o = kotlinx.serialization.json.Json.parseToJsonElement(File(d, "data.json").readText()) as JsonObject
+        val v3 = JsonObject(o - "personalChanges" + ("version" to JsonPrimitive(3)) + ("share" to JsonObject(mapOf("name" to JsonPrimitive("Lu"))))).toString()
+        File(d, "data.json").writeText(v3)
+        val read = PlanStore(d).read() as StoreRead.Ok
+        assertEquals(3, read.migratedFrom)
+        assertUserDataSurvived(read.data)
+        assertEquals(emptyList<PersonalChange>(), read.data.personalChanges)
+        assertEquals(MyShare(name = "Lu", withChanges = true), read.data.share)
+        assertEquals(v3, File(d, "data.json.v3").readText())
+
+        val changes = listOf(
+            PersonalChange("900022000001", LocalDate.parse("2026-10-12"), title = "Numerik N4 (HSÜ)", note = "Raum K22", cancelled = true),
+            PersonalChange(
+                "900066000001", LocalDate.parse("2026-10-19"), series = true, until = LocalDate.parse("2026-12-01"), st = true,
+                room = "K22-A", start = java.time.LocalTime.parse("09:15"), end = java.time.LocalTime.parse("10:45"),
+            ),
+        )
+        val withChanges = read.data.copy(personalChanges = changes, share = read.data.share.copy(withChanges = false))
+        PlanStore(d).write(withChanges)
+        assertEquals(withChanges, (PlanStore(d).read() as StoreRead.Ok).data)
+        val restored = BackupCodec.decode(BackupCodec.encode(withChanges, null, theme, "de", UpdatesBackup())) as BackupResult.Ok
+        assertEquals(changes, restored.backup.data.personalChanges)
+        assertFalse(restored.backup.data.share.withChanges)
     }
 
     @Test

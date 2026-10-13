@@ -87,7 +87,7 @@ data class PlanUi(
     companion object {
         /** Me and every friend, in drawer order (my plan first); each schedule is expanded once. */
         fun all(data: StoredData): List<PlanUi> {
-            val schedules = data.plans.associate { it.personId to Schedule(it.events) }
+            val schedules = data.plans.associate { it.personId to data.schedule(it) }
             val ids = listOf(StoredData.ME) + data.friends.map { it.id }
             return ids.map { of(data, it, schedules) }
         }
@@ -103,10 +103,10 @@ data class PlanUi(
                 shared = plan?.sharedSettings.orEmpty(),
             )
             val subjects = Subjects.build(events, settings)
-            val schedule = schedules[person.id] ?: Schedule(events)
+            val schedule = schedules[person.id] ?: plan?.let(data::schedule) ?: Schedule(events)
             // In my plan: friends. In a friend's: me and the other friends.
             val others = data.people.filter { it.id != person.id }
-                .mapNotNull { p -> data.planOf(p.id)?.let { p.id to (schedules[p.id] ?: Schedule(it.events)) } }
+                .mapNotNull { p -> data.planOf(p.id)?.let { p.id to (schedules[p.id] ?: data.schedule(it)) } }
             return PlanUi(
                 person = person,
                 schedule = schedule,
@@ -217,7 +217,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val myPlan: StateFlow<PlanUi?> = pages.map { it.firstOrNull() }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val friends: StateFlow<List<FriendEntry>> = repo.data.filterNotNull().map { data ->
-        data.friends.map { p -> data.planOf(p.id).let { FriendEntry(p, it?.planDate, Schedule(it?.events.orEmpty())) } }
+        data.friends.map { p -> data.planOf(p.id).let { FriendEntry(p, it?.planDate, it?.let(data::schedule) ?: Schedule(emptyList())) } }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Wall-clock time, updated at every full minute (now line, Today list). */
@@ -419,6 +419,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 events = plan.events,
                 settings = Subjects.resolved(plan.events, data.courseSettings, SubjectColors::defaultColor),
                 complete = true,
+                // Notes never leave the phone ([PersonalChange.forSharing]); the rest only while the setting is on.
+                changes = if (data.share.withChanges) data.personalChanges.mapNotNull { it.forSharing() } else emptyList(),
             )
         }
     }

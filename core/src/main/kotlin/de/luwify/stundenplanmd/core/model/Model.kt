@@ -35,6 +35,8 @@ data class Plan(
     val planDate: LocalDate? = null,
     /** Friend's plan: their subjects, short names and colors, used as defaults (keyed by course key). */
     val sharedSettings: Map<String, CourseSetting> = emptyMap(),
+    /** Friend's plan: their own cancellations, room/time changes and s.t. (no notes). */
+    val sharedChanges: List<PersonalChange> = emptyList(),
 )
 
 /** One VEVENT: a single appointment or a weekly series. */

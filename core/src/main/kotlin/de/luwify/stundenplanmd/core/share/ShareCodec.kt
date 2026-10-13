@@ -3,6 +3,7 @@ package de.luwify.stundenplanmd.core.share
 import de.luwify.stundenplanmd.core.ical.LsfText
 import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Event
+import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.core.model.PlanZone
 import de.luwify.stundenplanmd.core.model.Recurrence
 import de.luwify.stundenplanmd.core.model.Subjects
@@ -32,6 +33,8 @@ data class SharedPlan(
     val settings: Map<String, CourseSetting>,
     /** File profile: every note and the raw SUMMARY are included. */
     val complete: Boolean,
+    /** The sender's own changes (cancellations, rooms, times, s.t.; never notes). */
+    val changes: List<PersonalChange> = emptyList(),
 )
 
 sealed interface ShareResult {
@@ -54,7 +57,8 @@ sealed interface ShareResult {
  * and notes of series, and caps notes of single events; such events are flagged [Event.notesShortened].
  */
 object ShareCodec {
-    const val VERSION = 1
+    /** 2: own changes appended after the events. A plan without changes is still written as 1, which every app reads. */
+    const val VERSION = 2
     const val QR_PREFIX = "SPMD:"
     val FILE_MAGIC = "SPMD".toByteArray()
     const val FILE_EXTENSION = "stundenplan"
@@ -122,7 +126,7 @@ object ShareCodec {
         try {
             d.setInput(body); d.finish()
             val out = ByteArrayOutputStream()
-            out.write(VERSION)
+            out.write(if (plan.changes.none { it.forSharing() != null }) 1 else 2)
             val buf = ByteArray(4096)
             while (!d.finished()) out.write(buf, 0, d.deflate(buf))
             return out.toByteArray()
@@ -138,7 +142,7 @@ object ShareCodec {
         if (version < 1) return ShareResult.Broken("version $version")
         val body = inflate(payload, 1) ?: return ShareResult.Broken("bad or too large data")
         return try {
-            ShareResult.Ok(Body.read(body))
+            ShareResult.Ok(Body.read(body, version))
         } catch (e: IndexOutOfBoundsException) {
             ShareResult.Broken("truncated")
         } catch (e: IllegalArgumentException) {
@@ -232,6 +236,23 @@ object ShareCodec {
                 recurrence(cols[8], cols[9], e)
             }
 
+            // Own changes (version 2): appointment UID, date, flags, until, room, time. Notes are never sent.
+            val changes = Out()
+            val shared = plan.changes.mapNotNull { it.forSharing() }
+            for (c in shared) {
+                changes.varint(s(c.uid))
+                changes.zigzag(ChronoUnit.DAYS.between(base, c.date))
+                val flags = (if (c.series) 1 else 0) or (if (c.until != null) 2 else 0) or (if (c.st != null) 4 else 0) or
+                    (if (c.st == true) 8 else 0) or (if (c.cancelled) 16 else 0) or (if (c.room != null) 32 else 0) or
+                    (if (c.start != null && c.end != null) 64 else 0)
+                changes.byte(flags)
+                c.until?.let { changes.varint(ChronoUnit.DAYS.between(c.date, it).coerceAtLeast(0)) }
+                c.room?.let { changes.varint(s(it)) }
+                if (c.start != null && c.end != null) {
+                    changes.minutes(c.start.hour * 60L + c.start.minute); changes.minutes(c.end.hour * 60L + c.end.minute)
+                }
+            }
+
             val out = Out()
             out.byte((if (complete) FLAG_SUMMARY or FLAG_ALL_NOTES else 0))
             require(plan.personId.matches(Regex("[0-9a-f]{16}"))) { "person id" }
@@ -245,6 +266,7 @@ object ShareCodec {
             out.bytes(settings.toByteArray())
             out.varint(events.size)
             cols.forEach { out.bytes(it.toByteArray()) }
+            if (shared.isNotEmpty()) { out.varint(shared.size); out.bytes(changes.toByteArray()) }
             return out.toByteArray()
         }
 
@@ -283,7 +305,7 @@ object ShareCodec {
             r.exdays.sorted().forEach { out.zigzag(ChronoUnit.DAYS.between(day, it)) }
         }
 
-        fun read(bytes: ByteArray): SharedPlan {
+        fun read(bytes: ByteArray, version: Int): SharedPlan {
             val r = In(bytes)
             val flags = r.byte()
             val personId = (0 until 8).joinToString("") { "%02x".format(r.byte()) }
@@ -351,11 +373,27 @@ object ShareCodec {
                     recurrence = rule,
                 )
             }
+            val changes = if (version < 2) emptyList() else List(r.count(MAX_EVENTS)) {
+                val uid = s(r.varint())
+                val date = base.plusDays(r.zigzag())
+                val flags = r.byte()
+                val until = if (flags and 2 != 0) date.plusDays(r.varint()) else null
+                val room = if (flags and 32 != 0) s(r.varint()) else null
+                val time = if (flags and 64 != 0) {
+                    fun clock() = r.minutes().also { require(it < 24 * 60) { "time" } }.let { java.time.LocalTime.of((it / 60).toInt(), (it % 60).toInt()) }
+                    clock() to clock()
+                } else null
+                PersonalChange(
+                    uid, date, series = flags and 1 != 0, until = until,
+                    st = if (flags and 4 != 0) flags and 8 != 0 else null, cancelled = flags and 16 != 0, room = room,
+                    start = time?.first, end = time?.second,
+                )
+            }
             require(r.atEnd()) { "trailing data" }
 
             val titleOf = Subjects.courses(events).associate { it.key to it.title }
             val settings = rawSettings.associate { it.key to CourseSetting(it.key, titleOf[it.key] ?: "", it.subject, it.shortName, it.color) }
-            return SharedPlan(personId, name, exportedOn, planDate, events, settings, complete = flags and FLAG_ALL_NOTES != 0)
+            return SharedPlan(personId, name, exportedOn, planDate, events, settings, complete = flags and FLAG_ALL_NOTES != 0, changes = changes)
         }
 
         private class PlainSeries(val slots: Int, val interval: Int) {

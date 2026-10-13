@@ -16,7 +16,7 @@ class MigrationException(message: String) : Exception(message)
  * stored data must survive every update.
  */
 object Migrations {
-    const val CURRENT = 3
+    const val CURRENT = 4
 
     /** Version n -> n+1. */
     val STEPS: Map<Int, (JsonObject) -> JsonObject> = mapOf(
@@ -40,6 +40,9 @@ object Migrations {
             val (me, friends) = people.partition(::isMe)
             if (people.isEmpty()) o else JsonObject(o + ("people" to JsonArray(me + friends.sortedBy(::shown))))
         },
+        // 4: own changes. New: `personalChanges` (my notes, s.t., cancellations, rooms, times); MyShare.withChanges and
+        // Plan.sharedChanges (a friend's shared changes) have defaults.
+        3 to { o -> JsonObject(o + ("personalChanges" to (o["personalChanges"] ?: JsonArray(emptyList())))) },
     )
 
     /** Version of a stored object; a file without the field is the first format. */

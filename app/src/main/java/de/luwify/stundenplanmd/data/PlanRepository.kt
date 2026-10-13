@@ -3,8 +3,10 @@ package de.luwify.stundenplanmd.data
 import de.luwify.stundenplanmd.core.ical.LsfImport
 import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Person
+import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.core.model.Plan
 import de.luwify.stundenplanmd.core.model.Subjects
+import de.luwify.stundenplanmd.core.schedule.Schedule
 import de.luwify.stundenplanmd.core.share.SharedPlan
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,9 +19,12 @@ import kotlinx.serialization.Serializable
 import java.io.File
 import java.time.Instant
 
-/** How I appear in shares: [id] is made at the first share, [name] asked then. */
+/**
+ * How I appear in shares: [id] is made at the first share, [name] asked then. [withChanges]: my own cancellations,
+ * room/time changes and s.t. go into shares ("Eigene Änderungen teilen"; notes never do).
+ */
 @Serializable
-data class MyShare(val id: String? = null, val name: String? = null)
+data class MyShare(val id: String? = null, val name: String? = null, val withChanges: Boolean = true)
 
 /**
  * Everything the app stores: me and friends (people + plans; the order of [people] is the drawer order), my course settings (keyed by course key) and, per
@@ -33,12 +38,17 @@ data class StoredData(
     val courseSettings: Map<String, CourseSetting> = emptyMap(),
     val friendSettings: Map<String, Map<String, CourseSetting>> = emptyMap(),
     val share: MyShare = MyShare(),
+    /** My own changes to my plan (notes, s.t., cancellations, rooms, times); kept across re-imports. */
+    val personalChanges: List<PersonalChange> = emptyList(),
 ) {
     val myPlan: Plan? get() = planOf(ME)
     val friends: List<Person> get() = people.filter { !it.isMe }
 
     fun planOf(personId: String): Plan? = plans.firstOrNull { it.personId == personId }
     fun person(id: String): Person? = people.firstOrNull { it.id == id }
+
+    /** [plan] expanded with the own changes: mine for my plan, the friend's shared ones for theirs. */
+    fun schedule(plan: Plan): Schedule = Schedule(plan.events, if (plan.personId == ME) personalChanges else plan.sharedChanges)
 
     companion object {
         const val ME = "me"
@@ -124,6 +134,7 @@ class PlanRepository(dir: File) {
             exportedOn = shared.exportedOn,
             planDate = shared.planDate,
             sharedSettings = shared.settings,
+            sharedChanges = shared.changes,
         )
         val local = current.friendSettings[shared.personId]
         write(
@@ -175,10 +186,21 @@ class PlanRepository(dir: File) {
         write(current.copy(friendSettings = current.friendSettings + (id to transform(current.friendSettings[id].orEmpty()))))
     }
 
+    suspend fun updatePersonalChanges(transform: (List<PersonalChange>) -> List<PersonalChange>) = mutex.withLock {
+        val current = _data.value ?: return@withLock
+        val next = transform(current.personalChanges)
+        if (next != current.personalChanges) write(current.copy(personalChanges = next))
+    }
+
+    suspend fun setShareChanges(on: Boolean) = mutex.withLock {
+        val current = _data.value ?: return@withLock
+        if (current.share.withChanges != on) write(current.copy(share = current.share.copy(withChanges = on)))
+    }
+
     /** My share identity; the id is made on first use. [name] null keeps the stored one. */
     suspend fun shareIdentity(name: String? = null): MyShare = mutex.withLock {
         val current = _data.value ?: StoredData()
-        val next = MyShare(current.share.id ?: PersonIds.new(), name?.trim()?.ifEmpty { null } ?: current.share.name)
+        val next = current.share.copy(id = current.share.id ?: PersonIds.new(), name = name?.trim()?.ifEmpty { null } ?: current.share.name)
         if (next != current.share) write(current.copy(share = next))
         next
     }
