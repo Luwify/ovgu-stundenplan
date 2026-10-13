@@ -6,8 +6,11 @@ import java.time.LocalDateTime
 import java.time.temporal.TemporalAdjusters
 
 data class DayPlan(val date: LocalDate, val occurrences: List<Occurrence>, val cancellations: List<Cancellation>) {
-    /** Every event of the day was cancelled (holiday, break): shown as one "Vorlesungsfrei" line. */
-    val free: Boolean get() = occurrences.isEmpty() && cancellations.isNotEmpty()
+    /**
+     * Every event of the day was cancelled by LSF (holiday, break): shown as one "Vorlesungsfrei" line. Dates I cancelled
+     * for myself don't make a day lecture-free.
+     */
+    val free: Boolean get() = occurrences.isEmpty() && cancellations.any { !it.byMe }
 
     /** Occurrences and cancellations by time; cancellations only when [withCancellations]. */
     fun items(withCancellations: Boolean = true): List<Timed> =
@@ -16,7 +19,7 @@ data class DayPlan(val date: LocalDate, val occurrences: List<Occurrence>, val c
 
 data class WeekPlan(val monday: LocalDate, val days: List<DayPlan>) {
     /** Nothing takes place Mon–Fri and something was cancelled: one "Vorlesungsfrei" banner for the week. */
-    val free: Boolean get() = days.all { it.occurrences.isEmpty() } && days.any { it.cancellations.isNotEmpty() }
+    val free: Boolean get() = days.all { it.occurrences.isEmpty() } && days.any { d -> d.cancellations.any { !it.byMe } }
 }
 
 /** What the Today list shows. */

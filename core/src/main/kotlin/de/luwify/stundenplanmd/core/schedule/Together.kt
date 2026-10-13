@@ -28,8 +28,8 @@ object Together {
         if (course != null && course == CourseKeys.courseId(eb.uid)) {
             if (ea.uid == eb.uid) return true
             if (originalUid(a) == eb.uid || originalUid(b) == ea.uid) return true
-            val ra = ea.location?.room?.lowercase()
-            val rb = eb.location?.room?.lowercase()
+            val ra = a.room?.lowercase()
+            val rb = b.room?.lowercase()
             return ra == null || rb == null || ra == rb
         }
         return ea.title == eb.title && ea.category == eb.category && ea.location != null && ea.location.raw == eb.location?.raw

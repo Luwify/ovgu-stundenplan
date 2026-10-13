@@ -27,3 +27,10 @@ object InstantSerializer : KSerializer<Instant> {
     override fun serialize(encoder: Encoder, value: Instant) = encoder.encodeString(value.toString())
     override fun deserialize(decoder: Decoder): Instant = Instant.parse(decoder.decodeString())
 }
+
+/** ISO-8601, e.g. `13:15`. */
+object LocalTimeSerializer : KSerializer<java.time.LocalTime> {
+    override val descriptor = PrimitiveSerialDescriptor("LocalTime", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: java.time.LocalTime) = encoder.encodeString(value.toString())
+    override fun deserialize(decoder: Decoder): java.time.LocalTime = java.time.LocalTime.parse(decoder.decodeString())
+}

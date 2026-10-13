@@ -1,6 +1,7 @@
 package de.luwify.stundenplanmd.core.schedule
 
 import de.luwify.stundenplanmd.core.model.Event
+import de.luwify.stundenplanmd.core.model.PersonalChange
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
@@ -26,6 +27,15 @@ sealed interface Timed {
     val start: LocalDateTime
     val end: LocalDateTime
     val date: LocalDate get() = start.toLocalDate()
+
+    /** My changes to it (note, s.t., room, time, cancellation); null when there are none. */
+    val personal: Personal?
+
+    /** The room shown: mine when I changed it (and LSF did not change this occurrence), else LSF's. */
+    val room: String? get() = personal?.takeIf { it.applied && it.roomChanged }?.current?.room ?: event.location?.room
+
+    /** The appointment and original date my changes are keyed by. */
+    val ref: OccurrenceRef
 }
 
 data class Occurrence(
@@ -33,10 +43,25 @@ data class Occurrence(
     override val start: LocalDateTime,
     override val end: LocalDateTime,
     val status: Status,
-) : Timed
+    override val personal: Personal? = null,
+) : Timed {
+    override val ref: OccurrenceRef
+        get() = (status as? Status.Changed)?.original?.let { OccurrenceRef(it.event.uid, it.date) } ?: OccurrenceRef(event.uid, date)
+}
 
-/** A date of a regular series removed by EXDATE (holiday, moved appointment, ...). */
-data class Cancellation(override val event: Event, override val start: LocalDateTime, override val end: LocalDateTime) : Timed
+/**
+ * A date that does not take place: a date of a regular series removed by EXDATE (holiday, moved appointment, ...),
+ * or, [byMe], one I cancelled for myself.
+ */
+data class Cancellation(
+    override val event: Event,
+    override val start: LocalDateTime,
+    override val end: LocalDateTime,
+    override val personal: Personal? = null,
+    val byMe: Boolean = false,
+) : Timed {
+    override val ref: OccurrenceRef get() = OccurrenceRef(event.uid, date)
+}
 
 /**
  * All occurrences of a plan with change detection.
@@ -47,7 +72,7 @@ data class Cancellation(override val event: Event, override val start: LocalDate
  * slot (closest day, then closest time); otherwise it is an EXTRA. Courses without any series (block
  * courses of single dates) are regular throughout.
  */
-class Schedule(val events: List<Event>) {
+class Schedule(val events: List<Event>, val changes: List<PersonalChange> = emptyList()) {
     val occurrences: List<Occurrence>
 
     /** Cancelled regular dates that no change replaces. */
@@ -89,8 +114,34 @@ class Schedule(val events: List<Event>) {
             }
             unmatched += pool
         }
+        if (changes.isNotEmpty()) personalize(occ, unmatched)
         occurrences = occ.sortedWith(compareBy<Occurrence>({ it.start }, { it.end }, { it.event.title }))
         cancellations = unmatched.sortedBy { it.start }
+    }
+
+    /**
+     * Applies my [changes] on top of the LSF state: a cancellation for me moves the occurrence to the cancellations
+     * ([Cancellation.byMe]), room and time replace LSF's. Where LSF itself moved or cancelled the date, nothing of mine
+     * is applied over it (the official change stays visible); notes and s.t. always apply.
+     */
+    private fun personalize(occ: MutableList<Occurrence>, cancelled: MutableList<Cancellation>) {
+        val byUid = changes.groupBy { it.uid }
+        fun personal(t: Timed, lsfChanged: Boolean): Personal? {
+            val ref = t.ref
+            val list = byUid[ref.uid] ?: return null
+            return Personal.of(list, ref, Personal.values(t.event, t.start, t.end), lsfChanged)
+        }
+        val out = occ.map { o ->
+            val p = personal(o, lsfChanged = o.status is Status.Changed) ?: return@map o
+            when {
+                p.lsfChanged -> o.copy(personal = p)
+                p.cancelled -> Cancellation(o.event, o.start, o.end, p, byMe = true)
+                else -> o.copy(start = o.date.atTime(p.current.start), end = o.date.atTime(p.current.end), personal = p)
+            }
+        }
+        occ.clear()
+        out.forEach { if (it is Occurrence) occ += it else cancelled += it as Cancellation }
+        cancelled.replaceAll { c -> if (c.byMe) c else personal(c, lsfChanged = true)?.let { c.copy(personal = it) } ?: c }
     }
 
     private val byDate: Map<LocalDate, List<Occurrence>> = occurrences.groupBy { it.date }
