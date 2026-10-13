@@ -24,3 +24,6 @@ private/
 
 # History rewrite for the move to GitHub: the real -> fake mappings (real names, rooms, infrastructure). Never commit.
 /tools/history-rewrite/
+
+# Private Claude Code notes (devices, paths, home network): loaded after .claude/CLAUDE.md, never commit.
+/CLAUDE.local.md

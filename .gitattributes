@@ -1,6 +1,8 @@
 # Left out of `git archive` (the GPL source archive of each release): not needed to build the app, and partly
 # personal (dev notes, device details, home network). See tools/release.sh.
 CLAUDE.md export-ignore
+.claude/ export-ignore
+CLAUDE.local.md export-ignore
 notes/ export-ignore
 prompt.md export-ignore
 tools/ export-ignore
