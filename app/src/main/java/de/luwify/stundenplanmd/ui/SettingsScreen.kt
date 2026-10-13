@@ -84,6 +84,9 @@ fun SettingsScreen(
     var shareApp by rememberSaveable { mutableStateOf(false) }
     val choice by vm.theme.collectAsStateWithLifecycle()
     val locale = appLocale()
+    val myShare by vm.myShare.collectAsStateWithLifecycle()
+    val orphans by vm.orphans.collectAsStateWithLifecycle()
+    var undoOrphans by remember { mutableStateOf<List<de.luwify.stundenplanmd.core.model.PersonalChange>?>(null) }
 
     Box(Modifier.fillMaxSize()) {
         Surface(Modifier.fillMaxSize()) {
@@ -197,6 +200,30 @@ fun SettingsScreen(
                         }
                     }
 
+                    item(key = "share-changes") {
+                        SwitchRow(stringResource(R.string.share_changes), stringResource(R.string.share_changes_hint), myShare.withChanges, vm::setShareChanges)
+                    }
+
+                    if (orphans.isNotEmpty() || undoOrphans != null) {
+                        item(key = "orphans-title") { SectionHeading(stringResource(R.string.orphans_title)) }
+                        item(key = "orphans-hint") {
+                            Text(stringResource(R.string.orphans_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        items(orphans, key = { "orphan:${it.uid}:${it.date}:${it.series}" }) { c ->
+                            OrphanRow(c, locale) { undoOrphans = vm.deleteChange(c) }
+                        }
+                        undoOrphans?.let { previous ->
+                            item(key = "orphans-undo") {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(stringResource(R.string.orphan_deleted), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                    androidx.compose.material3.TextButton(onClick = { vm.restorePersonal(previous); undoOrphans = null }) {
+                                        Text(stringResource(R.string.undo))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     item(key = "backup-title") { SectionHeading(stringResource(R.string.settings_backup)) }
                     item(key = "backup") {
                         Column {
@@ -275,5 +302,33 @@ internal fun SwitchRow(title: String, hint: String, checked: Boolean, onChange: 
         }
         Spacer(Modifier.width(16.dp))
         Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
+/** An own change whose date is gone: course, date (or "from" date for a series), what it did, delete button. */
+@Composable
+private fun OrphanRow(c: de.luwify.stundenplanmd.core.model.PersonalChange, locale: java.util.Locale, onDelete: () -> Unit) {
+    val what = listOfNotNull(
+        c.note?.takeIf { it.isNotBlank() },
+        stringResource(R.string.personal_cancelled).takeIf { c.cancelled },
+        c.room?.let { "${stringResource(R.string.editor_room)} $it" },
+        if (c.start != null && c.end != null) timeRange(c.date.atTime(c.start), c.date.atTime(c.end)) else null,
+        stringResource(R.string.st_badge).takeIf { c.st == true },
+    ).joinToString(" · ")
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(c.title.ifEmpty { c.uid }, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            val date = dayAndDate(c.date, locale)
+            Text(
+                (if (c.series) stringResource(R.string.orphan_series, date) else date) + if (what.isNotEmpty()) " · $what" else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+        }
+        IconButton(onClick = onDelete) {
+            Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_delete), stringResource(R.string.delete), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }

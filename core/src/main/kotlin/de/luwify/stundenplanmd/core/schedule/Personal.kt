@@ -89,12 +89,14 @@ object PersonalChanges {
 
     /**
      * [desired] for every occurrence of the series [Personal.ref] from its date on: an earlier series change ends the
-     * day before, later ones are replaced. Values equal to LSF's ([Personal.original]) are not stored.
+     * day before, later ones are replaced. Values equal to LSF's ([Personal.original]) are not stored. A single change
+     * of that first date keeps only its cancellation (otherwise it would hide the new values there).
      */
     fun setSeries(changes: List<PersonalChange>, p: Personal, title: String, desired: OccurrenceValues): List<PersonalChange> {
         val (uid, from) = p.ref
         val out = changes.mapNotNull { c ->
             when {
+                !c.series && c.covers(uid, from) -> PersonalChange(c.uid, c.date, title = c.title, cancelled = c.cancelled).takeUnless { it.isEmpty }
                 !c.series || c.uid != uid -> c
                 !c.date.isBefore(from) -> null
                 c.until == null || !c.until.isBefore(from) -> c.copy(until = from.minusDays(1))

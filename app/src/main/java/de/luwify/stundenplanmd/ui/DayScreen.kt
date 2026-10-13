@@ -157,11 +157,13 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
     val c = remember(rgb, page) { SubjectColors.block(rgb, page) }
     val cancelled = item is Cancellation
     val status = (item as? Occurrence)?.status
-    val highlighted = cancelled || status is Status.Changed || status == Status.Extra
+    val highlighted = (cancelled && !item.cancelledForMe) || status is Status.Changed || status == Status.Extra
     val past = !item.end.isAfter(now)
     val running = !past && !item.start.isAfter(now)
     val shape = RoundedCornerShape(14.dp)
     val subject = plan.subjectOf[item.event.courseKey]
+    val personal = item.personal
+    val ownChange = item.ownChange && !highlighted
 
     Row(
         Modifier
@@ -171,6 +173,7 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
             .clip(shape)
             .background(card)
             .border(if (highlighted) 2.dp else hl.cardBorderWidth, if (highlighted) hl.highlight else hl.cardBorder, shape)
+            .then(if (ownChange) Modifier.ownBorder(hl.own, 2.dp, 14.dp) else Modifier)
             .clickable(onClick = onClick),
     ) {
         Box(Modifier.width(6.dp).fillMaxHeight().background(c.stripe))
@@ -190,6 +193,8 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
                 )
                 TypeLabel(item.event.type.short, border = c.stripe, text = scheme.onSurface)
                 if (plan.togetherWith(item).isNotEmpty()) TogetherBadge(plan.withFavorite(item), 24.dp)
+                if (personal?.st == true) StBadge(12)
+                if (item.ownChange) MarkerBadge(note = false, 24.dp)
                 if (running) {
                     Text(
                         stringResource(R.string.now),
@@ -199,7 +204,7 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
                     )
                 }
             }
-            val room = item.event.location?.room ?: stringResource(R.string.no_room)
+            val room = item.room ?: stringResource(R.string.no_room)
             Text(
                 listOf(room, item.event.lecturers.joinToString(", ")).filter { it.isNotEmpty() }.joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
@@ -208,6 +213,7 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
                 overflow = TextOverflow.Ellipsis,
             )
             val notes = when {
+                item.cancelledForMe -> emptyList()
                 cancelled -> listOf(stringResource(R.string.cancelled_full))
                 status is Status.Changed -> changeLines(item as Occurrence)
                 status == Status.Extra -> listOf(stringResource(R.string.extra)) + item.event.notes.lines().take(1).filter { it.isNotBlank() }
@@ -215,6 +221,24 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
             }
             notes.forEach {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = hl.highlightText, fontWeight = FontWeight.SemiBold)
+            }
+            if (personal != null && personal.changesPlan) {
+                val who = if (plan.isMe) null else plan.person.displayName
+                Text(
+                    when {
+                        personal.cancelled -> if (who == null) stringResource(R.string.personal_cancelled) else stringResource(R.string.personal_cancelled_by, who)
+                        who == null -> stringResource(R.string.personal_changed_by_you)
+                        else -> stringResource(R.string.personal_changed_by, who)
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            personal?.note?.let { note ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(NoteIcon, stringResource(R.string.note_marker), Modifier.size(16.dp), tint = scheme.onSurfaceVariant)
+                    Text(note, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
     }

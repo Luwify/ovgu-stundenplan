@@ -14,6 +14,11 @@ import de.luwify.stundenplanmd.core.schedule.Occurrence
 import de.luwify.stundenplanmd.core.schedule.OccurrenceKey
 import de.luwify.stundenplanmd.core.schedule.Timed
 import de.luwify.stundenplanmd.core.schedule.Together
+import de.luwify.stundenplanmd.core.schedule.OccurrenceRef
+import de.luwify.stundenplanmd.core.schedule.OccurrenceValues
+import de.luwify.stundenplanmd.core.schedule.Personal
+import de.luwify.stundenplanmd.core.schedule.PersonalChanges
+import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.data.Backup
 import de.luwify.stundenplanmd.AppLanguage
 import de.luwify.stundenplanmd.data.BackupCodec
@@ -150,6 +155,9 @@ sealed interface UiMessage {
     data object ShareFailed : UiMessage
     data object ShareTooNew : UiMessage
     data object ShareBroken : UiMessage
+
+    /** A date cancelled for me ([cancelled]) or back again; undo restores [previous]. */
+    data class CancelledForMe(val title: String, val date: LocalDate, val cancelled: Boolean, val previous: List<PersonalChange>) : UiMessage
 }
 
 /** A friend's plan read from a file or QR code, waiting for the user's confirmation. */
@@ -475,6 +483,52 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 repo.updateFriendSettings(p.person.id) { local -> Subjects.overrides(local, p.settings, Subjects.move(p.settings, course, target, p.subjects)) }
             }
         }
+    }
+
+    /** Own changes no date of my plan matches any more (after a re-import): the cleanup list in the settings. */
+    val orphans: StateFlow<List<PersonalChange>> = repo.data.filterNotNull()
+        .map { PersonalChanges.orphans(it.myPlan?.events.orEmpty(), it.personalChanges) }
+        .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Saves note, s.t., room and time of [p] for that date only or, [series], for every later date of its series. */
+    fun savePersonal(p: Personal, title: String, series: Boolean, desired: OccurrenceValues) {
+        viewModelScope.launch {
+            repo.updatePersonalChanges {
+                if (series) PersonalChanges.setSeries(it, p, title, desired) else PersonalChanges.setSingle(it, p, title, desired)
+            }
+        }
+    }
+
+    fun setCancelledForMe(ref: OccurrenceRef, title: String, cancelled: Boolean) {
+        viewModelScope.launch {
+            val previous = repo.data.value?.personalChanges ?: return@launch
+            repo.updatePersonalChanges { PersonalChanges.setCancelled(it, ref, title, cancelled) }
+            _messages.send(UiMessage.CancelledForMe(title, ref.date, cancelled, previous))
+        }
+    }
+
+    /** "Termine auswählen": [choices] = date -> takes place for me. */
+    fun setDates(choices: Map<OccurrenceRef, Boolean>, title: String) {
+        viewModelScope.launch {
+            repo.updatePersonalChanges { changes ->
+                choices.entries.fold(changes) { acc, (ref, on) -> PersonalChanges.setCancelled(acc, ref, title, !on) }
+            }
+        }
+    }
+
+    /** Deletes [change] (cleanup list); returns the changes before, for undo. */
+    fun deleteChange(change: PersonalChange): List<PersonalChange>? {
+        val previous = repo.data.value?.personalChanges ?: return null
+        viewModelScope.launch { repo.updatePersonalChanges { PersonalChanges.remove(it, change) } }
+        return previous
+    }
+
+    fun restorePersonal(previous: List<PersonalChange>) {
+        viewModelScope.launch { repo.updatePersonalChanges { previous } }
+    }
+
+    fun setShareChanges(on: Boolean) {
+        viewModelScope.launch { repo.setShareChanges(on) }
     }
 
     fun reorderFriends(ids: List<String>) {

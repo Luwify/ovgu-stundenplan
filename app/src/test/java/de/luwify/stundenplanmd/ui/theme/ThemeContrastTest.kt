@@ -52,6 +52,9 @@ class ThemeContrastTest {
         check("favorite/drawer sheet", m.favorite, s.surfaceContainerLow, 3.0, failures)
         check("favorite/page", m.favorite, s.background, 3.0, failures)
         check("favorite/card", m.favorite, card, 3.0, failures)
+        check("own change/surface", m.own, s.surface, 3.0, failures)
+        check("own change/page", m.own, s.background, 3.0, failures)
+        check("own change/card", m.own, card, 3.0, failures)
         check("together icon (onSurfaceVariant)/badge", s.onSurfaceVariant, s.surface, 3.0, failures)
         // Week/day strip chips: selected = primary fill, today = primary outline on a card-filled or recessed chip
         check("chip selected text/fill", s.onPrimary, s.primary, text, failures)

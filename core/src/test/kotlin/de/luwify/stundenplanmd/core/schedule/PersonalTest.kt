@@ -162,6 +162,14 @@ class PersonalTest {
     }
 
     @Test
+    fun editSeriesClearsTheSingleValuesOfItsFirstDate() {
+        val single = change("2026-11-04").copy(note = "alt", cancelled = true)
+        val p = on(Schedule(listOf(series), listOf(change("2026-11-04").copy(note = "alt"))), "2026-11-04").personal!!
+        val changes = PersonalChanges.setSeries(listOf(single), p, "N4", p.original.copy(note = "neu"))
+        assertEquals(listOf(change("2026-11-04").copy(cancelled = true), PersonalChange(series.uid, d("2026-11-04"), series = true, title = "N4", note = "neu")), changes)
+    }
+
+    @Test
     fun cancelAndUndo() {
         val ref = OccurrenceRef(series.uid, d("2026-10-21"))
         val cancelled = PersonalChanges.setCancelled(emptyList(), ref, "N4", true)

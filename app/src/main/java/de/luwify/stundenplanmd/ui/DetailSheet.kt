@@ -58,7 +58,15 @@ import java.time.LocalDate
 /** Everything about one tapped occurrence or cancellation. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DetailSheet(plan: PlanUi, item: Timed, onEditSubject: (Subject) -> Unit, onDismiss: () -> Unit) {
+fun DetailSheet(
+    plan: PlanUi,
+    item: Timed,
+    onEditSubject: (Subject) -> Unit,
+    onEditPersonal: () -> Unit,
+    onCancelForMe: (Boolean) -> Unit,
+    onPickDates: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     val locale = appLocale()
     val event = item.event
@@ -81,9 +89,10 @@ fun DetailSheet(plan: PlanUi, item: Timed, onEditSubject: (Subject) -> Unit, onD
             SelectionContainer { Text(event.title, style = MaterialTheme.typography.headlineSmall) }
 
             StatusBox(item)
+            PersonalBox(item, who = if (plan.isMe) null else plan.person.displayName)
 
             Field(stringResource(R.string.detail_when), "${longDate(item.date, locale)}\n${timeRange(item.start, item.end)}" + rhythm(event, locale)?.let { "\n$it" }.orEmpty())
-            Field(stringResource(R.string.detail_room), roomText(event))
+            Field(stringResource(R.string.detail_room), if (item.room != event.location?.room) item.room.orEmpty() else roomText(event))
             val with = plan.togetherWith(item)
             if (with.isNotEmpty()) TogetherField(plan, with)
             if (event.lecturers.isNotEmpty()) Field(stringResource(R.string.detail_lecturers), event.lecturers.joinToString(", "))
@@ -97,6 +106,25 @@ fun DetailSheet(plan: PlanUi, item: Timed, onEditSubject: (Subject) -> Unit, onD
             }
             if (event.summary != event.title) Field(stringResource(R.string.detail_lsf_title), event.summary)
 
+            if (plan.isMe) {
+                // Own changes: my plan only (a friend's plan is read-only).
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onEditPersonal) {
+                        Icon(NoteIcon, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.action_edit_personal))
+                    }
+                    val lsfCancelled = item is Cancellation && !item.byMe
+                    if (!lsfCancelled) {
+                        val cancelled = item.cancelledForMe
+                        OutlinedButton(onClick = { onCancelForMe(!cancelled) }) {
+                            Text(stringResource(if (cancelled) R.string.action_uncancel else R.string.action_cancel_for_me))
+                        }
+                    }
+                    OutlinedButton(onClick = onPickDates) { Text(stringResource(R.string.action_pick_dates)) }
+                }
+            }
             if (subject != null) {
                 OutlinedButton(onClick = { onEditSubject(subject) }) {
                     Icon(EditIcon, null, Modifier.size(18.dp))
@@ -115,7 +143,7 @@ private fun StatusBox(item: Timed) {
     val hl = planColors()
     val locale = appLocale()
     val lines: List<String> = when {
-        item is Cancellation -> listOf(stringResource(R.string.cancelled_on, longDate(item.date, locale)))
+        item is Cancellation && !item.byMe -> listOf(stringResource(R.string.cancelled_on, longDate(item.date, locale)))
         item is Occurrence && item.status is Status.Changed -> {
             val orig = (item.status as Status.Changed).original
             changeLines(item) + stringResource(

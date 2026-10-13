@@ -71,3 +71,6 @@ fun changeLines(o: Occurrence): List<String> {
         }
     }.ifEmpty { listOf(stringResource(R.string.changed)) }
 }
+
+/** The app's locale outside composition (snackbar texts). */
+fun appLocaleOf(res: android.content.res.Resources): Locale = res.configuration.locales[0]

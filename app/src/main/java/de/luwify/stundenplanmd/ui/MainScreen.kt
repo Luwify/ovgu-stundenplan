@@ -69,6 +69,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     val drawer = rememberDrawerState(DrawerValue.Closed)
     var tab by rememberSaveable { mutableStateOf(Tab.WEEK) }
     var selected by remember { mutableStateOf<Timed?>(null) }
+    var personalEdit by remember { mutableStateOf<Timed?>(null) }
+    var pickDates by remember { mutableStateOf<Timed?>(null) }
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var addChoice by rememberSaveable { mutableStateOf(false) }
@@ -184,6 +186,15 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                     )
                     if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
                 }
+                is UiMessage.CancelledForMe -> {
+                    val date = dayAndDate(msg.date, appLocaleOf(res))
+                    val r = snackbar.showSnackbar(
+                        res.getString(if (msg.cancelled) R.string.cancelled_for_me else R.string.uncancelled_for_me, msg.title, date),
+                        actionLabel = res.getString(R.string.undo),
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (r == SnackbarResult.ActionPerformed) vm.restorePersonal(msg.previous)
+                }
                 UiMessage.NoPlanToShare -> snackbar.showSnackbar(res.getString(R.string.no_plan_to_share))
                 UiMessage.ShareFailed -> snackbar.showSnackbar(res.getString(R.string.share_failed))
             }
@@ -292,7 +303,32 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                     }
                     val item = selected
                     if (p != null && item != null) {
-                        DetailSheet(p, item, onEditSubject = { selected = null; editing = it.key }, onDismiss = { selected = null })
+                        DetailSheet(
+                            p, item,
+                            onEditSubject = { selected = null; editing = it.key },
+                            onEditPersonal = { selected = null; personalEdit = item },
+                            onCancelForMe = { cancel -> selected = null; vm.setCancelledForMe(item.ref, item.event.title, cancel) },
+                            onPickDates = { selected = null; pickDates = item },
+                            onDismiss = { selected = null },
+                        )
+                    }
+                    personalEdit?.let { edit ->
+                        PersonalEditor(
+                            edit,
+                            onSave = { series, values ->
+                                personalEdit = null
+                                vm.savePersonal(edit.personalOrBlank(), edit.event.title, series, values)
+                            },
+                            onDismiss = { personalEdit = null },
+                        )
+                    }
+                    val dates = pickDates
+                    if (p != null && dates != null) {
+                        PickDatesDialog(
+                            p, dates,
+                            onSave = { pickDates = null; vm.setDates(it, dates.event.title) },
+                            onDismiss = { pickDates = null },
+                        )
                     }
                 }
             }

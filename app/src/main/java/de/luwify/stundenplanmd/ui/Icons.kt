@@ -95,3 +95,18 @@ val CheckIcon: ImageVector by lazy { lineIcon("Check", 2f) { moveTo(5f, 12.5f); 
 
 /** A chevron pointing down (drop-down field); turned 180° while the menu is open. */
 val ChevronDownIcon: ImageVector by lazy { lineIcon("ChevronDown", 2f) { moveTo(6f, 9.5f); lineTo(12f, 15.5f); lineTo(18f, 9.5f) } }
+
+/** A sheet with a folded corner and two lines: an own note. */
+val NoteIcon: ImageVector by lazy {
+    lineIcon("Note", 2f) {
+        moveTo(14f, 20f); horizontalLineTo(6f)
+        curveTo(4.9f, 20f, 4f, 19.1f, 4f, 18f)
+        verticalLineTo(6f)
+        curveTo(4f, 4.9f, 4.9f, 4f, 6f, 4f)
+        horizontalLineTo(18f)
+        curveTo(19.1f, 4f, 20f, 4.9f, 20f, 6f)
+        verticalLineTo(14f); lineTo(14f, 20f); verticalLineTo(14f); horizontalLineTo(20f)
+        moveTo(8f, 8.5f); horizontalLineTo(16f)
+        moveTo(8f, 12f); horizontalLineTo(12f)
+    }
+}

@@ -64,7 +64,7 @@ fun standText(date: LocalDate?): String =
 @Composable
 fun nowText(status: NowStatus): String? {
     val hm = DateTimeFormatter.ofPattern("HH:mm")
-    fun place(o: de.luwify.stundenplanmd.core.schedule.Occurrence) = o.event.location?.room ?: o.event.title
+    fun place(o: de.luwify.stundenplanmd.core.schedule.Occurrence) = o.room ?: o.event.title
     return when (status) {
         is NowStatus.In -> stringResource(R.string.now_in, place(status.occurrence), status.until.format(hm))
         is NowStatus.FreeUntil -> stringResource(R.string.now_free_until, status.next.start.format(hm), place(status.next))

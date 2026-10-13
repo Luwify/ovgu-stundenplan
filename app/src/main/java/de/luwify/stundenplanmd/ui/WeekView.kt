@@ -320,6 +320,9 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
     val status = (item as? Occurrence)?.status
     val highlight = status is Status.Changed || status == Status.Extra
     val hl = planColors().highlight
+    val own = planColors().own
+    val ownChange = item.ownChange
+    val personal = item.personal
     val shape = RoundedCornerShape(6.dp)
     val cancelledText = stringResource(R.string.cancelled)
     Box(
@@ -328,6 +331,8 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
             .clip(shape)
             .background(c.container)
             .then(if (highlight) Modifier.border(if (strong) 2.5.dp else 1.5.dp, hl, shape) else Modifier)
+            // My own changes: dashed violet (an LSF change keeps its solid amber border, the pencil badge says the rest).
+            .then(if (ownChange && !highlight) Modifier.ownBorder(own, 2.dp, 6.dp) else Modifier)
             .clickable(onClick = onClick)
             .then(if (cancelled) Modifier.semantics { contentDescription = cancelledText } else Modifier),
     ) {
@@ -353,7 +358,7 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
                 textDecoration = if (cancelled) TextDecoration.LineThrough else null,
             )
             Text(
-                if (cancelled) cancelledText else item.event.location?.room.orEmpty(),
+                if (cancelled) cancelledText else item.room.orEmpty(),
                 color = c.content,
                 fontSize = 10.sp,
                 lineHeight = 12.sp,
@@ -365,6 +370,9 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
                 if (shared && narrow) {
                     TogetherBadge(favorite, 13.dp)
                 }
+                if (personal?.st == true) StBadge()
+                if (personal?.note != null) MarkerBadge(note = true, 13.dp)
+                if (ownChange) MarkerBadge(note = false, 13.dp)
                 if (highlight && strong) {
                     Text(
                         if (status == Status.Extra) "+" else "!",

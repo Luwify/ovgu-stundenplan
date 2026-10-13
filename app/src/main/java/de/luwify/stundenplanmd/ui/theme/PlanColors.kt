@@ -22,6 +22,8 @@ class PlanColors(
     val highlightText: Color,
     /** Hearts and the together icon with a favorite friend (red by default), 3:1 on the badge (surface), sheets, page and card. */
     val favorite: Color = Color.Red,
+    /** Marker of my own changes (violet, unlike the amber of LSF changes), 3:1 on page and card. */
+    val own: Color = Color(0xFF7B1FA2),
 )
 
 /** Amber in light and dark, or the custom theme's [wish]: nudged to 3:1 (text 4.5:1) on [page] and [card]. */
@@ -39,6 +41,12 @@ fun favoriteColor(backgrounds: List<Color>, wish: Color? = null): Color {
     return (wish ?: if (dark) Color(0xFFFF5C6C) else Color(0xFFD3203A)).withContrast(3.0, backgrounds)
 }
 
+/** Violet in light and dark, nudged to 3:1 on every one of [backgrounds] (it is used for borders and icons). */
+fun ownColor(backgrounds: List<Color>): Color {
+    val dark = backgrounds.first().luminance() < 0.18f
+    return (if (dark) Color(0xFFD59CF0) else Color(0xFF8E24AA)).withContrast(3.0, backgrounds)
+}
+
 /** [surfaces]: where hearts and the together badge sit besides page and card (surface = badge, drawer sheet, ...). */
 fun planColors(
     page: Color,
@@ -50,7 +58,7 @@ fun planColors(
     favoriteWish: Color? = null,
 ): PlanColors {
     val (h, on, text) = highlightColors(page, card, highlightWish)
-    return PlanColors(card, border, borderWidth, h, on, text, favoriteColor(listOf(page, card) + surfaces, favoriteWish))
+    return PlanColors(card, border, borderWidth, h, on, text, favoriteColor(listOf(page, card) + surfaces, favoriteWish), ownColor(listOf(page, card) + surfaces))
 }
 
 /** The surfaces a favorite red must stand out on: the together badge and top bar (surface) and the drawer sheet. */
