@@ -164,6 +164,7 @@ fun ManualCourseEditor(
         DatePickerDialog(
             onDismissRequest = { picking = null },
             confirmButton = {
+                DialogWindowAnimation(R.style.Motion_Dialog)
                 TextButton(onClick = {
                     state.selectedDateMillis?.let { ms ->
                         val d = dateOfMillis(ms).toEpochDay()
@@ -186,6 +187,7 @@ fun ManualCourseEditor(
     }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        DialogWindowAnimation(R.style.Motion_Screen)
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {

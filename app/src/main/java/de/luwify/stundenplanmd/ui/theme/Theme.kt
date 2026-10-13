@@ -118,7 +118,8 @@ fun StundenplanTheme(
             plan = remember(darkTheme, colorScheme) { systemPlanColors(darkTheme, colorScheme) }
         }
     }
-    CompositionLocalProvider(LocalPlanColors provides plan, LocalThemeMode provides mode) {
-        MaterialTheme(colorScheme = colorScheme, shapes = shapes, content = content)
+    val (shownScheme, shownPlan) = fadedTheme(colorScheme, plan, mode to darkTheme, de.luwify.stundenplanmd.ui.animationsEnabled())
+    CompositionLocalProvider(LocalPlanColors provides shownPlan, LocalThemeMode provides mode) {
+        MaterialTheme(colorScheme = shownScheme, shapes = shapes, content = content)
     }
 }

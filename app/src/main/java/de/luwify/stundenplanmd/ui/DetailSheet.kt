@@ -26,6 +26,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,7 +77,14 @@ fun DetailSheet(
     val subject = plan.subjectOf[event.courseKey]
     val rgb = plan.colorOf(item)
     val stripe = remember(rgb, scheme.surfaceContainerLow) { SubjectColors.block(rgb, scheme.surfaceContainerLow).stripe }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    // An action closes the sheet by sliding it away, like a swipe or back, instead of removing it at once.
+    fun leave(action: () -> Unit) {
+        action()
+        scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -94,8 +103,8 @@ fun DetailSheet(
             if (event.isManual) {
                 ManualBox(
                     who = if (plan.isMe) null else plan.person.displayName,
-                    onEdit = onEditManual.takeIf { plan.isMe },
-                    onDelete = onDeleteManual.takeIf { plan.isMe },
+                    onEdit = { leave(onEditManual) }.takeIf { plan.isMe },
+                    onDelete = { leave(onDeleteManual) }.takeIf { plan.isMe },
                 )
             }
             PersonalBox(item, who = if (plan.isMe) null else plan.person.displayName)
@@ -119,7 +128,7 @@ fun DetailSheet(
                 // Own changes: my plan only (a friend's plan is read-only).
                 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onEditPersonal) {
+                    OutlinedButton(onClick = { leave(onEditPersonal) }) {
                         Icon(NoteIcon, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.action_edit_personal))
@@ -127,15 +136,15 @@ fun DetailSheet(
                     val lsfCancelled = item is Cancellation && !item.byMe
                     if (!lsfCancelled) {
                         val cancelled = item.cancelledForMe
-                        OutlinedButton(onClick = { onCancelForMe(!cancelled) }) {
+                        OutlinedButton(onClick = { leave { onCancelForMe(!cancelled) } }) {
                             Text(stringResource(if (cancelled) R.string.action_uncancel else R.string.action_cancel_for_me))
                         }
                     }
-                    OutlinedButton(onClick = onPickDates) { Text(stringResource(R.string.action_pick_dates)) }
+                    OutlinedButton(onClick = { leave(onPickDates) }) { Text(stringResource(R.string.action_pick_dates)) }
                 }
             }
             if (subject != null) {
-                OutlinedButton(onClick = { onEditSubject(subject) }) {
+                OutlinedButton(onClick = { leave { onEditSubject(subject) } }) {
                     Icon(EditIcon, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.edit_subject))

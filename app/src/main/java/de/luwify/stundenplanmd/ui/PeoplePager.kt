@@ -108,8 +108,8 @@ fun PersonIndicator(pager: PagerState, name: String, modifier: Modifier = Modifi
     AnimatedVisibility(
         visible,
         modifier,
-        enter = if (animate) fadeIn(tween(120)) else EnterTransition.None,
-        exit = if (animate) fadeOut(tween(250)) else ExitTransition.None,
+        enter = if (animate) fadeIn(tween(Motion.Short)) else EnterTransition.None,
+        exit = if (animate) fadeOut(tween(Motion.Medium)) else ExitTransition.None,
     ) {
         Surface(
             shape = RoundedCornerShape(20.dp),

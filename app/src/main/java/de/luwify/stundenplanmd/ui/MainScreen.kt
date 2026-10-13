@@ -37,6 +37,14 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.material3.DrawerValue
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.key
@@ -114,7 +122,15 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     }
     LaunchedEffect(selectedId, pages.map { it.person.id }) {
         val i = pages.indexOfFirst { it.person.id == selectedId }
-        if (i >= 0 && i != people.currentPage && !people.isScrollInProgress) people.scrollToPage(i)
+        if (i >= 0 && i != people.currentPage && !people.isScrollInProgress) {
+            // From the drawer: slide to that person (from the page next to it, so far targets don't scroll through all).
+            if (animate && people.layoutInfo.visiblePagesInfo.isNotEmpty()) {
+                if (kotlin.math.abs(i - people.currentPage) > 1) people.scrollToPage(if (i > people.currentPage) i - 1 else i + 1)
+                people.animateScrollToPage(i, animationSpec = tween(Motion.Long, easing = Motion.Standard))
+            } else {
+                people.scrollToPage(i)
+            }
+        }
     }
 
     // A check found a newer version: one snackbar per version, "Anzeigen" opens the update dialog.
@@ -321,10 +337,24 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             val active = i == people.settledPage
                             val edge = remember(people, animate) { EdgeOnlyConnection(people, animate) }
                             Box(Modifier.fillMaxSize().nestedScroll(edge)) {
-                                when {
-                                    page.isEmpty -> EmptyState(onImport)
-                                    tab == Tab.WEEK -> WeekScreen(page, now, week, active, onWeek = { week = it }, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
-                                    else -> DayScreen(page, now, day, active, onDay = { day = it }, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
+                                // Week and Day fade through each other; pages out of sight switch without animating.
+                                AnimatedContent(
+                                    if (page.isEmpty) null else tab,
+                                    transitionSpec = {
+                                        if (animate && active) {
+                                            fadeIn(tween(Motion.Medium - Motion.FadeInDelay, Motion.FadeInDelay, LinearEasing)) togetherWith
+                                                fadeOut(tween(Motion.FadeInDelay, easing = LinearEasing))
+                                        } else {
+                                            EnterTransition.None togetherWith ExitTransition.None
+                                        }
+                                    },
+                                    label = "tab",
+                                ) { shown ->
+                                    when (shown) {
+                                        null -> EmptyState(onImport)
+                                        Tab.WEEK -> WeekScreen(page, now, week, active, onWeek = { week = it }, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
+                                        Tab.DAY -> DayScreen(page, now, day, active, onDay = { day = it }, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
+                                    }
                                 }
                             }
                         }
@@ -339,12 +369,12 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                     if (p != null && item != null) {
                         DetailSheet(
                             p, item,
-                            onEditSubject = { selected = null; editing = it.key },
-                            onEditPersonal = { selected = null; personalEdit = item },
-                            onCancelForMe = { cancel -> selected = null; vm.setCancelledForMe(item.ref, item.event.title, cancel) },
-                            onPickDates = { selected = null; pickDates = item },
-                            onEditManual = { selected = null; manualEdit = ManualTarget(item.event.uid) },
-                            onDeleteManual = { selected = null; vm.deleteManual(item.event.uid) },
+                            onEditSubject = { editing = it.key },
+                            onEditPersonal = { personalEdit = item },
+                            onCancelForMe = { cancel -> vm.setCancelledForMe(item.ref, item.event.title, cancel) },
+                            onPickDates = { pickDates = item },
+                            onEditManual = { manualEdit = ManualTarget(item.event.uid) },
+                            onDeleteManual = { vm.deleteManual(item.event.uid) },
                             onDismiss = { selected = null },
                         )
                     }
@@ -369,7 +399,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 }
             }
         }
-        if (showSettings) {
+        Overlay(showSettings) {
             SettingsScreen(
                 vm, myPlan, myShare.name,
                 onEditSubject = { editing = it.key },
@@ -380,10 +410,10 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 onBack = { showSettings = false },
             )
         }
-        if (scanning) {
+        Overlay(scanning) {
             ScanScreen(onScanned = { text -> scanning = false; vm.importScanned(text) }, onClose = { scanning = false })
         }
-        qr?.let { code ->
+        Overlay(qr) { code ->
             QrShowScreen(
                 text = code.text,
                 omitsDetails = code.omitsDetails,

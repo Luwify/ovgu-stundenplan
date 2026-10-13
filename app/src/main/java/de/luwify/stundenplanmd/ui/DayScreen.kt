@@ -1,5 +1,6 @@
 package de.luwify.stundenplanmd.ui
 
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -84,7 +85,7 @@ fun DayScreen(
         val scope = rememberCoroutineScope()
         val animate = animationsEnabled()
         val locale = appLocale()
-        val goTo: (Int) -> Unit = { page -> scope.launch { if (animate) pager.animateScrollToPage(page) else pager.scrollToPage(page) } }
+        val goTo: (Int) -> Unit = { page -> scope.launch { if (animate) pager.animateScrollToPage(page, animationSpec = tween(Motion.Long, easing = Motion.Standard)) else pager.scrollToPage(page) } }
         val labels = remember(plan, start, count, today, locale) {
             (0 until count).map { page ->
                 val date = dateOf(page)

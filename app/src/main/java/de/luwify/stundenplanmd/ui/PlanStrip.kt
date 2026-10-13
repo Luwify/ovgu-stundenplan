@@ -58,7 +58,7 @@ import de.luwify.stundenplanmd.ui.theme.planColors
 private val ChipHeight = 56.dp
 private val ChipGap = 8.dp
 private val StripPadding = 16.dp
-private const val FadeMillis = 180
+private const val FadeMillis = Motion.Short
 
 /** False when the system's "remove animations" (animator duration scale 0) is on. */
 @Composable

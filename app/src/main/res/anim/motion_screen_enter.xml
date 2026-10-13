@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full-screen dialog enter: shared axis X, slide in 30 dp from the end while fading in. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false">
+    <translate android:fromXDelta="30dp" android:toXDelta="0" android:duration="300" android:interpolator="@android:interpolator/decelerate_quint" />
+    <alpha android:fromAlpha="0" android:toAlpha="1" android:startOffset="90" android:duration="210" android:interpolator="@android:interpolator/linear" />
+</set>

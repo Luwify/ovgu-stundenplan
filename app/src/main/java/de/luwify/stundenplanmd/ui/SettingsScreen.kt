@@ -249,14 +249,14 @@ fun SettingsScreen(
                 }
             }
         }
-        if (showVersions) VersionOverviewScreen(update, onOpen = { openVersion = it.versionCode }, onBack = { showVersions = false })
-        update.manifest?.releases?.firstOrNull { it.versionCode == openVersion }?.let { release ->
+        Overlay(showVersions) { VersionOverviewScreen(update, onOpen = { openVersion = it.versionCode }, onBack = { showVersions = false }) }
+        Overlay(update.manifest?.releases?.firstOrNull { it.versionCode == openVersion }) { release ->
             VersionDetailScreen(release, updates, onShare = { shareApp = true }, onBack = { openVersion = null })
         }
-        if (shareApp) AppShareScreen(updates, onClose = { shareApp = false })
+        Overlay(shareApp) { AppShareScreen(updates, onClose = { shareApp = false }) }
         val spec = choice?.custom
-        if (showColors && spec != null) {
-            ColorEditorScreen(spec, onChange = { vm.setCustomTheme(it) }, onBack = { showColors = false })
+        Overlay(spec.takeIf { showColors }) { shown ->
+            ColorEditorScreen(shown, onChange = { vm.setCustomTheme(it) }, onBack = { showColors = false })
         }
     }
 }

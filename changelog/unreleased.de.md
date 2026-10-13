@@ -1,0 +1,1 @@
+- Weichere Übergänge: Einstellungen, QR-Seiten und Versionsseiten blenden mit kurzer Verschiebung ein und aus, Dialoge und das Termin-Blatt nutzen die Standard-Animationen, Woche/Tag und Personenwechsel über das Menü gleiten, Designwechsel blendet die Farben über. Mit „Animationen entfernen“ im System entfällt alles.

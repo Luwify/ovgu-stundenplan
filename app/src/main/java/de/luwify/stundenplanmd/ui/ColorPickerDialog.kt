@@ -85,6 +85,7 @@ fun ColorPickerDialog(
     }
 
     Dialog(onDismissRequest = onDismiss) {
+        DialogWindowAnimation(R.style.Motion_Dialog)
         Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(title, style = MaterialTheme.typography.titleLarge)

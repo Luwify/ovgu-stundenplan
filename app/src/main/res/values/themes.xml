@@ -4,4 +4,14 @@
     <style name="Theme.StundenplanMD" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
     </style>
+
+    <!-- Window animations of Compose dialogs (set from ui/Motion.kt; the platform's own animations are off for them). -->
+    <style name="Motion.Dialog" parent="">
+        <item name="android:windowEnterAnimation">@anim/motion_dialog_enter</item>
+        <item name="android:windowExitAnimation">@anim/motion_dialog_exit</item>
+    </style>
+    <style name="Motion.Screen" parent="">
+        <item name="android:windowEnterAnimation">@anim/motion_screen_enter</item>
+        <item name="android:windowExitAnimation">@anim/motion_screen_exit</item>
+    </style>
 </resources>

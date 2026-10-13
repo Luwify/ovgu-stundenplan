@@ -113,7 +113,7 @@ fun WeekScreen(
         val scope = rememberCoroutineScope()
         val animate = animationsEnabled()
         val locale = appLocale()
-        val goTo: (Int) -> Unit = { page -> scope.launch { if (animate) pager.animateScrollToPage(page) else pager.scrollToPage(page) } }
+        val goTo: (Int) -> Unit = { page -> scope.launch { if (animate) pager.animateScrollToPage(page, animationSpec = tween(Motion.Long, easing = Motion.Standard)) else pager.scrollToPage(page) } }
         val labels = remember(plan, weeks, thisMonday, locale) {
             weeks.map { monday ->
                 ChipLabel(
@@ -295,7 +295,7 @@ private fun DayColumn(
 /** The day progress, animated unless animations are off. */
 @Composable
 private fun dayProgress(progress: Float): Float {
-    val fill by animateFloatAsState(progress, if (animationsEnabled()) tween(600) else snap(), label = "day progress")
+    val fill by animateFloatAsState(progress, if (animationsEnabled()) tween(Motion.Long * 2, easing = Motion.Standard) else snap(), label = "day progress")
     return fill
 }
 
