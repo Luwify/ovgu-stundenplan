@@ -68,6 +68,19 @@ android {
             )
             signingConfig = signingConfigs.getByName("release")
         }
+        // Frame-time measurements (`assemblePerf`): R8 and resource shrinking like release, not debuggable, but debug-signed
+        // under the .preview id, so it installs over the debug copy (keeping its test data) and never near the real app.
+        create("perf") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".preview"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
+    }
+
+    sourceSets.getByName("perf") {
+        kotlin.directories += "src/release/java" // the release update source (no debug override)
+        res.directories += "src/debug/res" // launcher label "Plan Preview"
     }
 
     compileOptions {
