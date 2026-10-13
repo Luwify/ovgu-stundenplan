@@ -1,47 +1,17 @@
-# Shared helpers for tools/release.sh and tools/withdraw.sh (sourced, not run).
+# Helpers for the Forgejo bridge scripts (sourced, not run). Settings: release/app.conf (app) and
+# release/forgejo.conf (git-ignored: host, home network, token file; template in tools/forgejo/README.md).
 # Secrets: the token is read from $TOKEN_FILE into a header file (mode 600) in a private temp dir and passed to curl as
 # -H @file, so it never appears in the process list, in output or in logs. Never `set -x` in these scripts.
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
-# shellcheck source=../release/release.conf
-source "$ROOT/release/release.conf"
-
-TMP="$(mktemp -d)"
-chmod 700 "$TMP"
-trap 'rm -rf "$TMP"' EXIT
+source "$(dirname "${BASH_SOURCE[0]}")/../release-common.sh"
+[[ -r "$ROOT/release/forgejo.conf" ]] || die "release/forgejo.conf fehlt (Vorlage: tools/forgejo/README.md)"
+# shellcheck source=/dev/null
+source "$ROOT/release/forgejo.conf"
 HDR="$TMP/auth-header"
-
-say()  { printf '%s\n' "$*"; }
-step() { printf '\n== %s\n' "$*"; }
-die()  { printf 'FEHLER: %s\n' "$*" >&2; exit 1; }
 
 RELEASE_API="/repos/$RELEASE_OWNER/$RELEASE_REPO"
 PUBLIC_BASE="https://$FORGEJO_HOST/$RELEASE_OWNER/$RELEASE_REPO"
 MANIFEST_URL="$PUBLIC_BASE/raw/branch/$RELEASE_BRANCH/updates.json"
-
-need_tools() {
-    local missing=()
-    for t in "$@"; do command -v "$t" >/dev/null 2>&1 || missing+=("$t"); done
-    ((${#missing[@]} == 0)) || die "Werkzeuge fehlen: ${missing[*]} (bitte selbst installieren, das Skript installiert nichts)"
-}
-
-# Newest build-tools of the SDK (ANDROID_HOME, ANDROID_SDK_ROOT or sdk.dir in local.properties).
-find_build_tools() {
-    local sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
-    if [[ -z "$sdk" && -f local.properties ]]; then sdk="$(sed -n 's/^sdk\.dir=//p' local.properties)"; fi
-    [[ -n "$sdk" && -d "$sdk/build-tools" ]] || die "Android SDK nicht gefunden (ANDROID_HOME oder sdk.dir in local.properties)"
-    local bt
-    bt="$(ls -d "$sdk"/build-tools/*/ 2>/dev/null | sort -V | tail -1)"
-    [[ -x "$bt/apksigner" && -x "$bt/aapt2" ]] || die "apksigner/aapt2 fehlen in $bt (SDK build-tools installieren)"
-    APKSIGNER="$bt/apksigner"
-    AAPT2="$bt/aapt2"
-}
-
-setup_java() {
-    if [[ -z "${JAVA_HOME:-}" && -d "$JAVA_HOME_DEFAULT" ]]; then export JAVA_HOME="$JAVA_HOME_DEFAULT"; fi
-    [[ -n "${JAVA_HOME:-}" ]] || die "JAVA_HOME nicht gesetzt (JDK 21)"
-}
 
 # The API is only reachable without SSO from the home network: talk to the NAS directly.
 require_home_network() {
@@ -99,11 +69,6 @@ put_manifest() {
     status="$(api "$method" "$RELEASE_API/contents/updates.json" "$TMP/put-out.json" \
         -H 'Content-Type: application/json' --data-binary @"$body")"
     [[ "$status" == 200 || "$status" == 201 ]] || api_fail "updates.json schreiben" "$status"
-}
-
-# gradle_manifest ARGS...: the app's own manifest tool (same parser as the app).
-gradle_manifest() {
-    ./gradlew -q "$MANIFEST_TASK" --args="$*"
 }
 
 # public_get URL OUT: anonymous, WITHOUT --resolve (the real public path). Prints "<status> <redirect url>".

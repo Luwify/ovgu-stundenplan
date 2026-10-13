@@ -17,3 +17,7 @@ private/
 *.aab
 *.keystore
 *.jks
+
+# Release settings for the old Forgejo (bridge release only): host, home network, token path. Template in
+# tools/forgejo/README.md.
+/release/forgejo.conf
