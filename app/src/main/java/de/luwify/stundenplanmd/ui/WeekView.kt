@@ -81,6 +81,9 @@ private val Gutter = 26.dp
 private val BlockTitleStyle = TextStyle(hyphens = Hyphens.Auto, lineBreak = LineBreak.Paragraph)
 private val MinHour = 40.dp
 
+/** The now line across the week: primary at this alpha, faint on purpose (ThemeContrastTest keeps it visible). */
+internal const val NOW_LINE_ALPHA = 0.4f
+
 /**
  * Week strip above a Mon–Fri grid, one pager page per week; opens on [week] (shared between people, null = this week,
  * next week on weekends), clamped to this plan's weeks. While [active], weeks the user moves to are reported to [onWeek].
@@ -154,6 +157,10 @@ private fun WeekPage(
             val n = hours.last - hours.first
             val hourH = maxOf(MinHour, maxHeight / n)
             val lines = colors.outlineVariant
+            // Now, across the whole week behind the events: only in the current week, Mon–Fri, inside the hour range.
+            val nowLine = colors.primary.copy(alpha = NOW_LINE_ALPHA)
+            val nowHours = (Duration.between(now.toLocalDate().atTime(hours.first, 0), now).toMinutes() / 60f)
+                .takeIf { today in monday..monday.plusDays(4) && it > 0f && it < n }
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -167,6 +174,10 @@ private fun WeekPage(
                         }
                         val w = (size.width - g) / 5f
                         for (d in 1 until 5) drawLine(lines, Offset(g + w * d, 0f), Offset(g + w * d, size.height), 1f)
+                        if (nowHours != null) {
+                            val y = (hourH * nowHours).toPx()
+                            drawLine(nowLine, Offset(g, y), Offset(size.width, y), 1.5.dp.toPx())
+                        }
                     },
             ) {
                 Box(Modifier.width(Gutter).fillMaxHeight()) {

@@ -4,6 +4,7 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 import de.luwify.stundenplanmd.data.settings.ColorRole
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.compositeOver
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -55,6 +56,8 @@ class ThemeContrastTest {
         check("own change/surface", m.own, s.surface, 3.0, failures)
         check("own change/page", m.own, s.background, 3.0, failures)
         check("own change/card", m.own, card, 3.0, failures)
+        // The now line across the week: faint, but visible on the page in every theme.
+        check("now line/background", s.primary.copy(alpha = de.luwify.stundenplanmd.ui.NOW_LINE_ALPHA).compositeOver(s.background), s.background, 1.4, failures)
         check("together icon (onSurfaceVariant)/badge", s.onSurfaceVariant, s.surface, 3.0, failures)
         // Week/day strip chips: selected = primary fill, today = primary outline on a card-filled or recessed chip
         check("chip selected text/fill", s.onPrimary, s.primary, text, failures)
