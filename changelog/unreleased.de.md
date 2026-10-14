@@ -1,5 +1,0 @@
-- Weichere Übergänge: Einstellungen, QR-Seiten und Versionsseiten blenden mit kurzer Verschiebung ein und aus, Dialoge und das Termin-Blatt nutzen die Standard-Animationen, Woche/Tag und Personenwechsel über das Menü gleiten, Designwechsel blendet die Farben über. Mit „Animationen entfernen“ im System entfällt alles.
-- Weniger Ruckeln beim Wechsel zwischen Woche und Tag und beim Blättern: Nachbarseiten werden erst nach dem Öffnen und spaltenweise aufgebaut, andere Personen wechseln den Tab verzögert.
-- Schnellerer Ablauf nach Updates: die App bringt jetzt ein Optimierungsprofil mit, mit dem Android sie nach dem ersten Start vorkompiliert (Wechsel, Blättern und Einstellungen ruckeln dann weniger).
-- Behoben: Ändere ich die Zeit oder den Raum eines Termins, bleibt das Freunde-Symbol erhalten. Abgeglichen wird mit dem ursprünglichen Termin, nicht mit der geänderten Zeit; eine Absage (von mir oder dem Freund) hebt den Treffer weiterhin auf.
-- Das Freunde-Symbol zeigt die Anzahl: eine Person bei einem Freund, zwei Personen bei zwei, eine Gruppe ab drei (Woche und Tag; in der Ansicht eines Freundes zählt auch dein Plan mit).
