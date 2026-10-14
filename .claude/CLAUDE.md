@@ -221,6 +221,9 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 - **Version:** `version.properties` (`version=major.minor.patch`) is the only source; `app/build.gradle.kts` derives
   versionName and versionCode = major*10000 + minor*100 + patch (minor, patch < 100). Raise it in a commit before
   releasing (with `changelog/<ver>.de.md` and `.en.md`, short, for users); the script doesn't bump.
+  Changelog style (`unreleased.*.md` and release files): impersonal and user-facing, grouped under short headings
+  (as in 1.0.1, 1.1.0); describe what the app does now ("Das Freunde-Symbol zeigt jetzt …"), no first person, "du" only
+  where needed; no internal details (class names, profiles, timings, test numbers).
 - **Signing:** release build type uses `signingConfigs.release` from the Gradle properties `LUWIFY_STORE_FILE`,
   `LUWIFY_STORE_PASSWORD`, `LUWIFY_KEY_ALIAS`, `LUWIFY_KEY_PASSWORD` (in the user's `~/.gradle/gradle.properties`).
   Missing -> `checkReleaseSigning` fails the release build (never debug-key fallback); debug builds don't need them.
