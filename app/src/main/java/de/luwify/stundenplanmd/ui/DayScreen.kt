@@ -193,7 +193,7 @@ private fun TodayRow(plan: PlanUi, item: Timed, now: LocalDateTime, onClick: () 
                     textDecoration = if (cancelled) TextDecoration.LineThrough else null,
                 )
                 TypeLabel(item.event.type.short, border = c.stripe, text = scheme.onSurface)
-                if (plan.togetherWith(item).isNotEmpty()) TogetherBadge(plan.withFavorite(item), 24.dp)
+                plan.togetherWith(item).size.let { if (it > 0) TogetherBadge(it, plan.withFavorite(item), 24.dp) }
                 if (item.st) StBadge(12)
                 if (item.event.isManual) ManualBadge(24.dp)
                 if (item.ownChange) MarkerBadge(note = false, 24.dp)

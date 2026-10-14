@@ -102,7 +102,10 @@
     <string name="color_section_cards">Today list and changes</string>
     <string name="color_card_border_hint">With the card border option a 3:1 edge</string>
     <string name="color_highlight">Changes</string>
-    <string name="together_marker_favorite">Together with a favorite friend</string>
+    <plurals name="together_marker_favorite">
+        <item quantity="one">Together with %d friend, a favorite</item>
+        <item quantity="other">Together with %d friends, including a favorite</item>
+    </plurals>
     <string name="favorite">Favorite</string>
     <string name="favorite_toggle">%1$s as favorite</string>
     <string name="drawer_reorder_hint">Long-press and drag to reorder</string>
@@ -194,7 +197,10 @@
     <string name="share_name_unset">Not set yet</string>
     <string name="notes_shortened">(Shortened in the QR code. A shared file has the full note.)</string>
     <string name="notes_not_sent">(Not included in the QR code. A shared file has the note.)</string>
-    <string name="together_marker">Together with friends</string>
+    <plurals name="together_marker">
+        <item quantity="one">Together with %d friend</item>
+        <item quantity="other">Together with %d friends</item>
+    </plurals>
     <string name="detail_together">Together with</string>
     <string name="together_you">you</string>
     <string name="qr_incomplete">The QR code doesn\'t contain every detail (e.g. notes). For everything: share as a file.</string>

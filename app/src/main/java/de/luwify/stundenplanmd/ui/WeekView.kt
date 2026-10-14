@@ -36,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.material3.Icon
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -366,7 +367,8 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
         Box(Modifier.fillMaxHeight().width(3.dp).background(c.stripe))
         // Attended with friends: a group badge at the top right; in narrow split lanes next to the type label instead,
         // so the title keeps the full width.
-        val shared = plan.togetherWith(item).isNotEmpty()
+        val count = plan.togetherWith(item).size
+        val shared = count > 0
         val favorite = plan.withFavorite(item)
         // Own changes and notes: badges below it, same column (the bottom row is too narrow for more than type and s.t.).
         val note = personal?.note != null
@@ -375,7 +377,7 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
         if (badges) {
             Column(Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (manual) ManualBadge(15.dp)
-                if (shared) TogetherBadge(favorite, 15.dp)
+                if (shared) TogetherBadge(count, favorite, 15.dp)
                 if (ownChange) MarkerBadge(note = false, 15.dp)
                 if (note) MarkerBadge(note = true, 15.dp)
             }
@@ -404,7 +406,7 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
             Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
                 TypeLabel(item.event.type.short, border = c.stripe, text = c.content)
                 if (shared && narrow) {
-                    TogetherBadge(favorite, 13.dp)
+                    TogetherBadge(count, favorite, 13.dp)
                 }
                 if (item.st) StBadge()
                 if (narrow && manual) ManualBadge(13.dp)
@@ -426,16 +428,22 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
 }
 
 /**
- * "Attended together" marker: the group icon on a small round badge in the surface color, so it stays visible on
+ * "Attended together" marker: person (1 friend), group (2) or groups (3 or more) on a small round badge in the surface color, so it stays visible on
  * every subject color; red (the favorite color, 3:1 on surface) when a favorite friend is there.
  */
 @Composable
-fun TogetherBadge(favorite: Boolean, size: Dp, modifier: Modifier = Modifier) {
+fun TogetherBadge(count: Int, favorite: Boolean, size: Dp, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     Box(modifier.size(size).clip(CircleShape).background(scheme.surface), contentAlignment = Alignment.Center) {
         Icon(
-            painterResource(R.drawable.ic_group),
-            contentDescription = stringResource(if (favorite) R.string.together_marker_favorite else R.string.together_marker),
+            painterResource(
+                when {
+                    count <= 1 -> R.drawable.ic_person
+                    count == 2 -> R.drawable.ic_group
+                    else -> R.drawable.ic_groups
+                },
+            ),
+            contentDescription = pluralStringResource(if (favorite) R.plurals.together_marker_favorite else R.plurals.together_marker, count, count),
             tint = if (favorite) planColors().favorite else scheme.onSurfaceVariant,
             modifier = Modifier.size(size * 0.74f),
         )

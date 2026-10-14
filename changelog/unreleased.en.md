@@ -2,3 +2,4 @@
 - Less stutter when switching between Week and Day and when paging: neighbouring pages are built after the screen opened and column by column, and other people switch tabs a moment later.
 - Faster after updates: the app now ships an optimization profile that Android uses to precompile it after the first launch (switching, paging and settings stutter less).
 - Fixed: when I change the time or room of an appointment, the friend icon stays. Matching uses the original appointment, not the changed time; a cancellation (mine or the friend's) still ends the match.
+- The friend icon shows the count: one person for one friend, two people for two, a group for three or more (Week and Day; in a friend's plan your own plan counts too).
