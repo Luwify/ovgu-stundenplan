@@ -1,3 +1,4 @@
 - Smoother transitions: settings, QR and version pages fade and slide in and out, dialogs and the appointment sheet use the standard animations, switching Week/Day and people from the menu glides, and a theme change fades the colors. Everything is skipped when the system's "remove animations" is on.
 - Less stutter when switching between Week and Day and when paging: neighbouring pages are built after the screen opened and column by column, and other people switch tabs a moment later.
 - Faster after updates: the app now ships an optimization profile that Android uses to precompile it after the first launch (switching, paging and settings stutter less).
+- Fixed: when I change the time or room of an appointment, the friend icon stays. Matching uses the original appointment, not the changed time; a cancellation (mine or the friend's) still ends the match.
