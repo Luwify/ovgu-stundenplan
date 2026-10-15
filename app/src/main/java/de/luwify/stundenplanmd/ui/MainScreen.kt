@@ -174,8 +174,10 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         vm.messages.collect { msg ->
             when (msg) {
                 is UiMessage.Imported -> {
+                    val text = res.getQuantityString(R.plurals.imported, msg.events, msg.events) +
+                        if (msg.droppedAdded > 0) " " + res.getQuantityString(R.plurals.added_dropped, msg.droppedAdded, msg.droppedAdded) else ""
                     val r = snackbar.showSnackbar(
-                        res.getQuantityString(R.plurals.imported, msg.events, msg.events),
+                        text,
                         actionLabel = res.getString(R.string.undo),
                         duration = SnackbarDuration.Long,
                     )
@@ -237,6 +239,27 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                     )
                     if (r == SnackbarResult.ActionPerformed) vm.restorePersonal(msg.previous)
                 }
+                is UiMessage.CoursesAdded -> {
+                    val parts = listOfNotNull(
+                        res.getQuantityString(R.plurals.courses_added, msg.added, msg.added).takeIf { msg.added > 0 },
+                        res.getQuantityString(R.plurals.courses_updated, msg.updated, msg.updated).takeIf { msg.updated > 0 },
+                        res.getQuantityString(R.plurals.courses_in_plan, msg.alreadyInPlan, msg.alreadyInPlan).takeIf { msg.alreadyInPlan > 0 },
+                    )
+                    if (msg.added + msg.updated == 0) {
+                        snackbar.showSnackbar(parts.joinToString(" "))
+                    } else {
+                        val r = snackbar.showSnackbar(parts.joinToString(" "), actionLabel = res.getString(R.string.undo), duration = SnackbarDuration.Long)
+                        if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                    }
+                }
+                is UiMessage.AddedRemoved -> {
+                    val r = snackbar.showSnackbar(
+                        res.getString(R.string.added_removed, msg.title),
+                        actionLabel = res.getString(R.string.undo),
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                }
                 UiMessage.NoPlanToShare -> snackbar.showSnackbar(res.getString(R.string.no_plan_to_share))
                 UiMessage.ShareFailed -> snackbar.showSnackbar(res.getString(R.string.share_failed))
             }
@@ -272,11 +295,20 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             }
                         },
                         title = {
-                            Text(
-                                plan?.takeIf { !it.isMe }?.person?.displayName ?: stringResource(R.string.app_name),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            androidx.compose.foundation.layout.Column {
+                                Text(
+                                    plan?.takeIf { !it.isMe }?.person?.displayName ?: stringResource(R.string.app_name),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                if (plan?.person?.fromIcs == true) {
+                                    Text(
+                                        stringResource(R.string.from_ics),
+                                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                         },
                         actions = {
                             plan?.takeIf { !it.isMe }?.person?.let { friend ->
@@ -382,6 +414,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             onPickDates = { pickDates = item },
                             onEditManual = { manualEdit = ManualTarget(item.event.uid) },
                             onDeleteManual = { vm.deleteManual(item.event.uid) },
+                            onRemoveAdded = { vm.removeAdded(item.seriesEvent.courseKey, item.event.title) },
                             onDismiss = { selected = null },
                         )
                     }
@@ -485,6 +518,13 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
 
     val pending by vm.pendingBackup.collectAsStateWithLifecycle()
     pending?.let { BackupConfirmDialog(it.backup, plan, onConfirm = vm::confirmBackup, onCancel = vm::cancelBackup) }
+    val ics by vm.pendingIcs.collectAsStateWithLifecycle()
+    ics?.let {
+        // A new file asks again from the start.
+        key(it) {
+            IcsImportDialog(it, onReplace = vm::icsReplaceMine, onAddCourses = vm::icsAddCourses, onFriend = vm::icsAddFriend, onCancel = vm::cancelIcs)
+        }
+    }
     val friend by vm.pendingFriend.collectAsStateWithLifecycle()
     friend?.let { FriendConfirmDialog(it, onConfirm = vm::confirmFriend, onCancel = vm::cancelFriend) }
 

@@ -71,6 +71,7 @@ fun DetailSheet(
     onPickDates: () -> Unit,
     onEditManual: () -> Unit,
     onDeleteManual: () -> Unit,
+    onRemoveAdded: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -109,6 +110,7 @@ fun DetailSheet(
                     onDelete = { leave(onDeleteManual) }.takeIf { plan.isMe },
                 )
             }
+            if (plan.isMe && item.seriesEvent.courseKey in plan.addedKeys) AddedBox(onRemove = { leave(onRemoveAdded) })
             PersonalBox(item, who = if (plan.isMe) null else plan.person.displayName)
 
             Field(
@@ -253,4 +255,19 @@ private fun rhythm(e: Event, locale: java.util.Locale, byMe: Boolean): String? {
         null -> if (r.interval == 1) stringResource(R.string.rhythm_weekly, day) else stringResource(R.string.rhythm_n_weeks, r.interval, day)
     } + if (byMe) " " + stringResource(R.string.rhythm_by_me) else ""
     return if (until != null) stringResource(R.string.rhythm_until, base, dayAndDate(until, locale)) else base
+}
+
+/** An LSF course added to my plan from another .ics: marked, and removable (with undo). */
+@Composable
+private fun AddedBox(onRemove: () -> Unit) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.added_course), style = MaterialTheme.typography.bodyLarge)
+            }
+            Text(stringResource(R.string.added_course_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedButton(onClick = onRemove) { Text(stringResource(R.string.added_remove)) }
+        }
+    }
 }

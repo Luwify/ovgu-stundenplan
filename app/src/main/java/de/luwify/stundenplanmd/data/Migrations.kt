@@ -46,9 +46,18 @@ object Migrations {
         // 5: manual courses. New: `manualCourses` (courses I added by hand); Event.st has a default. Version 4 keeps its
         // meaning (released to a device on 2026-10-13).
         4 to { o -> JsonObject(o + ("manualCourses" to (o["manualCourses"] ?: JsonArray(emptyList())))) },
-        // 6: even/odd calendar weeks. New: `rhythms` (my rhythm per biweekly series, per person); ManualCourse.Rhythm
-        // gets EVEN_WEEKS/ODD_WEEKS, BIWEEKLY keeps its meaning (every 14 days). Version 5 keeps its meaning (on a device).
-        5 to { o -> JsonObject(o + ("rhythms" to (o["rhythms"] ?: JsonObject(emptyMap())))) },
+        // 6: even/odd calendar weeks, added LSF courses, .ics friends. New: `rhythms` (my rhythm per biweekly series, per
+        // person), `addedEvents` (LSF courses added to my plan from another .ics); ManualCourse.Rhythm gets
+        // EVEN_WEEKS/ODD_WEEKS, BIWEEKLY keeps its meaning (every 14 days); friends imported from an .ics have `ics-` ids.
+        // Version 5 keeps its meaning (on a device).
+        5 to { o ->
+            JsonObject(
+                o + mapOf(
+                    "rhythms" to (o["rhythms"] ?: JsonObject(emptyMap())),
+                    "addedEvents" to (o["addedEvents"] ?: JsonArray(emptyList())),
+                ),
+            )
+        },
     )
 
     /** Version of a stored object; a file without the field is the first format. */

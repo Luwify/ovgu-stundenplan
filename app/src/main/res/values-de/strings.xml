@@ -172,7 +172,7 @@
     <string name="friend_add_title">Stundenplan hinzufügen</string>
     <string name="friend_add_scan_hint">Dein Gegenüber zeigt den eigenen QR-Code (Menü, „QR-Code“)</string>
     <string name="friend_add_file">Datei auswählen</string>
-    <string name="friend_add_file_hint">Eine .stundenplan-Datei, die dir geschickt wurde</string>
+    <string name="friend_add_file_hint">Eine .stundenplan-Datei oder eine .ics-Datei aus dem LSF</string>
     <string name="share_name_title">Dein Name</string>
     <string name="share_name_hint">Freunde sehen diesen Namen bei deinem Stundenplan. Es wird nichts hochgeladen: Du entscheidest, mit wem du teilst.</string>
     <string name="share_name_label">Name</string>
@@ -333,4 +333,50 @@
     <string name="manual_end_before_start">Der letzte Termin darf nicht vor dem ersten liegen</string>
     <string name="manual_skip_free">In vorlesungsfreien Wochen aussetzen</string>
     <string name="manual_skip_free_hint">Keine Termine in Wochen und an Tagen, an denen dein importierter Plan keine Vorlesungen hat</string>
+    <!-- .ics-Importe -->
+    <plurals name="ics_courses">
+        <item quantity="one">%1$d Kurs</item>
+        <item quantity="other">%1$d Kurse</item>
+    </plurals>
+    <string name="ics_partial_title">Plan ersetzen?</string>
+    <string name="ics_partial_body">Die Datei enthält nur %1$s, dein Plan %2$s. Vielleicht ist es ein einzeln exportierter Kurs.</string>
+    <string name="ics_replace">Plan ersetzen</string>
+    <string name="ics_replace_hint">Die Datei wird dein Stundenplan; deine Einstellungen bleiben</string>
+    <string name="ics_add_courses">Kurse zu meinem Plan hinzufügen</string>
+    <string name="ics_add_courses_hint">Neben deinem importierten Plan; ein späterer vollständiger Import hat Vorrang</string>
+    <string name="ics_choice_title">Kalenderdatei</string>
+    <string name="ics_choice_body">Die Datei enthält %1$s. Was soll damit passieren?</string>
+    <string name="ics_as_friend">Als Freund hinzufügen</string>
+    <string name="ics_as_friend_hint">Der Plan erscheint im Menü wie ein geteilter, mit einem Namen deiner Wahl</string>
+    <string name="ics_as_mine">Als meinen Plan importieren</string>
+    <string name="ics_as_mine_hint">Du hast noch keinen eigenen Plan</string>
+    <string name="ics_friend_title">Als Freund hinzufügen</string>
+    <string name="ics_friend_name">Name</string>
+    <string name="ics_friend_new">Neu hinzufügen</string>
+    <string name="ics_friend_update_heading">Oder einen aus ICS importierten Freund aktualisieren</string>
+    <string name="ics_friend_update">%1$s aktualisieren</string>
+    <string name="ics_friend_update_hint">Ersetzt den Plan; Name, Farben und Reihenfolge bleiben</string>
+    <string name="from_ics">aus ICS importiert</string>
+    <string name="from_ics_name">Aus einer .ics-Datei importiert als „%1$s“</string>
+    <string name="friend_update_hint_ics">Zum Aktualisieren eine neuere .ics-Datei über „+“ im Menü hinzufügen und diesen Freund auswählen: Der Plan wird ersetzt, dein Name und deine Farben dafür bleiben.</string>
+    <plurals name="added_dropped">
+        <item quantity="one">%1$d hinzugefügter Kurs ist jetzt im Plan selbst enthalten und wurde entfernt.</item>
+        <item quantity="other">%1$d hinzugefügte Kurse sind jetzt im Plan selbst enthalten und wurden entfernt.</item>
+    </plurals>
+    <plurals name="courses_added">
+        <item quantity="one">%1$d Kurs hinzugefügt.</item>
+        <item quantity="other">%1$d Kurse hinzugefügt.</item>
+    </plurals>
+    <plurals name="courses_updated">
+        <item quantity="one">%1$d Kurs aktualisiert.</item>
+        <item quantity="other">%1$d Kurse aktualisiert.</item>
+    </plurals>
+    <plurals name="courses_in_plan">
+        <item quantity="one">%1$d Kurs ist schon in deinem Plan.</item>
+        <item quantity="other">%1$d Kurse sind schon in deinem Plan.</item>
+    </plurals>
+    <string name="added_removed">%1$s entfernt</string>
+    <string name="added_course">Zu deinem Plan hinzugefügter Kurs</string>
+    <string name="added_course_hint">Aus einer eigenen .ics-Datei. Ein vollständiger Import, der den Kurs enthält, ersetzt ihn.</string>
+    <string name="added_remove">Aus meinem Plan entfernen</string>
 </resources>

@@ -178,7 +178,7 @@
     <string name="friend_add_title">Add a friend\'s timetable</string>
     <string name="friend_add_scan_hint">Your friend shows their QR code (menu, \"QR code\")</string>
     <string name="friend_add_file">Pick a file</string>
-    <string name="friend_add_file_hint">A .stundenplan file your friend sent you</string>
+    <string name="friend_add_file_hint">A .stundenplan file, or an .ics file from LSF</string>
     <string name="share_name_title">Your name</string>
     <string name="share_name_hint">Friends see this name with your timetable. Nothing is uploaded: you choose whom you share it with.</string>
     <string name="share_name_label">Name</string>
@@ -339,4 +339,50 @@
     <string name="manual_end_before_start">The last date must not be before the first</string>
     <string name="manual_skip_free">Pause in lecture-free weeks</string>
     <string name="manual_skip_free_hint">No dates in weeks and on days your imported plan has no lectures</string>
+    <!-- .ics imports -->
+    <plurals name="ics_courses">
+        <item quantity="one">%1$d course</item>
+        <item quantity="other">%1$d courses</item>
+    </plurals>
+    <string name="ics_partial_title">Replace your plan?</string>
+    <string name="ics_partial_body">The file has only %1$s, your plan %2$s. It may be a single course exported on its own.</string>
+    <string name="ics_replace">Replace plan</string>
+    <string name="ics_replace_hint">The file becomes your timetable; your settings stay</string>
+    <string name="ics_add_courses">Add courses to my plan</string>
+    <string name="ics_add_courses_hint">Next to your imported plan; a later full import takes precedence</string>
+    <string name="ics_choice_title">Calendar file</string>
+    <string name="ics_choice_body">The file has %1$s. What should happen with it?</string>
+    <string name="ics_as_friend">Add as a friend</string>
+    <string name="ics_as_friend_hint">The plan shows in the menu like a shared one, with a name you choose</string>
+    <string name="ics_as_mine">Import as my plan</string>
+    <string name="ics_as_mine_hint">You have no plan of your own yet</string>
+    <string name="ics_friend_title">Add as a friend</string>
+    <string name="ics_friend_name">Name</string>
+    <string name="ics_friend_new">Add new friend</string>
+    <string name="ics_friend_update_heading">Or update a friend imported from an .ics</string>
+    <string name="ics_friend_update">Update %1$s</string>
+    <string name="ics_friend_update_hint">Replaces the plan; name, colors and order stay</string>
+    <string name="from_ics">imported from .ics</string>
+    <string name="from_ics_name">Imported from an .ics as \"%1$s\"</string>
+    <string name="friend_update_hint_ics">To update, add a newer .ics with \"+\" in the menu and pick this friend: the plan is replaced, your name and colors for them stay.</string>
+    <plurals name="added_dropped">
+        <item quantity="one">%1$d added course is now in the plan itself and was removed.</item>
+        <item quantity="other">%1$d added courses are now in the plan itself and were removed.</item>
+    </plurals>
+    <plurals name="courses_added">
+        <item quantity="one">Added %1$d course.</item>
+        <item quantity="other">Added %1$d courses.</item>
+    </plurals>
+    <plurals name="courses_updated">
+        <item quantity="one">Updated %1$d course.</item>
+        <item quantity="other">Updated %1$d courses.</item>
+    </plurals>
+    <plurals name="courses_in_plan">
+        <item quantity="one">%1$d course is already in your plan.</item>
+        <item quantity="other">%1$d courses are already in your plan.</item>
+    </plurals>
+    <string name="added_removed">%1$s removed</string>
+    <string name="added_course">Course added to your plan</string>
+    <string name="added_course_hint">From a separate .ics file. A full import that contains the course replaces it.</string>
+    <string name="added_remove">Remove from my plan</string>
 </resources>

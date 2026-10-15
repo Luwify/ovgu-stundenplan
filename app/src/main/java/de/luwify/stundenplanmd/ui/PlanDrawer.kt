@@ -138,7 +138,10 @@ fun PlanDrawer(
                     val isSelected = selected == f.person.id
                     val dragging = f.person.id == reorder.draggedKey
                     NavigationDrawerItem(
-                        label = { PersonLabel(f.person.displayName, isSelected, listOfNotNull(standText(f.planDate), status)) },
+                        label = {
+                            val ics = stringResource(R.string.from_ics).takeIf { f.person.fromIcs }
+                            PersonLabel(f.person.displayName, isSelected, listOfNotNull(standText(f.planDate), ics, status))
+                        },
                         badge = { FavoriteButton(f.person.favorite, f.person.displayName) { onFavorite(f.person.id, !f.person.favorite) } },
                         selected = isSelected || dragging,
                         onClick = { onSelect(f.person.id) },
@@ -221,7 +224,7 @@ fun AddFriendDialog(onScan: () -> Unit, onPickFile: () -> Unit, onDismiss: () ->
 }
 
 @Composable
-private fun ChoiceRow(icon: Int, title: String, hint: String, onClick: () -> Unit) {
+internal fun ChoiceRow(icon: Int, title: String, hint: String, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = { Text(hint) },
@@ -272,10 +275,16 @@ fun FriendDialog(plan: PlanUi, onRename: (String?) -> Unit, onDelete: () -> Unit
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
                 )
-                Text(stringResource(R.string.friend_shared_name, person.name), style = MaterialTheme.typography.bodySmall)
-                Text(standText(plan.planDate), style = MaterialTheme.typography.bodyMedium)
-                Text(stringResource(R.string.friend_shared_on, plan.exportedOn?.format(fmt) ?: "–"), style = MaterialTheme.typography.bodyMedium)
-                Text(stringResource(R.string.friend_update_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (person.fromIcs) {
+                    Text(stringResource(R.string.from_ics_name, person.name), style = MaterialTheme.typography.bodySmall)
+                    Text(standText(plan.planDate), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.friend_update_hint_ics), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text(stringResource(R.string.friend_shared_name, person.name), style = MaterialTheme.typography.bodySmall)
+                    Text(standText(plan.planDate), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.friend_shared_on, plan.exportedOn?.format(fmt) ?: "–"), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.friend_update_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 TextButton(onClick = onDelete, modifier = Modifier.padding(top = 4.dp)) {
                     Icon(painterResource(R.drawable.ic_delete), contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
                     Spacer(Modifier.size(8.dp))

@@ -29,6 +29,12 @@ import de.luwify.stundenplanmd.data.BackupResult
 import de.luwify.stundenplanmd.data.StoreRead
 import de.luwify.stundenplanmd.data.IcsSource
 import de.luwify.stundenplanmd.data.ImportOutcome
+import de.luwify.stundenplanmd.data.IcsEntry
+import de.luwify.stundenplanmd.data.IcsParse
+import de.luwify.stundenplanmd.data.IcsRoute
+import de.luwify.stundenplanmd.data.ImportRouting
+import de.luwify.stundenplanmd.data.parseIcs
+import de.luwify.stundenplanmd.core.schedule.AddedCourses
 import de.luwify.stundenplanmd.data.StoredData
 import de.luwify.stundenplanmd.data.FriendImport
 import de.luwify.stundenplanmd.data.MyShare
@@ -84,6 +90,8 @@ data class PlanUi(
     val favorites: Set<String> = emptySet(),
     /** Rhythms I set by hand in this plan (appointment UID -> rhythm). */
     val rhythms: Map<String, WeekRhythm> = emptyMap(),
+    /** My plan: course keys of the LSF courses added from another .ics. */
+    val addedKeys: Set<String> = emptySet(),
 ) {
     val isEmpty: Boolean get() = schedule.events.isEmpty()
     val isMe: Boolean get() = person.isMe
@@ -130,6 +138,7 @@ data class PlanUi(
                 names = data.friends.associate { it.id to it.displayName },
                 favorites = data.friends.filter { it.favorite }.map { it.id }.toSet(),
                 rhythms = data.rhythmsOf(person.id),
+                addedKeys = if (person.isMe) data.addedKeys else emptySet(),
             )
         }
     }
@@ -142,7 +151,12 @@ data class MyQr(val text: String, val omitsDetails: Boolean)
 data class FriendEntry(val person: Person, val planDate: LocalDate?, val schedule: Schedule)
 
 sealed interface UiMessage {
-    data class Imported(val events: Int, val previous: StoredData) : UiMessage
+    /** [droppedAdded]: added courses the new plan has itself (removed from the added ones). */
+    data class Imported(val events: Int, val previous: StoredData, val droppedAdded: Int = 0) : UiMessage
+
+    /** Courses of an .ics added to my plan (counts are courses). */
+    data class CoursesAdded(val added: Int, val updated: Int, val alreadyInPlan: Int, val previous: StoredData) : UiMessage
+    data class AddedRemoved(val title: String, val previous: StoredData) : UiMessage
     data object ImportFailed : UiMessage
     data object NotACalendar : UiMessage
     data object NoEvents : UiMessage
@@ -166,6 +180,17 @@ sealed interface UiMessage {
     data class ManualDeleted(val title: String, val previous: StoredData) : UiMessage
     data class CancelledForMe(val title: String, val date: LocalDate, val cancelled: Boolean, val previous: List<PersonalChange>) : UiMessage
 }
+
+/** An .ics read and waiting for the user's choice ([route]); counts are courses. */
+data class PendingIcs(
+    val text: String,
+    val events: List<de.luwify.stundenplanmd.core.model.Event>,
+    val source: String?,
+    val route: IcsRoute,
+    val currentCourses: Int,
+    val incomingCourses: Int,
+    val icsFriends: List<Person>,
+)
 
 /** A friend's plan read from a file or QR code, waiting for the user's confirmation. */
 data class PendingFriend(val plan: SharedPlan, val existing: Person?, val existingPlan: Plan?)
@@ -342,8 +367,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _pendingFriend = MutableStateFlow<PendingFriend?>(null)
     val pendingFriend: StateFlow<PendingFriend?> = _pendingFriend
 
-    /** A picked, opened or shared file: a friend's plan (content starts with SPMD) or my .ics. */
-    fun import(uri: Uri) {
+    /** A file opened with or shared to the app, or picked in the drawer: a friend's plan (SPMD) or an .ics (asks what to do). */
+    fun import(uri: Uri) = importFrom(uri, IcsEntry.ELSEWHERE)
+
+    /** The import in the settings (and the empty plan): an .ics replaces my plan (asks first if it looks like a part of it). */
+    fun importOwn(uri: Uri) = importFrom(uri, IcsEntry.SETTINGS)
+
+    private val _pendingIcs = MutableStateFlow<PendingIcs?>(null)
+    val pendingIcs: StateFlow<PendingIcs?> = _pendingIcs
+
+    private fun importFrom(uri: Uri, entry: IcsEntry) {
         viewModelScope.launch {
             val resolver = getApplication<Application>().contentResolver
             val bytes = withContext(Dispatchers.IO) { IcsSource.readBytes(resolver, uri) }
@@ -357,18 +390,82 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             val text = withContext(Dispatchers.Default) { IcsSource.text(bytes) }
             repo.load()
-            _messages.send(
-                runCatching { repo.importIcs(text) }.fold(
-                    onSuccess = { r ->
-                        when (r) {
-                            is ImportOutcome.Imported -> UiMessage.Imported(r.events, r.previous)
-                            ImportOutcome.NotACalendar -> UiMessage.NotACalendar
-                            ImportOutcome.NoEvents -> UiMessage.NoEvents
-                        }
-                    },
-                    onFailure = { UiMessage.ImportFailed },
-                ),
+            val result = when (val p = runCatching { parseIcs(text) }.getOrNull()) {
+                is IcsParse.Ok -> p.result
+                IcsParse.NotACalendar -> return@launch _messages.send(UiMessage.NotACalendar)
+                IcsParse.NoEvents -> return@launch _messages.send(UiMessage.NoEvents)
+                null -> return@launch _messages.send(UiMessage.ImportFailed)
+            }
+            val data = repo.data.value ?: StoredData()
+            when (val route = ImportRouting.route(entry, data, result.events)) {
+                IcsRoute.ReplaceMine -> replaceMine(text)
+                else -> _pendingIcs.value = PendingIcs(
+                    text, result.events, result.source, route,
+                    currentCourses = AddedCourses.courseCount(data.myPlan?.events.orEmpty()),
+                    incomingCourses = AddedCourses.courseCount(result.events),
+                    icsFriends = ImportRouting.icsFriends(data),
+                )
+            }
+        }
+    }
+
+    private suspend fun replaceMine(text: String) {
+        _messages.send(
+            runCatching { repo.importIcs(text) }.fold(
+                onSuccess = { r ->
+                    when (r) {
+                        is ImportOutcome.Imported -> UiMessage.Imported(r.events, r.previous, r.droppedAdded)
+                        ImportOutcome.NotACalendar -> UiMessage.NotACalendar
+                        ImportOutcome.NoEvents -> UiMessage.NoEvents
+                    }
+                },
+                onFailure = { UiMessage.ImportFailed },
+            ),
+        )
+    }
+
+    fun cancelIcs() {
+        _pendingIcs.value = null
+    }
+
+    /** "Plan ersetzen" (settings), or "Als meinen Plan importieren" while I have none. */
+    fun icsReplaceMine() {
+        val p = _pendingIcs.value ?: return
+        _pendingIcs.value = null
+        viewModelScope.launch { replaceMine(p.text) }
+    }
+
+    /** "Kurse zu meinem Plan hinzufügen". */
+    fun icsAddCourses() {
+        val p = _pendingIcs.value ?: return
+        _pendingIcs.value = null
+        viewModelScope.launch {
+            val msg = runCatching { repo.addCourses(p.events) }.fold(
+                onSuccess = { UiMessage.CoursesAdded(it.added, it.updated, it.alreadyInPlan, it.previous) },
+                onFailure = { UiMessage.ImportFailed },
             )
+            _messages.send(msg)
+        }
+    }
+
+    /** "Als Freund hinzufügen": a new friend named [name], or an update of the .ics friend [existingId]. */
+    fun icsAddFriend(name: String, existingId: String?) {
+        val p = _pendingIcs.value ?: return
+        _pendingIcs.value = null
+        viewModelScope.launch {
+            val msg = runCatching { repo.importIcsFriend(p.events, p.source, name, existingId, LocalDate.now(PlanZone)) }.fold(
+                onSuccess = { UiMessage.FriendImported(it.person.displayName, it.replaced, it.previous) },
+                onFailure = { UiMessage.ImportFailed },
+            )
+            _messages.send(msg)
+        }
+    }
+
+    /** Removes an added LSF course from my plan (undo in the snackbar). */
+    fun removeAdded(courseKey: String, title: String) {
+        viewModelScope.launch {
+            val previous = repo.removeAdded(courseKey) ?: return@launch
+            _messages.send(UiMessage.AddedRemoved(title, previous))
         }
     }
 
@@ -428,7 +525,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // Manual courses go with my own changes ("Eigene Änderungen teilen"), without their notes (notes are mine).
         val withChanges = data.share.withChanges
         // So do my rhythms for biweekly series (sent as the dates they give).
-        val events = if (withChanges) data.myEvents.map { if (it.isManual) it.copy(notes = "") else it } else plan?.events.orEmpty()
+        val events = if (withChanges) data.myEvents.map { if (it.isManual) it.copy(notes = "") else it } else data.myLsfEvents
         if (events.isEmpty()) return null
         return withContext(Dispatchers.Default) {
             SharedPlan(

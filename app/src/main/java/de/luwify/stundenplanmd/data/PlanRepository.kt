@@ -6,6 +6,9 @@ import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.model.ManualCourse
 import de.luwify.stundenplanmd.core.schedule.ManualCourses
 import de.luwify.stundenplanmd.core.schedule.Expansion
+import de.luwify.stundenplanmd.core.schedule.AddedCourses
+import de.luwify.stundenplanmd.core.ical.ImportResult
+import java.time.LocalDate
 import de.luwify.stundenplanmd.core.model.WeekRhythm
 import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.model.PersonalChange
@@ -52,9 +55,17 @@ data class StoredData(
      * friend's id): appointment UID -> rhythm. Kept across re-imports; mine go into shares with my own changes.
      */
     val rhythms: Map<String, Map<String, WeekRhythm>> = emptyMap(),
+    /** LSF courses added to my plan from another .ics ([AddedCourses]); kept across re-imports unless the plan has them. */
+    val addedEvents: List<Event> = emptyList(),
 ) {
-    /** My events: the LSF import (with my rhythms) plus the manual courses. */
-    val myEvents: List<Event> get() = ManualCourses.merge(Expansion.withRhythms(myPlan?.events.orEmpty(), rhythmsOf(ME)), manualCourses)
+    /** My LSF events: the imported plan plus the added courses it does not have. */
+    val myLsfEvents: List<Event> get() = myPlan?.events.orEmpty().let { it + AddedCourses.visible(it, addedEvents) }
+
+    /** Course keys of the added courses shown. */
+    val addedKeys: Set<String> get() = AddedCourses.keys(AddedCourses.visible(myPlan?.events.orEmpty(), addedEvents))
+
+    /** My events: the LSF ones (with my rhythms) plus the manual courses. */
+    val myEvents: List<Event> get() = ManualCourses.merge(Expansion.withRhythms(myLsfEvents, rhythmsOf(ME)), manualCourses)
 
     fun rhythmsOf(personId: String): Map<String, WeekRhythm> = rhythms[personId].orEmpty()
 
@@ -87,10 +98,26 @@ sealed interface FriendImport {
 }
 
 sealed interface ImportOutcome {
-    /** [previous] allows undo. */
-    data class Imported(val events: Int, val previous: StoredData) : ImportOutcome
+    /** [previous] allows undo; [droppedAdded]: added courses the new plan has itself (removed). */
+    data class Imported(val events: Int, val previous: StoredData, val droppedAdded: Int = 0) : ImportOutcome
     data object NotACalendar : ImportOutcome
     data object NoEvents : ImportOutcome
+}
+
+/** Counts are courses; [previous] allows undo. */
+data class AddOutcome(val added: Int, val updated: Int, val alreadyInPlan: Int, val previous: StoredData)
+
+sealed interface IcsParse {
+    data class Ok(val result: ImportResult) : IcsParse
+    data object NotACalendar : IcsParse
+    data object NoEvents : IcsParse
+}
+
+/** An .ics read for import (pure: nothing is stored). */
+suspend fun parseIcs(text: String): IcsParse {
+    if (!text.contains("BEGIN:VCALENDAR", ignoreCase = true)) return IcsParse.NotACalendar
+    val result = withContext(Dispatchers.Default) { LsfImport.parse(text) }
+    return if (result.events.isEmpty()) IcsParse.NoEvents else IcsParse.Ok(result)
 }
 
 /** Plan and settings in app storage ([PlanStore]); loaded once at start (a few kB, instant). */
@@ -112,20 +139,71 @@ class PlanRepository(dir: File) {
 
     /** Replaces my plan; course settings are kept and carried over to changed course ids by title. */
     suspend fun importIcs(text: String): ImportOutcome {
-        if (!text.contains("BEGIN:VCALENDAR", ignoreCase = true)) return ImportOutcome.NotACalendar
-        val result = withContext(Dispatchers.Default) { LsfImport.parse(text) }
-        if (result.events.isEmpty()) return ImportOutcome.NoEvents
+        val result = when (val p = parseIcs(text)) {
+            is IcsParse.Ok -> p.result
+            IcsParse.NotACalendar -> return ImportOutcome.NotACalendar
+            IcsParse.NoEvents -> return ImportOutcome.NoEvents
+        }
         return mutex.withLock {
             val current = _data.value ?: StoredData()
             val plan = Plan(StoredData.ME, Instant.now(), result.source, result.events)
+            // The full plan wins over courses added on their own.
+            val (added, dropped) = AddedCourses.dedupe(result.events, current.addedEvents)
             val next = current.copy(
                 plans = current.plans.filterNot { it.personId == StoredData.ME } + plan,
                 courseSettings = Subjects.carryOver(current.courseSettings, result.events),
+                addedEvents = added,
             )
             write(next)
             withContext(Dispatchers.IO) { store.writeIcs(text) }
-            ImportOutcome.Imported(result.events.size, current)
+            ImportOutcome.Imported(result.events.size, current, dropped)
         }
+    }
+
+    /** Adds the courses of an .ics to my plan, next to the imported one ([AddedCourses.add]); [AddOutcome.previous] allows undo. */
+    suspend fun addCourses(events: List<Event>): AddOutcome = mutex.withLock {
+        val current = _data.value ?: StoredData()
+        val r = AddedCourses.add(current.myPlan?.events.orEmpty(), current.addedEvents, events)
+        if (r.events != current.addedEvents) {
+            write(current.copy(addedEvents = r.events, courseSettings = Subjects.carryOver(current.courseSettings, current.myPlan?.events.orEmpty() + r.events)))
+        }
+        AddOutcome(r.added, r.updated, r.alreadyInPlan, current)
+    }
+
+    /** Removes an added course with my changes and rhythms for it; returns the previous state for undo. */
+    suspend fun removeAdded(courseKey: String): StoredData? = mutex.withLock {
+        val current = _data.value ?: return@withLock null
+        val uids = current.addedEvents.filter { it.courseKey == courseKey }.map { it.uid }.toSet()
+        if (uids.isEmpty()) return@withLock null
+        val mine = current.rhythmsOf(StoredData.ME) - uids
+        write(
+            current.copy(
+                addedEvents = AddedCourses.remove(current.addedEvents, courseKey),
+                personalChanges = current.personalChanges.filterNot { it.uid in uids },
+                rhythms = if (mine.isEmpty()) current.rhythms - StoredData.ME else current.rhythms + (StoredData.ME to mine),
+            ),
+        )
+        current
+    }
+
+    /**
+     * A friend's plan from an .ics: new ([existingId] null, named [name]) or an update of an .ics friend I have (their
+     * name, favorite, place in the drawer and my settings for them stay). "Stand" is the import day.
+     */
+    suspend fun importIcsFriend(events: List<Event>, source: String?, name: String, existingId: String?, today: LocalDate): FriendImport.Imported = mutex.withLock {
+        val current = _data.value ?: StoredData()
+        val old = existingId?.let(current::person)?.takeIf { it.fromIcs }
+        val person = old ?: Person(Person.ICS_ID_PREFIX + PersonIds.new(), name.trim(), isMe = false)
+        val plan = Plan(personId = person.id, importedAt = Instant.now(), source = source, events = events, planDate = today)
+        val local = current.friendSettings[person.id]
+        write(
+            current.copy(
+                people = if (old == null) current.people + person else current.people,
+                plans = current.plans.filterNot { it.personId == person.id } + plan,
+                friendSettings = if (local == null) current.friendSettings else current.friendSettings + (person.id to Subjects.carryOver(local, events)),
+            ),
+        )
+        FriendImport.Imported(person, replaced = old != null, previous = current)
     }
 
     suspend fun restore(previous: StoredData) = mutex.withLock { write(previous) }

@@ -109,8 +109,8 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 
 ## Persistence (user data must survive every update)
 - Files in `files/plans/`: `data.json` (`StoredData`: people (list order = drawer order, me first; `Person.favorite`),
-  plans, courseSettings, friendSettings, share, personalChanges, manualCourses, rhythms; field `version`, currently 6; step 2 -> 3 sorts friends
-  by shown name, the order v2 displayed; step 3 -> 4 adds `personalChanges`; 4 -> 5 adds `manualCourses`; 5 -> 6 adds `rhythms`;
+  plans, courseSettings, friendSettings, share, personalChanges, manualCourses, rhythms, addedEvents; field `version`, currently 6; step 2 -> 3 sorts friends
+  by shown name, the order v2 displayed; step 3 -> 4 adds `personalChanges`; 4 -> 5 adds `manualCourses`; 5 -> 6 adds `rhythms` and `addedEvents` (.ics friends need no step: `ics-` ids);
   versions 4 and 5 are on a real device, never change their meaning) and `me.ics` (raw import). Theme: DataStore `settings` (key `schema_version`).
   `data/PlanStore` does the I/O: atomic writes (tmp + fsync + rename, `AtomicFiles`), a leftover `data.json.bak` from
   the old AtomicFile scheme is restored, an unreadable or too-new `data.json` is renamed to `data.json.broken[.n]`
@@ -127,6 +127,19 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 ## Product decisions (v1)
 - Import: file picker + VIEW/SEND of `text/calendar` (octet-stream accepted if content is VCALENDAR).
   Re-import replaces the plan, keeps settings.
+- .ics routing (`data/ImportRouting`, pure; `IcsImportDialog`): my plan is replaced only from the settings import (and
+  the empty plan's button, `vm.importOwn`); there, a file with far fewer courses (`AddedCourses.looksPartial`: fewer than
+  half, plan has >= 3) asks "Plan ersetzen" / "Kurse zu meinem Plan hinzufügen". Drawer "+" file and open with/share
+  (`vm.import`) ask "Als Freund hinzufügen" (name, or update an existing .ics friend) / "Kurse zu meinem Plan
+  hinzufügen" (+ "Als meinen Plan importieren" only while I have none). Shares (`SPMD`) always go to the friend import.
+- Added LSF courses (`StoredData.addedEvents`, `:core` `schedule/AddedCourses`): keyed by course key (UID prefix), full
+  LSF UIDs kept (together, own changes, rhythms work). `myLsfEvents` = plan + added ones the plan lacks; adding replaces
+  the same course (re-import of one course updates it), skips courses the plan has; a full import drops duplicates
+  (`dedupe`, snackbar notice). Detail sheet "Zu deinem Plan hinzugefügter Kurs" + remove (drops my changes/rhythms for
+  it; undo). In my share like the rest of my LSF plan.
+- .ics friends: `Person.fromIcs` (id `ics-` + 16 hex, local; no share identity, no shared changes), `planDate` = import
+  day, "aus ICS importiert" in the drawer, top bar and details dialog. Updating keeps local name, favorite, order,
+  friendSettings (carryOver) and rhythms.
 - Several people: me + friends imported from shares (see "Sharing and friends").
 - **Subjects:** courses (= UID course id) are grouped into subjects by title stem (type part stripped,
   e.g. N4 VL/HSÜ/GÜ, GDL VL/Übung/Praktikum, GFT III VL/Großübung in the fixture). Short name and color are per
