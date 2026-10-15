@@ -376,4 +376,5 @@
     <string name="added_course">Zu deinem Plan hinzugefügter Kurs</string>
     <string name="added_course_hint">Aus einer eigenen .ics-Datei. Ein vollständiger Import, der diesen Termin enthält, ersetzt ihn. Entfernen betrifft nur diese Gruppe.</string>
     <string name="added_remove">Aus meinem Plan entfernen</string>
+    <string name="legacy_share_hint">Aus einer älteren Version geteilt, einzelne Termine nach Neujahr können abweichen, neu teilen lassen.</string>
 </resources>

@@ -36,6 +36,8 @@ data class SharedPlan(
     val complete: Boolean,
     /** The sender's own changes (cancellations, rooms, times, s.t.; never notes). */
     val changes: List<PersonalChange> = emptyList(),
+    /** Shared by an app before 1.2.2 and its biweekly series were converted; some dates after a week 53 may differ. */
+    val legacy: Boolean = false,
 )
 
 sealed interface ShareResult {
@@ -79,6 +81,12 @@ object ShareCodec {
 
     private const val FLAG_SUMMARY = 1
     private const val FLAG_ALL_NOTES = 2
+
+    /**
+     * Plain INTERVAL=2 series are in the calendar-week parity of their first date (since 1.2.2; older apps ignore the
+     * bit). Without it they were counted every 14 days and are converted ([LegacyShares]).
+     */
+    private const val FLAG_PARITY = 4
 
     fun qrText(plan: SharedPlan): String = QR_PREFIX + Base45.encode(payload(plan, complete = false))
 
@@ -124,8 +132,11 @@ object ShareCodec {
         return head.startsWith("SPMD")
     }
 
-    fun payload(plan: SharedPlan, complete: Boolean): ByteArray {
-        val body = Body.write(plan, complete)
+    fun payload(plan: SharedPlan, complete: Boolean): ByteArray = payload(plan, complete, legacy = false)
+
+    /** [legacy]: written as apps before 1.2.2 did (biweekly series counted every 14 days, no parity flag); for tests. */
+    internal fun payload(plan: SharedPlan, complete: Boolean, legacy: Boolean): ByteArray {
+        val body = Body.write(plan, complete, legacy)
         val d = Deflater(9, true)
         try {
             d.setInput(body); d.finish()
@@ -198,9 +209,11 @@ object ShareCodec {
     private object Body {
         private val lsfUid = Regex("^(\\d{6})(\\d{6})$")
 
-        fun write(plan: SharedPlan, complete: Boolean): ByteArray {
+        fun write(plan: SharedPlan, complete: Boolean, legacy: Boolean): ByteArray {
             // A rhythm set by hand is sent as the dates it gives (the format has no rhythm field).
-            val events = plan.events.map(Expansion::portable).sortedWith(compareBy({ it.uid }, { it.start }))
+            val events = plan.events.map(Expansion::portable)
+                .map { e -> if (legacy && e.recurrence?.biweekly == true) e.copy(recurrence = e.recurrence.copy(rhythm = WeekRhythm.EVERY_14_DAYS)) else e }
+                .sortedWith(compareBy({ it.uid }, { it.start }))
             val strings = LinkedHashMap<String, Int>()
             fun s(text: String) = strings.getOrPut(text) { strings.size }
             fun opt(text: String?) = if (text == null) 0 else s(text) + 1
@@ -242,7 +255,7 @@ object ShareCodec {
                 cols[7].varint(ChronoUnit.DAYS.between(base, e.start.toLocalDate()))
                 cols[7].minutes(e.start.hour * 60L + e.start.minute)
                 cols[7].minutes(Duration.between(e.start, e.end).toMinutes().coerceAtLeast(0))
-                recurrence(cols[8], cols[9], e)
+                recurrence(cols[8], cols[9], e, legacy)
             }
 
             // Own changes (version 2): appointment UID, date, flags, until, room, time. Notes are never sent.
@@ -263,7 +276,7 @@ object ShareCodec {
             }
 
             val out = Out()
-            out.byte((if (complete) FLAG_SUMMARY or FLAG_ALL_NOTES else 0))
+            out.byte((if (complete) FLAG_SUMMARY or FLAG_ALL_NOTES else 0) or (if (legacy) 0 else FLAG_PARITY))
             require(plan.personId.matches(Regex("[0-9a-f]{16}"))) { "person id" }
             val id = plan.personId.chunked(2).map { it.toInt(16) }
             id.forEach { out.byte(it) }
@@ -293,7 +306,7 @@ object ShareCodec {
         }
 
         /** 0 = single date; 1 = plain weekly series (slot count, interval, cancelled bitmask); 2 = any other rule. */
-        private fun recurrence(out: Out, masks: Out, e: Event) {
+        private fun recurrence(out: Out, masks: Out, e: Event, legacy: Boolean) {
             val r = e.recurrence
             if (r == null) { out.varint(0); return }
             val slots = Expansion.slots(e)
@@ -301,7 +314,7 @@ object ShareCodec {
             // series that differs from it goes as a full rule, whose UNTIL tells the reader the rhythm.
             val plain = r.frequency == Recurrence.Frequency.WEEKLY && r.byDay.all { it == e.start.dayOfWeek } &&
                 r.count == null && r.until != null && slots.isNotEmpty() && slots.size < Expansion.MAX_SLOTS &&
-                (!r.biweekly || Expansion.rhythmOf(e) == WeekRhythm.parityOf(e.start.toLocalDate()))
+                (legacy || !r.biweekly || Expansion.rhythmOf(e) == WeekRhythm.parityOf(e.start.toLocalDate()))
             if (plain) {
                 out.varint(1); out.varint(slots.size); out.varint(r.interval)
                 val mask = ByteArray((slots.size + 7) / 8)
@@ -369,11 +382,12 @@ object ShareCodec {
                 val start = base.plusDays(r.varint()).atStartOfDay().plusMinutes(r.minutes())
                 start to start.plusMinutes(r.minutes())
             }
+            val parity = flags and FLAG_PARITY != 0
             val kinds = List(n) { readRule(r, times[it].first) }
             val events0 = List(n) { i ->
                 val (title, category) = titles[i]
                 val (start, end) = times[i]
-                val rule = kinds[i]?.let { k -> if (k is PlainSeries) k.toRecurrence(start, r.bytes((k.slots + 7) / 8)) else k as Recurrence }
+                val rule = kinds[i]?.let { k -> if (k is PlainSeries) k.toRecurrence(start, r.bytes((k.slots + 7) / 8), parity) else k as Recurrence }
                 Event(
                     uid = uids[i]!!,
                     // Not sent by QR: the raw SUMMARY is unknown, so none is claimed.
@@ -409,16 +423,18 @@ object ShareCodec {
             if (version >= 2) { var at = 0L; repeat(r.count(MAX_EVENTS)) { at += r.varint(); require(at < n) { "st" }; st[at.toInt()] = true } }
             require(r.atEnd()) { "trailing data" }
 
-            val events = events0.mapIndexed { i, e -> if (st[i]) e.copy(st = true) else e }
+            val withSt = events0.mapIndexed { i, e -> if (st[i]) e.copy(st = true) else e }
+            val converted = if (parity) LegacyShares.Converted(withSt, false) else LegacyShares.convert(withSt)
+            val events = converted.events
             val titleOf = Subjects.courses(events).associate { it.key to it.title }
             val settings = rawSettings.associate { it.key to CourseSetting(it.key, titleOf[it.key] ?: "", it.subject, it.shortName, it.color) }
-            return SharedPlan(personId, name, exportedOn, planDate, events, settings, complete = flags and FLAG_ALL_NOTES != 0, changes = changes)
+            return SharedPlan(personId, name, exportedOn, planDate, events, settings, complete = flags and FLAG_ALL_NOTES != 0, changes = changes, legacy = converted.incomplete)
         }
 
-        /** INTERVAL=2 in the calendar-week rhythm of [start] (older apps counted 14 days from it instead). */
+        /** INTERVAL=2 in the calendar-week rhythm of [start] ([parity]), or every 14 days from it (older apps). */
         private class PlainSeries(val slots: Int, val interval: Int) {
-            fun toRecurrence(start: LocalDateTime, mask: ByteArray): Recurrence {
-                val rhythm = if (interval == 2) WeekRhythm.parityOf(start.toLocalDate()) else null
+            fun toRecurrence(start: LocalDateTime, mask: ByteArray, parity: Boolean): Recurrence {
+                val rhythm = if (interval != 2) null else if (parity) WeekRhythm.parityOf(start.toLocalDate()) else WeekRhythm.EVERY_14_DAYS
                 val probe = Event("", "", "", start = start, end = start, recurrence = Recurrence(interval = interval, count = slots, rhythm = rhythm))
                 val starts = Expansion.slots(probe).map { it.start }
                 return Recurrence(

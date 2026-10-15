@@ -239,6 +239,7 @@ class PlanRepository(dir: File) {
             planDate = shared.planDate,
             sharedSettings = shared.settings,
             sharedChanges = shared.changes,
+            legacyShare = shared.legacy,
         )
         val local = current.friendSettings[shared.personId]
         write(

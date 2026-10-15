@@ -1,5 +1,10 @@
 package de.luwify.stundenplanmd.data
 
+import de.luwify.stundenplanmd.core.model.Event
+import de.luwify.stundenplanmd.core.model.Person
+import de.luwify.stundenplanmd.core.share.LegacyShares
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -16,7 +21,7 @@ class MigrationException(message: String) : Exception(message)
  * stored data must survive every update.
  */
 object Migrations {
-    const val CURRENT = 6
+    const val CURRENT = 7
 
     /** Version n -> n+1. */
     val STEPS: Map<Int, (JsonObject) -> JsonObject> = mapOf(
@@ -58,7 +63,31 @@ object Migrations {
                 ),
             )
         },
+        // 7: friends' plans shared by apps before 1.2.2 counted biweekly series every 14 days; they are converted to
+        // LSF's even/odd calendar weeks once (as on import of such a share), and marked `legacyShare` where some dates
+        // after a week 53 may differ. My plan and .ics friends hold LSF's own rules and stay as they are.
+        6 to { o ->
+            val plans = (o["plans"] as? JsonArray)?.map { el ->
+                val plan = el as? JsonObject ?: return@map el
+                val id = (plan["personId"] as? JsonPrimitive)?.contentOrNull
+                val events = plan["events"]
+                if (id == null || id == StoredData.ME || id.startsWith(Person.ICS_ID_PREFIX) || events == null) return@map plan
+                val old = json.decodeFromJsonElement(eventList, events)
+                val converted = LegacyShares.convert(old)
+                if (converted.events == old) return@map plan
+                JsonObject(
+                    plan + mapOf(
+                        "events" to json.encodeToJsonElement(eventList, converted.events),
+                        "legacyShare" to JsonPrimitive(converted.incomplete),
+                    ),
+                )
+            }
+            if (plans == null) o else JsonObject(o + ("plans" to JsonArray(plans)))
+        },
     )
+
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val eventList = ListSerializer(Event.serializer())
 
     /** Version of a stored object; a file without the field is the first format. */
     fun versionOf(obj: JsonObject): Int = (obj["version"] as? JsonPrimitive)?.intOrNull ?: 1

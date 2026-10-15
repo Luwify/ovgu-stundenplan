@@ -3,6 +3,9 @@ package de.luwify.stundenplanmd.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -368,7 +371,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             val page = pages[i]
                             val active = i == people.settledPage
                             val edge = remember(people, animate) { EdgeOnlyConnection(people, animate) }
-                            Box(Modifier.fillMaxSize().nestedScroll(edge)) {
+                            androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().nestedScroll(edge)) {
+                                if (page.legacyShare) LegacyShareHint()
                                 // The visible page switches Week/Day at once, with a fade through. The others (out of sight) follow
                                 // one after the other: switching all of them in one frame composes every person's whole screen.
                                 var shownTab by remember { mutableStateOf(tab) }
@@ -379,6 +383,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                                 }
                                 AnimatedContent(
                                     if (page.isEmpty) null else shownTab,
+                                    modifier = Modifier.weight(1f),
                                     transitionSpec = {
                                         if (animate && active) {
                                             fadeIn(tween(Motion.Medium - Motion.FadeInDelay, Motion.FadeInDelay, LinearEasing)) togetherWith
@@ -554,4 +559,27 @@ private fun duplicateText(res: android.content.res.Resources, duplicates: List<d
         "${dayShort(e.start.toLocalDate(), locale)} ${timeRange(e.start, e.end)}" + (e.location?.room?.let { ", $it" } ?: "")
     } + if (duplicates.size > 2) " …" else ""
     return res.getString(R.string.already_in_plan, slots)
+}
+
+/** A friend's plan shared by an older version: biweekly dates after New Year were converted and may differ. */
+@Composable
+private fun LegacyShareHint() {
+    androidx.compose.foundation.layout.Row(
+        Modifier.fillMaxWidth()
+            .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_warning), null,
+            Modifier.size(18.dp),
+            tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            stringResource(R.string.legacy_share_hint),
+            Modifier.padding(start = 12.dp),
+            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }

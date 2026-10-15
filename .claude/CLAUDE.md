@@ -109,8 +109,9 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 
 ## Persistence (user data must survive every update)
 - Files in `files/plans/`: `data.json` (`StoredData`: people (list order = drawer order, me first; `Person.favorite`),
-  plans, courseSettings, friendSettings, share, personalChanges, manualCourses, rhythms, addedEvents; field `version`, currently 6; step 2 -> 3 sorts friends
-  by shown name, the order v2 displayed; step 3 -> 4 adds `personalChanges`; 4 -> 5 adds `manualCourses`; 5 -> 6 adds `rhythms` and `addedEvents` (.ics friends need no step: `ics-` ids);
+  plans, courseSettings, friendSettings, share, personalChanges, manualCourses, rhythms, addedEvents; field `version`, currently 7; step 2 -> 3 sorts friends
+  by shown name, the order v2 displayed; step 3 -> 4 adds `personalChanges`; 4 -> 5 adds `manualCourses`; 5 -> 6 adds `rhythms` and `addedEvents` (.ics friends need no step: `ics-` ids); 6 -> 7 converts friends' plans from shares
+  of apps before 1.2.2 (`LegacyShares`, see the share codec) and sets `Plan.legacyShare`;
   versions 4 and 5 are on a real device, never change their meaning) and `me.ics` (raw import). Theme: DataStore `settings` (key `schema_version`).
   `data/PlanStore` does the I/O: atomic writes (tmp + fsync + rename, `AtomicFiles`), a leftover `data.json.bak` from
   the old AtomicFile scheme is restored, an unreadable or too-new `data.json` is renamed to `data.json.broken[.n]`
@@ -202,7 +203,12 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   start/length in quarter hours (escape for other minutes), slot count (0 = single), interval, bitmask of
   cancelled slots. Escapes for non-LSF UIDs and other RRULEs. Format 2 appends own changes (UID, date, series/until,
   s.t., cancelled, room, time; no notes); a plan without shareable changes is still written as 1, so older apps import
-  it (they reject 2 as "newer version"). Dropped: off-rhythm EXDATEs, PRODID.
+  it (they reject 2 as "newer version"). Dropped: off-rhythm EXDATEs, PRODID. Flag bit 4 (since 1.2.2, ignored by older
+  readers): plain INTERVAL=2 series are in the calendar-week parity of their first date. Without it (apps before 1.2.2)
+  they were counted every 14 days: `share/LegacyShares` re-expands them by parity (end = first parity date on or after
+  the old last one, cancelled slots kept by date, `manual-` ones stay 14-day) and, where a series changed (it crossed
+  a week 53, so LSF's EXDATEs after it were dropped), sets `SharedPlan.legacy` -> `Plan.legacyShare` -> a hint banner
+  in that friend's plan only ("neu teilen lassen"). Tests write old shares with the internal `payload(..., legacy)`.
   QR profile: lecturers, notes only of single events, capped at 80 chars ("…"); series notes dropped; both are
   flagged (`Event.notesShortened`) and the detail sheet says so (`Event.noteHint`; `NoteHintTest` covers
   .ics/file/QR). SUMMARY = title (raw one not sent). File profile: all notes and the raw SUMMARY. A file holding the

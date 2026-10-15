@@ -382,4 +382,5 @@
     <string name="added_course">Course added to your plan</string>
     <string name="added_course_hint">From a separate .ics file. A full import that contains this appointment replaces it. Removing affects this group only.</string>
     <string name="added_remove">Remove from my plan</string>
+    <string name="legacy_share_hint">Shared from an older version: some dates after New Year may differ. Ask for a new share.</string>
 </resources>

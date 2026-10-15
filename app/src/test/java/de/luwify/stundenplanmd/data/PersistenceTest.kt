@@ -252,6 +252,66 @@ class PersistenceTest {
         assertEquals(emptyMap<String, Map<String, WeekRhythm>>(), repo.data.value!!.rhythms)
     }
 
+    /**
+     * Version 6 holds friends' plans as apps before 1.2.2 decoded them: biweekly series counted every 14 days. Version 7
+     * converts them once to even/odd calendar weeks and marks the plan where dates after the week 53 may differ; my plan,
+     * .ics friends and friends without such a series stay as they are.
+     */
+    @Test
+    fun version6ConvertsFriendsBiweeklySeriesOnce() {
+        val d = dir()
+        fun at(date: String) = LocalDateTime.parse("${date}T09:15")
+        val lsfRule = de.luwify.stundenplanmd.core.model.Recurrence(
+            interval = 2, byDay = setOf(java.time.DayOfWeek.TUESDAY), until = Instant.parse("2027-02-02T23:59:00Z"),
+            exdates = setOf(at("2026-12-29"), at("2027-01-05")),
+        )
+        val lsf = event("900077000001", "Labor").copy(start = at("2026-12-15"), end = LocalDateTime.parse("2026-12-15T10:45"), recurrence = lsfRule)
+        // What the older decoder stored for that series (14-day slots up to 26.01., 05.01. dropped).
+        val old = lsf.copy(
+            recurrence = de.luwify.stundenplanmd.core.model.Recurrence(
+                interval = 2, until = LocalDate.parse("2027-01-26").atTime(23, 59).atZone(de.luwify.stundenplanmd.core.model.PlanZone).toInstant(),
+                exdates = setOf(at("2026-12-29")),
+            ),
+        )
+        val icsId = Person.ICS_ID_PREFIX + "fedcba9876543210"
+        val quietId = "1111111111111111"
+        val stored = withFriend.copy(
+            people = withFriend.people + Person(icsId, "Ida", isMe = false) + Person(quietId, "Quinn", isMe = false),
+            plans = withFriend.plans.map { it.copy(events = it.events + old) } +
+                Plan(icsId, Instant.parse("2026-10-12T08:00:00Z"), "QIS-LSF HIS eG", listOf(old)) +
+                Plan(quietId, Instant.parse("2026-10-12T08:00:00Z"), "share", events),
+        )
+        PlanStore(d).write(stored)
+        val o = kotlinx.serialization.json.Json.parseToJsonElement(File(d, "data.json").readText()) as JsonObject
+        val v6 = JsonObject(o + ("version" to JsonPrimitive(6))).toString()
+        assertFalse(v6.contains("legacyShare\":true"))
+        File(d, "data.json").writeText(v6)
+
+        val read = PlanStore(d).read() as StoreRead.Ok
+        assertEquals(6, read.migratedFrom)
+        assertEquals(v6, File(d, "data.json.v6").readText())
+        val friend = read.data.plans.single { it.personId == friendId }
+        assertTrue(friend.legacyShare)
+        val slots = Expansion.slots(friend.events.single { it.uid == old.uid })
+        assertEquals(listOf("2026-12-15", "2026-12-29", "2027-01-05", "2027-01-19", "2027-02-02").map(::at), slots.map { it.start })
+        assertEquals(listOf(at("2026-12-29")), slots.filter { it.cancelled }.map { it.start })
+        assertEquals(withFriend.plans.single { it.personId == friendId }.events, friend.events.filter { it.uid != old.uid })
+        // My plan and the .ics friend keep their events; a friend without such a series gets no hint.
+        assertEquals(stored.plans.single { it.personId == StoredData.ME }, read.data.myPlan)
+        assertEquals(listOf(old), read.data.plans.single { it.personId == icsId }.events)
+        assertFalse(read.data.plans.single { it.personId == icsId }.legacyShare)
+        assertEquals(events, read.data.plans.single { it.personId == quietId }.events)
+        assertFalse(read.data.plans.single { it.personId == quietId }.legacyShare)
+        assertEquals(stored.friendSettings, read.data.friendSettings)
+        // Written once as version 7: reading again converts nothing more.
+        val again = PlanStore(d).read() as StoreRead.Ok
+        assertEquals(Migrations.CURRENT, again.data.version)
+        assertEquals(read.data.plans, again.data.plans)
+        // The hint survives a backup.
+        val restored = BackupCodec.decode(BackupCodec.encode(read.data, null, theme, "de", UpdatesBackup())) as BackupResult.Ok
+        assertTrue(restored.backup.data.plans.single { it.personId == friendId }.legacyShare)
+    }
+
     @Test
     fun friendOrderAndFavoritesArePersistedAndInTheBackup() = runBlocking {
         val repo = PlanRepository(dir())

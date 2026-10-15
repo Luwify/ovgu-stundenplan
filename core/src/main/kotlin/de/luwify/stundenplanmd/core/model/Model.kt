@@ -46,6 +46,11 @@ data class Plan(
     val sharedSettings: Map<String, CourseSetting> = emptyMap(),
     /** Friend's plan: their own cancellations, room/time changes and s.t. (no notes). */
     val sharedChanges: List<PersonalChange> = emptyList(),
+    /**
+     * Friend's plan: shared by an app before 1.2.2, whose biweekly series were converted to even/odd calendar weeks
+     * ([de.luwify.stundenplanmd.core.share.LegacyShares]); some dates after a week 53 may differ. Shows a hint.
+     */
+    val legacyShare: Boolean = false,
 )
 
 /** One VEVENT: a single appointment or a weekly series. */

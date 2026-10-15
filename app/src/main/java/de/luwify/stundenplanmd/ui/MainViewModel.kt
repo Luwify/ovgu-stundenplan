@@ -93,6 +93,8 @@ data class PlanUi(
     val rhythms: Map<String, WeekRhythm> = emptyMap(),
     /** My plan: appointment UIDs of the LSF courses added from another .ics. */
     val addedUids: Set<String> = emptySet(),
+    /** Friend's plan shared by an older version; some dates after New Year may differ ([Plan.legacyShare]). */
+    val legacyShare: Boolean = false,
 ) {
     val isEmpty: Boolean get() = schedule.events.isEmpty()
     val isMe: Boolean get() = person.isMe
@@ -140,6 +142,7 @@ data class PlanUi(
                 favorites = data.friends.filter { it.favorite }.map { it.id }.toSet(),
                 rhythms = data.rhythmsOf(person.id),
                 addedUids = if (person.isMe) data.addedUids else emptySet(),
+                legacyShare = !person.isMe && plan?.legacyShare == true,
             )
         }
     }
