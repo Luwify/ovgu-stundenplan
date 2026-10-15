@@ -132,11 +132,13 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   half, plan has >= 3) asks "Plan ersetzen" / "Kurse zu meinem Plan hinzufügen". Drawer "+" file and open with/share
   (`vm.import`) ask "Als Freund hinzufügen" (name, or update an existing .ics friend) / "Kurse zu meinem Plan
   hinzufügen" (+ "Als meinen Plan importieren" only while I have none). Shares (`SPMD`) always go to the friend import.
-- Added LSF courses (`StoredData.addedEvents`, `:core` `schedule/AddedCourses`): keyed by course key (UID prefix), full
-  LSF UIDs kept (together, own changes, rhythms work). `myLsfEvents` = plan + added ones the plan lacks; adding replaces
-  the same course (re-import of one course updates it), skips courses the plan has; a full import drops duplicates
-  (`dedupe`, snackbar notice). Detail sheet "Zu deinem Plan hinzugefügter Kurs" + remove (drops my changes/rhythms for
-  it; undo). In my share like the rest of my LSF plan.
+- Added LSF courses (`StoredData.addedEvents`, `:core` `schedule/AddedCourses`): duplicates by full UID (course id +
+  appointment id), never by course id or title: same UID as the plan -> left out (notice names day, time, room), same UID
+  as an added one -> updated, same course id + other appointment id -> another group, added (same course key, so same
+  subject). `myLsfEvents` = plan + added ones whose UID the plan lacks; a full import drops only added events whose UID
+  it has (`dedupe`, notice). `Groups` (`:core`): a group = one series UID + the dates LSF moved out of it (single extras
+  join a course's only group); "Termine auswählen" and removing an added group (detail sheet, undo; drops my changes
+  and rhythms for those UIDs) work per group. In my share like the rest of my LSF plan.
 - .ics friends: `Person.fromIcs` (id `ics-` + 16 hex, local; no share identity, no shared changes), `planDate` = import
   day, "aus ICS importiert" in the drawer, top bar and details dialog. Updating keeps local name, favorite, order,
   friendSettings (carryOver) and rhythms.

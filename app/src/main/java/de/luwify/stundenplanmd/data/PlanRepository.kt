@@ -61,8 +61,8 @@ data class StoredData(
     /** My LSF events: the imported plan plus the added courses it does not have. */
     val myLsfEvents: List<Event> get() = myPlan?.events.orEmpty().let { it + AddedCourses.visible(it, addedEvents) }
 
-    /** Course keys of the added courses shown. */
-    val addedKeys: Set<String> get() = AddedCourses.keys(AddedCourses.visible(myPlan?.events.orEmpty(), addedEvents))
+    /** Appointment UIDs of the added courses shown. */
+    val addedUids: Set<String> get() = AddedCourses.visible(myPlan?.events.orEmpty(), addedEvents).mapTo(HashSet()) { it.uid }
 
     /** My events: the LSF ones (with my rhythms) plus the manual courses. */
     val myEvents: List<Event> get() = ManualCourses.merge(Expansion.withRhythms(myLsfEvents, rhythmsOf(ME)), manualCourses)
@@ -98,14 +98,14 @@ sealed interface FriendImport {
 }
 
 sealed interface ImportOutcome {
-    /** [previous] allows undo; [droppedAdded]: added courses the new plan has itself (removed). */
+    /** [previous] allows undo; [droppedAdded]: added appointments the new plan has itself (same UID; removed). */
     data class Imported(val events: Int, val previous: StoredData, val droppedAdded: Int = 0) : ImportOutcome
     data object NotACalendar : ImportOutcome
     data object NoEvents : ImportOutcome
 }
 
-/** Counts are courses; [previous] allows undo. */
-data class AddOutcome(val added: Int, val updated: Int, val alreadyInPlan: Int, val previous: StoredData)
+/** Counts are appointments (UIDs); [duplicates]: the ones my plan already has. [previous] allows undo. */
+data class AddOutcome(val added: Int, val updated: Int, val duplicates: List<Event>, val previous: StoredData)
 
 sealed interface IcsParse {
     data class Ok(val result: ImportResult) : IcsParse
@@ -167,18 +167,21 @@ class PlanRepository(dir: File) {
         if (r.events != current.addedEvents) {
             write(current.copy(addedEvents = r.events, courseSettings = Subjects.carryOver(current.courseSettings, current.myPlan?.events.orEmpty() + r.events)))
         }
-        AddOutcome(r.added, r.updated, r.alreadyInPlan, current)
+        AddOutcome(r.added, r.updated, r.duplicates, current)
     }
 
-    /** Removes an added course with my changes and rhythms for it; returns the previous state for undo. */
-    suspend fun removeAdded(courseKey: String): StoredData? = mutex.withLock {
+    /**
+     * Removes added appointments ([group]: one group of a course, [de.luwify.stundenplanmd.core.schedule.Groups]) with my
+     * changes and rhythms for them; other groups of the course stay. Returns the previous state for undo.
+     */
+    suspend fun removeAdded(group: Set<String>): StoredData? = mutex.withLock {
         val current = _data.value ?: return@withLock null
-        val uids = current.addedEvents.filter { it.courseKey == courseKey }.map { it.uid }.toSet()
+        val uids = current.addedEvents.map { it.uid }.filter { it in group }.toSet()
         if (uids.isEmpty()) return@withLock null
         val mine = current.rhythmsOf(StoredData.ME) - uids
         write(
             current.copy(
-                addedEvents = AddedCourses.remove(current.addedEvents, courseKey),
+                addedEvents = AddedCourses.remove(current.addedEvents, uids),
                 personalChanges = current.personalChanges.filterNot { it.uid in uids },
                 rhythms = if (mine.isEmpty()) current.rhythms - StoredData.ME else current.rhythms + (StoredData.ME to mine),
             ),

@@ -59,6 +59,7 @@ import de.luwify.stundenplanmd.core.schedule.OccurrenceValues
 import de.luwify.stundenplanmd.core.schedule.Personal
 import de.luwify.stundenplanmd.core.schedule.Status
 import de.luwify.stundenplanmd.core.schedule.Timed
+import de.luwify.stundenplanmd.core.schedule.Groups
 import de.luwify.stundenplanmd.ui.theme.planColors
 import java.time.LocalTime
 
@@ -277,9 +278,11 @@ private fun ScopeRow(text: String, selected: Boolean, onClick: () -> Unit) {
 fun PickDatesDialog(plan: PlanUi, item: Timed, onSave: (Map<OccurrenceRef, Boolean>) -> Unit, onDismiss: () -> Unit) {
     val locale = appLocale()
     val course = item.event.courseKey
-    val dates = remember(plan, course) {
+    // Only this group's dates (a course can have several groups, e.g. exercise groups in other time slots).
+    val dates = remember(plan, item) {
+        val group = Groups.of(plan.schedule, item)
         (plan.schedule.occurrences + plan.schedule.cancellations.filter { it.byMe })
-            .filter { it.event.courseKey == course }
+            .filter { it.event.uid in group }
             .sortedBy { it.start }
     }
     val choices = remember { mutableStateMapOf<OccurrenceRef, Boolean>() }

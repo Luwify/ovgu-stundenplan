@@ -8,6 +8,8 @@ Calendar files (.ics):
 - Your own plan is now replaced only by the import in the settings; if the file has far fewer courses than your plan (e.g. a single course exported on its own), the app asks whether to replace the plan or add the courses
 - With "+" in the menu, "Open with" or "Share", an .ics file can be added as a friend (with a name, or as an update of a friend imported from an .ics) or added to your plan
 - Added courses sit next to the imported plan, count for "Together with" and can be changed like any course; the appointment sheet marks them and can remove them. Importing the same course again updates it, a full import that contains it replaces it
+- Another group of an exercise (same course, other time slot) can be added and belongs to the same subject; only the very same appointment counts as a duplicate, and the notice names its day, time and room
+- "Select dates" and "Remove from my plan" affect only that group
 - Friends imported from an .ics are marked in the menu and in their plan; updating them keeps name, colors, order and favorite
 
 Fixed:

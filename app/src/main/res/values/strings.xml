@@ -366,23 +366,20 @@
     <string name="from_ics_name">Imported from an .ics as \"%1$s\"</string>
     <string name="friend_update_hint_ics">To update, add a newer .ics with \"+\" in the menu and pick this friend: the plan is replaced, your name and colors for them stay.</string>
     <plurals name="added_dropped">
-        <item quantity="one">%1$d added course is now in the plan itself and was removed.</item>
-        <item quantity="other">%1$d added courses are now in the plan itself and were removed.</item>
+        <item quantity="one">%1$d added appointment is now in the plan itself and was removed.</item>
+        <item quantity="other">%1$d added appointments are now in the plan itself and were removed.</item>
     </plurals>
     <plurals name="courses_added">
-        <item quantity="one">Added %1$d course.</item>
-        <item quantity="other">Added %1$d courses.</item>
+        <item quantity="one">Added %1$d appointment.</item>
+        <item quantity="other">Added %1$d appointments.</item>
     </plurals>
     <plurals name="courses_updated">
-        <item quantity="one">Updated %1$d course.</item>
-        <item quantity="other">Updated %1$d courses.</item>
+        <item quantity="one">Updated %1$d appointment.</item>
+        <item quantity="other">Updated %1$d appointments.</item>
     </plurals>
-    <plurals name="courses_in_plan">
-        <item quantity="one">%1$d course is already in your plan.</item>
-        <item quantity="other">%1$d courses are already in your plan.</item>
-    </plurals>
+    <string name="already_in_plan">Already in your plan: %1$s.</string>
     <string name="added_removed">%1$s removed</string>
     <string name="added_course">Course added to your plan</string>
-    <string name="added_course_hint">From a separate .ics file. A full import that contains the course replaces it.</string>
+    <string name="added_course_hint">From a separate .ics file. A full import that contains this appointment replaces it. Removing affects this group only.</string>
     <string name="added_remove">Remove from my plan</string>
 </resources>

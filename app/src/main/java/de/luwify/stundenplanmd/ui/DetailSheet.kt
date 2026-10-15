@@ -50,6 +50,7 @@ import de.luwify.stundenplanmd.core.model.NoteHint
 import de.luwify.stundenplanmd.core.model.Subject
 import de.luwify.stundenplanmd.core.model.WeekRhythm
 import de.luwify.stundenplanmd.core.schedule.Expansion
+import de.luwify.stundenplanmd.core.schedule.Groups
 import de.luwify.stundenplanmd.core.schedule.Cancellation
 import de.luwify.stundenplanmd.core.schedule.Occurrence
 import de.luwify.stundenplanmd.core.schedule.Status
@@ -110,7 +111,7 @@ fun DetailSheet(
                     onDelete = { leave(onDeleteManual) }.takeIf { plan.isMe },
                 )
             }
-            if (plan.isMe && item.seriesEvent.courseKey in plan.addedKeys) AddedBox(onRemove = { leave(onRemoveAdded) })
+            if (plan.isMe && (item.event.uid in plan.addedUids || Groups.baseUid(item) in plan.addedUids)) AddedBox(onRemove = { leave(onRemoveAdded) })
             PersonalBox(item, who = if (plan.isMe) null else plan.person.displayName)
 
             Field(

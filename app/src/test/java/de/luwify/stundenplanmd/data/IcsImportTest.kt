@@ -64,10 +64,10 @@ class IcsImportTest {
         r.importIcs(planText)
         assertFalse(r.data.value!!.myEvents.any { it.courseKey == n4vl })
         val out = r.addCourses(single)
-        assertEquals(1, out.added)
+        assertEquals(single.size, out.added)
         val d = r.data.value!!
         assertEquals(single, d.addedEvents)
-        assertEquals(setOf(n4vl), d.addedKeys)
+        assertEquals(single.map { it.uid }.toSet(), d.addedUids)
         // Kept with their LSF UIDs: together with a friend who has the full plan.
         val mySchedule = d.mySchedule()
         val t = Together.of(mySchedule, listOf("f" to de.luwify.stundenplanmd.core.schedule.Schedule(all)))
@@ -88,7 +88,7 @@ class IcsImportTest {
         val restored = BackupCodec.decode(BackupCodec.encode(back, null, de.luwify.stundenplanmd.data.settings.ThemeChoice(de.luwify.stundenplanmd.data.settings.ThemeMode.SYSTEM), "de", UpdatesBackup())) as BackupResult.Ok
         assertEquals(back.addedEvents, restored.backup.data.addedEvents)
         // Remove (detail sheet) takes my changes and rhythms for it along; undo brings everything back.
-        val previous = r.removeAdded(n4vl)!!
+        val previous = r.removeAdded(single.map { it.uid }.toSet())!!
         val after = r.data.value!!
         assertTrue(after.addedEvents.isEmpty())
         assertTrue(after.personalChanges.isEmpty())
@@ -105,24 +105,49 @@ class IcsImportTest {
         // The single course again (a newer export): updated, not doubled.
         val newer = single.map { it.copy(notes = "neu") }
         val again = r.addCourses(newer)
-        assertEquals(0 to 1, again.added to again.updated)
+        assertEquals(0 to single.size, again.added to again.updated)
         assertEquals(newer, r.data.value!!.addedEvents)
         // A course the plan already has is never added.
         val dup = r.addCourses(all.filter { it.courseKey == "lsf:900011" })
-        assertEquals(1, dup.alreadyInPlan)
+        assertEquals(all.filter { it.courseKey == "lsf:900011" }, dup.duplicates)
         assertEquals(newer, r.data.value!!.addedEvents)
         // A full re-import without the course keeps it ...
         assertEquals(0, (r.importIcs(planText) as ImportOutcome.Imported).droppedAdded)
         assertEquals(newer, r.data.value!!.addedEvents)
         // ... one that has it wins: the duplicate is dropped (with a notice), no event shows twice.
         val full = r.importIcs(text) as ImportOutcome.Imported
-        assertEquals(1, full.droppedAdded)
+        assertEquals(single.size, full.droppedAdded)
         val d = r.data.value!!
         assertTrue(d.addedEvents.isEmpty())
         assertEquals(all.size, d.myEvents.size)
         // Undo of that import brings the added course back.
         r.restore(full.previous)
         assertEquals(newer, r.data.value!!.addedEvents)
+    }
+
+    @Test
+    fun secondGroupOfACourseIsAddedAndRemovedOnItsOwn() = runBlocking {
+        val r = repo()
+        r.importIcs(planText)
+        val g1 = single.first { it.recurrence != null }
+        val g2 = g1.copy(uid = g1.uid.take(6) + "999999", start = g1.start.plusHours(4), end = g1.end.plusHours(4))
+        assertEquals(1, r.addCourses(listOf(g1)).added)
+        // Same course id, other appointment id: a second group, not "already in the plan".
+        val second = r.addCourses(listOf(g2))
+        assertEquals(1, second.added)
+        assertTrue(second.duplicates.isEmpty())
+        val d = r.data.value!!
+        assertEquals(setOf(g1.uid, g2.uid), d.addedUids)
+        // Own changes per group (full UID).
+        val s = d.mySchedule()
+        val o1 = s.occurrences.first { it.event.uid == g1.uid }
+        val o2 = s.occurrences.first { it.event.uid == g2.uid }
+        r.updatePersonalChanges { it + PersonalChange(g1.uid, o1.date, title = g1.title, note = "eins") + PersonalChange(g2.uid, o2.date, title = g2.title, note = "zwei") }
+        // Removing group 2 keeps group 1 and its change.
+        r.removeAdded(de.luwify.stundenplanmd.core.schedule.Groups.of(r.data.value!!.mySchedule(), o2))
+        val after = r.data.value!!
+        assertEquals(listOf(g1), after.addedEvents)
+        assertEquals(listOf("eins"), after.personalChanges.map { it.note })
     }
 
     @Test

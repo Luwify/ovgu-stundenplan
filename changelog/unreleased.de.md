@@ -8,6 +8,8 @@ Kalenderdateien (.ics):
 - Dein eigener Plan wird nur noch über den Import in den Einstellungen ersetzt; enthält die Datei viel weniger Kurse als dein Plan (z. B. einen einzeln exportierten Kurs), fragt die App, ob der Plan ersetzt oder die Kurse hinzugefügt werden sollen
 - Über „+“ im Menü, „Öffnen mit“ oder „Teilen“ lässt sich eine .ics-Datei als Freund hinzufügen (mit Namen, oder als Aktualisierung eines aus ICS importierten Freundes) oder zu deinem Plan hinzufügen
 - Hinzugefügte Kurse stehen neben dem importierten Plan, zählen für „Zusammen mit“ und lassen sich wie alle Kurse ändern; im Termin-Blatt sind sie markiert und lassen sich entfernen. Ein erneuter Import desselben Kurses aktualisiert ihn, ein vollständiger Import, der ihn enthält, ersetzt ihn
+- Eine weitere Gruppe einer Übung (gleiche Veranstaltung, anderer Termin) lässt sich hinzufügen und gehört zum selben Fach; als doppelt gilt nur genau derselbe Termin, und der Hinweis nennt Tag, Zeit und Raum des vorhandenen
+- „Termine auswählen“ und „Aus meinem Plan entfernen“ betreffen nur die jeweilige Gruppe
 - Aus ICS importierte Freunde sind im Menü und in ihrem Plan markiert; beim Aktualisieren bleiben Name, Farben, Reihenfolge und Favorit
 
 Behoben:

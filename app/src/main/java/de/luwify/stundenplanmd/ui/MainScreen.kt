@@ -243,7 +243,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                     val parts = listOfNotNull(
                         res.getQuantityString(R.plurals.courses_added, msg.added, msg.added).takeIf { msg.added > 0 },
                         res.getQuantityString(R.plurals.courses_updated, msg.updated, msg.updated).takeIf { msg.updated > 0 },
-                        res.getQuantityString(R.plurals.courses_in_plan, msg.alreadyInPlan, msg.alreadyInPlan).takeIf { msg.alreadyInPlan > 0 },
+                        duplicateText(res, msg.duplicates).takeIf { msg.duplicates.isNotEmpty() },
                     )
                     if (msg.added + msg.updated == 0) {
                         snackbar.showSnackbar(parts.joinToString(" "))
@@ -414,7 +414,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             onPickDates = { pickDates = item },
                             onEditManual = { manualEdit = ManualTarget(item.event.uid) },
                             onDeleteManual = { vm.deleteManual(item.event.uid) },
-                            onRemoveAdded = { vm.removeAdded(item.seriesEvent.courseKey, item.event.title) },
+                            onRemoveAdded = { vm.removeAdded(item, item.event.title) },
                             onDismiss = { selected = null },
                         )
                     }
@@ -546,3 +546,12 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
 
 /** The manual course being added ([id] null) or edited. */
 private data class ManualTarget(val id: String?)
+
+/** "Schon in deinem Plan: Mi 13–15, K09B-110": the appointments of an added file my plan already has (at most two). */
+private fun duplicateText(res: android.content.res.Resources, duplicates: List<de.luwify.stundenplanmd.core.model.Event>): String {
+    val locale = appLocaleOf(res)
+    val slots = duplicates.sortedBy { it.start }.take(2).joinToString("; ") { e ->
+        "${dayShort(e.start.toLocalDate(), locale)} ${timeRange(e.start, e.end)}" + (e.location?.room?.let { ", $it" } ?: "")
+    } + if (duplicates.size > 2) " …" else ""
+    return res.getString(R.string.already_in_plan, slots)
+}

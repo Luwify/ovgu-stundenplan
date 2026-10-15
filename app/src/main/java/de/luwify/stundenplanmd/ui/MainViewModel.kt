@@ -35,6 +35,7 @@ import de.luwify.stundenplanmd.data.IcsRoute
 import de.luwify.stundenplanmd.data.ImportRouting
 import de.luwify.stundenplanmd.data.parseIcs
 import de.luwify.stundenplanmd.core.schedule.AddedCourses
+import de.luwify.stundenplanmd.core.schedule.Groups
 import de.luwify.stundenplanmd.data.StoredData
 import de.luwify.stundenplanmd.data.FriendImport
 import de.luwify.stundenplanmd.data.MyShare
@@ -90,8 +91,8 @@ data class PlanUi(
     val favorites: Set<String> = emptySet(),
     /** Rhythms I set by hand in this plan (appointment UID -> rhythm). */
     val rhythms: Map<String, WeekRhythm> = emptyMap(),
-    /** My plan: course keys of the LSF courses added from another .ics. */
-    val addedKeys: Set<String> = emptySet(),
+    /** My plan: appointment UIDs of the LSF courses added from another .ics. */
+    val addedUids: Set<String> = emptySet(),
 ) {
     val isEmpty: Boolean get() = schedule.events.isEmpty()
     val isMe: Boolean get() = person.isMe
@@ -138,7 +139,7 @@ data class PlanUi(
                 names = data.friends.associate { it.id to it.displayName },
                 favorites = data.friends.filter { it.favorite }.map { it.id }.toSet(),
                 rhythms = data.rhythmsOf(person.id),
-                addedKeys = if (person.isMe) data.addedKeys else emptySet(),
+                addedUids = if (person.isMe) data.addedUids else emptySet(),
             )
         }
     }
@@ -154,8 +155,8 @@ sealed interface UiMessage {
     /** [droppedAdded]: added courses the new plan has itself (removed from the added ones). */
     data class Imported(val events: Int, val previous: StoredData, val droppedAdded: Int = 0) : UiMessage
 
-    /** Courses of an .ics added to my plan (counts are courses). */
-    data class CoursesAdded(val added: Int, val updated: Int, val alreadyInPlan: Int, val previous: StoredData) : UiMessage
+    /** Appointments of an .ics added to my plan; [duplicates]: the ones my plan already has (named in the notice). */
+    data class CoursesAdded(val added: Int, val updated: Int, val duplicates: List<de.luwify.stundenplanmd.core.model.Event>, val previous: StoredData) : UiMessage
     data class AddedRemoved(val title: String, val previous: StoredData) : UiMessage
     data object ImportFailed : UiMessage
     data object NotACalendar : UiMessage
@@ -441,7 +442,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _pendingIcs.value = null
         viewModelScope.launch {
             val msg = runCatching { repo.addCourses(p.events) }.fold(
-                onSuccess = { UiMessage.CoursesAdded(it.added, it.updated, it.alreadyInPlan, it.previous) },
+                onSuccess = { UiMessage.CoursesAdded(it.added, it.updated, it.duplicates, it.previous) },
                 onFailure = { UiMessage.ImportFailed },
             )
             _messages.send(msg)
@@ -461,10 +462,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Removes an added LSF course from my plan (undo in the snackbar). */
-    fun removeAdded(courseKey: String, title: String) {
+    /** Removes the added group [item] belongs to from my plan; other groups of the course stay (undo in the snackbar). */
+    fun removeAdded(item: Timed, title: String) {
+        val schedule = myPlan.value?.schedule ?: return
         viewModelScope.launch {
-            val previous = repo.removeAdded(courseKey) ?: return@launch
+            val previous = repo.removeAdded(Groups.of(schedule, item)) ?: return@launch
             _messages.send(UiMessage.AddedRemoved(title, previous))
         }
     }

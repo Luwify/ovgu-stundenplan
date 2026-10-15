@@ -360,23 +360,20 @@
     <string name="from_ics_name">Aus einer .ics-Datei importiert als „%1$s“</string>
     <string name="friend_update_hint_ics">Zum Aktualisieren eine neuere .ics-Datei über „+“ im Menü hinzufügen und diesen Freund auswählen: Der Plan wird ersetzt, dein Name und deine Farben dafür bleiben.</string>
     <plurals name="added_dropped">
-        <item quantity="one">%1$d hinzugefügter Kurs ist jetzt im Plan selbst enthalten und wurde entfernt.</item>
-        <item quantity="other">%1$d hinzugefügte Kurse sind jetzt im Plan selbst enthalten und wurden entfernt.</item>
+        <item quantity="one">%1$d hinzugefügter Termin ist jetzt im Plan selbst enthalten und wurde entfernt.</item>
+        <item quantity="other">%1$d hinzugefügte Termine sind jetzt im Plan selbst enthalten und wurden entfernt.</item>
     </plurals>
     <plurals name="courses_added">
-        <item quantity="one">%1$d Kurs hinzugefügt.</item>
-        <item quantity="other">%1$d Kurse hinzugefügt.</item>
+        <item quantity="one">%1$d Termin hinzugefügt.</item>
+        <item quantity="other">%1$d Termine hinzugefügt.</item>
     </plurals>
     <plurals name="courses_updated">
-        <item quantity="one">%1$d Kurs aktualisiert.</item>
-        <item quantity="other">%1$d Kurse aktualisiert.</item>
+        <item quantity="one">%1$d Termin aktualisiert.</item>
+        <item quantity="other">%1$d Termine aktualisiert.</item>
     </plurals>
-    <plurals name="courses_in_plan">
-        <item quantity="one">%1$d Kurs ist schon in deinem Plan.</item>
-        <item quantity="other">%1$d Kurse sind schon in deinem Plan.</item>
-    </plurals>
+    <string name="already_in_plan">Schon in deinem Plan: %1$s.</string>
     <string name="added_removed">%1$s entfernt</string>
     <string name="added_course">Zu deinem Plan hinzugefügter Kurs</string>
-    <string name="added_course_hint">Aus einer eigenen .ics-Datei. Ein vollständiger Import, der den Kurs enthält, ersetzt ihn.</string>
+    <string name="added_course_hint">Aus einer eigenen .ics-Datei. Ein vollständiger Import, der diesen Termin enthält, ersetzt ihn. Entfernen betrifft nur diese Gruppe.</string>
     <string name="added_remove">Aus meinem Plan entfernen</string>
 </resources>
