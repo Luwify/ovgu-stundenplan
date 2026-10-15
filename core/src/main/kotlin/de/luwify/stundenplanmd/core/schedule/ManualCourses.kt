@@ -26,9 +26,11 @@ object ManualCourses {
         val start = c.startDate.atTime(c.start)
         val recurrence = if (c.rhythm == ManualCourse.Rhythm.ONCE) null else {
             val last = maxOf(c.endDate ?: c.startDate, c.startDate)
+            val weeks = c.rhythm.weekRhythm
             val base = Recurrence(
-                interval = if (c.rhythm == ManualCourse.Rhythm.BIWEEKLY) 2 else 1,
+                interval = if (weeks != null) 2 else 1,
                 until = last.atTime(23, 59).atZone(PlanZone).toInstant(),
+                rhythm = weeks,
             )
             val skipped = if (!c.skipFreeWeeks) emptySet() else {
                 Expansion.slots(Event(c.id, c.title, c.title, start = start, end = c.startDate.atTime(c.end), recurrence = base))

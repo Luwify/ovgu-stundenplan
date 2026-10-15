@@ -319,7 +319,14 @@
     <string name="manual_rhythm">Rhythmus</string>
     <string name="manual_once">Einmalig</string>
     <string name="manual_weekly">Wöchentlich</string>
-    <string name="manual_biweekly">Alle 2 Wochen</string>
+    <string name="manual_biweekly">Alle 14 Tage</string>
+    <string name="manual_even_weeks">Gerade KW</string>
+    <string name="manual_odd_weeks">Ungerade KW</string>
+    <string name="rhythm_even_weeks">In geraden KW am %1$s</string>
+    <string name="rhythm_odd_weeks">In ungeraden KW am %1$s</string>
+    <string name="rhythm_14_days">Alle 14 Tage am %1$s</string>
+    <string name="rhythm_by_me">(von dir festgelegt)</string>
+    <string name="rhythm_auto">Automatisch: %1$s</string>
     <string name="manual_date">Datum</string>
     <string name="manual_start_date">Erster Termin</string>
     <string name="manual_end_date">Letzter Termin</string>

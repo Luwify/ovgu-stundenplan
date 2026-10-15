@@ -5,6 +5,8 @@ import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.model.ManualCourse
 import de.luwify.stundenplanmd.core.schedule.ManualCourses
+import de.luwify.stundenplanmd.core.schedule.Expansion
+import de.luwify.stundenplanmd.core.model.WeekRhythm
 import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.core.model.Plan
@@ -45,9 +47,20 @@ data class StoredData(
     val personalChanges: List<PersonalChange> = emptyList(),
     /** Courses I added by hand; the LSF import never touches them. */
     val manualCourses: List<ManualCourse> = emptyList(),
+    /**
+     * Rhythms set by hand for weekly INTERVAL=2 series (even/odd calendar weeks or 14 days), per person ([ME] or a
+     * friend's id): appointment UID -> rhythm. Kept across re-imports; mine go into shares with my own changes.
+     */
+    val rhythms: Map<String, Map<String, WeekRhythm>> = emptyMap(),
 ) {
-    /** My events: the LSF import plus the manual courses. */
-    val myEvents: List<Event> get() = ManualCourses.merge(myPlan?.events.orEmpty(), manualCourses)
+    /** My events: the LSF import (with my rhythms) plus the manual courses. */
+    val myEvents: List<Event> get() = ManualCourses.merge(Expansion.withRhythms(myPlan?.events.orEmpty(), rhythmsOf(ME)), manualCourses)
+
+    fun rhythmsOf(personId: String): Map<String, WeekRhythm> = rhythms[personId].orEmpty()
+
+    /** The events shown for [personId]: mine ([myEvents]) or the friend's plan with my rhythms for it. */
+    fun eventsOf(personId: String): List<Event> =
+        if (personId == ME) myEvents else Expansion.withRhythms(planOf(personId)?.events.orEmpty(), rhythmsOf(personId))
 
     val myPlan: Plan? get() = planOf(ME)
     val friends: List<Person> get() = people.filter { !it.isMe }
@@ -56,7 +69,7 @@ data class StoredData(
     fun person(id: String): Person? = people.firstOrNull { it.id == id }
 
     /** [plan] expanded with the own changes: mine for my plan, the friend's shared ones for theirs. */
-    fun schedule(plan: Plan): Schedule = if (plan.personId == ME) mySchedule() else Schedule(plan.events, plan.sharedChanges)
+    fun schedule(plan: Plan): Schedule = if (plan.personId == ME) mySchedule() else Schedule(eventsOf(plan.personId), plan.sharedChanges)
 
     fun mySchedule(): Schedule = Schedule(myEvents, personalChanges)
 
@@ -186,9 +199,18 @@ class PlanRepository(dir: File) {
                 people = current.people.filterNot { it.id == id },
                 plans = current.plans.filterNot { it.personId == id },
                 friendSettings = current.friendSettings - id,
+                rhythms = current.rhythms - id,
             ),
         )
         current
+    }
+
+    /** My rhythm for the series [uid] in [personId]'s plan; null = as the data says. */
+    suspend fun setRhythm(personId: String, uid: String, rhythm: WeekRhythm?) = mutex.withLock {
+        val current = _data.value ?: return@withLock
+        val mine = current.rhythmsOf(personId).let { if (rhythm == null) it - uid else it + (uid to rhythm) }
+        val next = if (mine.isEmpty()) current.rhythms - personId else current.rhythms + (personId to mine)
+        if (next != current.rhythms) write(current.copy(rhythms = next))
     }
 
     suspend fun updateFriendSettings(id: String, transform: (Map<String, CourseSetting>) -> Map<String, CourseSetting>) = mutex.withLock {

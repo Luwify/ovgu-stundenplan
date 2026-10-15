@@ -41,7 +41,7 @@ class ScheduleTest {
 
     @Test
     fun fixtureTotalsAndRange() {
-        assertEquals(219, fixture.occurrences.size)
+        assertEquals(222, fixture.occurrences.size)
         assertEquals(LocalDate.parse("2026-10-12"), fixture.firstDate)
         assertEquals(LocalDate.parse("2027-01-29"), fixture.lastDate)
         assertEquals(63, fixture.between(LocalDate.parse("2026-10-12"), LocalDate.parse("2026-11-09")).size)

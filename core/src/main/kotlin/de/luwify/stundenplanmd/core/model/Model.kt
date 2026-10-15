@@ -9,6 +9,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.temporal.IsoFields
 
 /** All plan times are wall-clock times in this zone (the LSF export uses TZID=Europe/Berlin). */
 val PlanZone: ZoneId = ZoneId.of("Europe/Berlin")
@@ -103,10 +104,38 @@ data class Recurrence(
     val exdates: Set<LocalDateTime> = emptySet(),
     /** EXDATE given as date only. */
     val exdays: Set<LocalDate> = emptySet(),
+    /**
+     * Weekly INTERVAL=2 only: the rhythm set by hand (a manual course, my override for a series); null = decided from
+     * the data ([de.luwify.stundenplanmd.core.schedule.Expansion.rhythmOf]).
+     */
+    val rhythm: WeekRhythm? = null,
 ) {
     enum class Frequency { DAILY, WEEKLY }
 
+    /** FREQ=WEEKLY;INTERVAL=2: LSF's "gKW"/"uKW" (or a plain 14-day rhythm, see [WeekRhythm]). */
+    val biweekly: Boolean get() = frequency == Frequency.WEEKLY && interval == 2
+
     fun excludes(start: LocalDateTime) = start in exdates || start.toLocalDate() in exdays
+}
+
+/**
+ * How a weekly INTERVAL=2 series is expanded. LSF exports "gerade/ungerade KW" (even/odd ISO calendar week) as
+ * INTERVAL=2, which is not the same after a year with a week 53 (KW53 and KW1 are both odd): [EVEN_WEEKS] and
+ * [ODD_WEEKS] follow the week number, [EVERY_14_DAYS] counts 14 days from DTSTART (RFC 5545).
+ */
+@Serializable
+enum class WeekRhythm {
+    EVEN_WEEKS,
+    ODD_WEEKS,
+    EVERY_14_DAYS,
+    ;
+
+    companion object {
+        fun weekOf(date: LocalDate): Int = date.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+
+        /** The parity rhythm of the ISO week [date] is in. */
+        fun parityOf(date: LocalDate): WeekRhythm = if (weekOf(date) % 2 == 0) EVEN_WEEKS else ODD_WEEKS
+    }
 }
 
 /** CATEGORIES "Vorlesung (V)" -> name "Vorlesung", short "V". */

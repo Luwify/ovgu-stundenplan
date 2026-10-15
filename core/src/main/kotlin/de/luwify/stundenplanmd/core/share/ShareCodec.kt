@@ -7,6 +7,7 @@ import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.core.model.PlanZone
 import de.luwify.stundenplanmd.core.model.Recurrence
 import de.luwify.stundenplanmd.core.model.Subjects
+import de.luwify.stundenplanmd.core.model.WeekRhythm
 import de.luwify.stundenplanmd.core.schedule.Expansion
 import java.io.ByteArrayOutputStream
 import java.time.DayOfWeek
@@ -198,7 +199,8 @@ object ShareCodec {
         private val lsfUid = Regex("^(\\d{6})(\\d{6})$")
 
         fun write(plan: SharedPlan, complete: Boolean): ByteArray {
-            val events = plan.events.sortedWith(compareBy({ it.uid }, { it.start }))
+            // A rhythm set by hand is sent as the dates it gives (the format has no rhythm field).
+            val events = plan.events.map(Expansion::portable).sortedWith(compareBy({ it.uid }, { it.start }))
             val strings = LinkedHashMap<String, Int>()
             fun s(text: String) = strings.getOrPut(text) { strings.size }
             fun opt(text: String?) = if (text == null) 0 else s(text) + 1
@@ -295,8 +297,11 @@ object ShareCodec {
             val r = e.recurrence
             if (r == null) { out.varint(0); return }
             val slots = Expansion.slots(e)
+            // INTERVAL=2: plain only in the calendar-week rhythm of its first date (what the reader rebuilds); a 14-day
+            // series that differs from it goes as a full rule, whose UNTIL tells the reader the rhythm.
             val plain = r.frequency == Recurrence.Frequency.WEEKLY && r.byDay.all { it == e.start.dayOfWeek } &&
-                r.count == null && r.until != null && slots.isNotEmpty() && slots.size < Expansion.MAX_SLOTS
+                r.count == null && r.until != null && slots.isNotEmpty() && slots.size < Expansion.MAX_SLOTS &&
+                (!r.biweekly || Expansion.rhythmOf(e) == WeekRhythm.parityOf(e.start.toLocalDate()))
             if (plain) {
                 out.varint(1); out.varint(slots.size); out.varint(r.interval)
                 val mask = ByteArray((slots.size + 7) / 8)
@@ -410,9 +415,12 @@ object ShareCodec {
             return SharedPlan(personId, name, exportedOn, planDate, events, settings, complete = flags and FLAG_ALL_NOTES != 0, changes = changes)
         }
 
+        /** INTERVAL=2 in the calendar-week rhythm of [start] (older apps counted 14 days from it instead). */
         private class PlainSeries(val slots: Int, val interval: Int) {
             fun toRecurrence(start: LocalDateTime, mask: ByteArray): Recurrence {
-                val starts = (0 until slots).map { start.plusWeeks(it.toLong() * interval) }
+                val rhythm = if (interval == 2) WeekRhythm.parityOf(start.toLocalDate()) else null
+                val probe = Event("", "", "", start = start, end = start, recurrence = Recurrence(interval = interval, count = slots, rhythm = rhythm))
+                val starts = Expansion.slots(probe).map { it.start }
                 return Recurrence(
                     interval = interval,
                     until = starts.last().toLocalDate().atTime(23, 59).atZone(PlanZone).toInstant(),

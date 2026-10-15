@@ -109,8 +109,9 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 
 ## Persistence (user data must survive every update)
 - Files in `files/plans/`: `data.json` (`StoredData`: people (list order = drawer order, me first; `Person.favorite`),
-  plans, courseSettings, friendSettings, share, personalChanges, manualCourses; field `version`, currently 5; step 2 -> 3 sorts friends
-  by shown name, the order v2 displayed; step 3 -> 4 adds `personalChanges`; 4 -> 5 adds `manualCourses`; version 4 is on a real device, never change its meaning) and `me.ics` (raw import). Theme: DataStore `settings` (key `schema_version`).
+  plans, courseSettings, friendSettings, share, personalChanges, manualCourses, rhythms; field `version`, currently 6; step 2 -> 3 sorts friends
+  by shown name, the order v2 displayed; step 3 -> 4 adds `personalChanges`; 4 -> 5 adds `manualCourses`; 5 -> 6 adds `rhythms`;
+  versions 4 and 5 are on a real device, never change their meaning) and `me.ics` (raw import). Theme: DataStore `settings` (key `schema_version`).
   `data/PlanStore` does the I/O: atomic writes (tmp + fsync + rename, `AtomicFiles`), a leftover `data.json.bak` from
   the old AtomicFile scheme is restored, an unreadable or too-new `data.json` is renamed to `data.json.broken[.n]`
   (never overwritten; the app shows a snackbar), an older version is migrated step by step (`data/Migrations`:
@@ -323,7 +324,15 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   may contain DTSTART itself and dates outside the INTERVAL=2 rhythm (harmless, just ignore).
 - RRULE: always `FREQ=WEEKLY;UNTIL=...Z;INTERVAL=1|2;BYDAY=<one day>`; BYDAY equals DTSTART's weekday.
   UNTIL is `T235900Z` (inclusive). Expand in local time (LocalDateTime + Europe/Berlin), so DST
-  switches keep the wall-clock time. INTERVAL=2 is anchored on DTSTART.
+  switches keep the wall-clock time. INTERVAL=2 means LSF's "gKW/uKW" (even/odd ISO calendar week), which differs from
+  14-day steps after a year with a week 53 (2026: KW53 and KW1 both odd). Real exports: the UNTIL of every such series
+  but one is on the calendar-week parity, not on the 14-day rhythm; one Praktikum's UNTIL is on the 14-day rhythm only.
+  So `Expansion.rhythmOf` decides per series from UNTIL: parity of DTSTART's ISO week, unless only the 14-day rhythm
+  ends on UNTIL's day. `Recurrence.rhythm` (set by hand) wins: manual courses (gerade/ungerade KW, alle 14 Tage =
+  `BIWEEKLY`, its meaning in v5) and my overrides per series (`StoredData.rhythms[person][uid]`, subject editor, per
+  biweekly series of a course, also for friends' plans; mine are shared with my own changes). Shares carry no rhythm:
+  `Expansion.portable` rewrites a series set by hand (first date, UNTIL = last date), the codec sends a series as
+  "plain" only in the parity rhythm of its first date (the reader rebuilds that), else as a full rule whose UNTIL tells.
 - Events without RRULE are single dates (exam repeats, extra appointments).
 - Rescheduling is modelled as: series gets an EXDATE + a separate VEVENT (same course prefix,
   new appointment id) with another room/time, sometimes as a short series with its own RRULE.

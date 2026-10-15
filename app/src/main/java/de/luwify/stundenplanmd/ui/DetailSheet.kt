@@ -48,6 +48,8 @@ import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.model.NoteHint
 import de.luwify.stundenplanmd.core.model.Subject
+import de.luwify.stundenplanmd.core.model.WeekRhythm
+import de.luwify.stundenplanmd.core.schedule.Expansion
 import de.luwify.stundenplanmd.core.schedule.Cancellation
 import de.luwify.stundenplanmd.core.schedule.Occurrence
 import de.luwify.stundenplanmd.core.schedule.Status
@@ -109,7 +111,10 @@ fun DetailSheet(
             }
             PersonalBox(item, who = if (plan.isMe) null else plan.person.displayName)
 
-            Field(stringResource(R.string.detail_when), "${longDate(item.date, locale)}\n${timeRange(item.start, item.end)}" + rhythm(event, locale)?.let { "\n$it" }.orEmpty())
+            Field(
+                stringResource(R.string.detail_when),
+                "${longDate(item.date, locale)}\n${timeRange(item.start, item.end)}" + rhythm(event, locale, byMe = event.uid in plan.rhythms)?.let { "\n$it" }.orEmpty(),
+            )
             Field(stringResource(R.string.detail_room), if (item.room != event.location?.room) item.room.orEmpty() else roomText(event))
             val with = plan.togetherWith(item)
             if (with.isNotEmpty()) TogetherField(plan, with)
@@ -234,12 +239,18 @@ private fun roomText(e: Event): String {
     return parts.joinToString(" · ")
 }
 
-/** "Weekly on Mon until 25.1." / "Every 2 weeks ..." for series. */
+/** "Weekly on Mon until 25.1." / "Odd calendar weeks on Tue ..." for series; [byMe]: a rhythm I set by hand. */
 @Composable
-private fun rhythm(e: Event, locale: java.util.Locale): String? {
+private fun rhythm(e: Event, locale: java.util.Locale, byMe: Boolean): String? {
     val r = e.recurrence ?: return null
-    val until: LocalDate? = r.until?.atZone(de.luwify.stundenplanmd.core.model.PlanZone)?.toLocalDate()
+    // The last date, not UNTIL: a rhythm set by hand can end earlier.
+    val until: LocalDate? = r.until?.let { Expansion.slots(e).lastOrNull()?.start?.toLocalDate() }
     val day = dayShort(e.start.toLocalDate(), locale)
-    val base = if (r.interval == 1) stringResource(R.string.rhythm_weekly, day) else stringResource(R.string.rhythm_n_weeks, r.interval, day)
+    val base = when (Expansion.rhythmOf(e)) {
+        WeekRhythm.EVEN_WEEKS -> stringResource(R.string.rhythm_even_weeks, day)
+        WeekRhythm.ODD_WEEKS -> stringResource(R.string.rhythm_odd_weeks, day)
+        WeekRhythm.EVERY_14_DAYS -> stringResource(R.string.rhythm_14_days, day)
+        null -> if (r.interval == 1) stringResource(R.string.rhythm_weekly, day) else stringResource(R.string.rhythm_n_weeks, r.interval, day)
+    } + if (byMe) " " + stringResource(R.string.rhythm_by_me) else ""
     return if (until != null) stringResource(R.string.rhythm_until, base, dayAndDate(until, locale)) else base
 }

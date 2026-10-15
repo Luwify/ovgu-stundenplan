@@ -31,7 +31,22 @@ data class ManualCourse(
     /** Series: no dates in weeks (and on days) LSF marks lecture-free. */
     val skipFreeWeeks: Boolean = true,
 ) {
-    enum class Rhythm { ONCE, WEEKLY, BIWEEKLY }
+    /**
+     * [BIWEEKLY] = every 14 days from the first date (its meaning since stored format 5); [EVEN_WEEKS]/[ODD_WEEKS] =
+     * even/odd calendar weeks (format 6).
+     */
+    enum class Rhythm {
+        ONCE, WEEKLY, EVEN_WEEKS, ODD_WEEKS, BIWEEKLY;
+
+        /** The rhythm of the series event (null = weekly or once). */
+        val weekRhythm: WeekRhythm?
+            get() = when (this) {
+                EVEN_WEEKS -> WeekRhythm.EVEN_WEEKS
+                ODD_WEEKS -> WeekRhythm.ODD_WEEKS
+                BIWEEKLY -> WeekRhythm.EVERY_14_DAYS
+                ONCE, WEEKLY -> null
+            }
+    }
 
     val courseKey: String get() = CourseKeys.MANUAL_KEY_PREFIX + id
 

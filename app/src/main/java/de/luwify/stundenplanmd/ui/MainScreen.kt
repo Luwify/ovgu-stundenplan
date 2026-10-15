@@ -498,6 +498,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 editing = null
             },
             onMove = vm::moveCourse,
+            onRhythm = vm::setRhythm,
             onDismiss = { editing = null },
         )
     }

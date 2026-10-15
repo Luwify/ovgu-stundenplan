@@ -3,6 +3,7 @@ package de.luwify.stundenplanmd.core.schedule
 import de.luwify.stundenplanmd.core.Fixture
 import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.model.Recurrence
+import de.luwify.stundenplanmd.core.model.WeekRhythm
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.DayOfWeek
@@ -21,24 +22,33 @@ class ExpansionTest {
     fun fixtureOccurrenceCounts() {
         val expected = mapOf(
             "900011500666" to 14, "900022500481" to 14, "900033500037" to 14, "900044500592" to 14,
-            "900055500111" to 13, "900066500518" to 6, "900077500333" to 6, "900088500296" to 13,
+            "900055500111" to 13, "900066500518" to 7, "900077500333" to 6, "900088500296" to 13,
             "900066500555" to 13, "900099500703" to 7, "900110500259" to 13, "900121500777" to 1,
-            "900132500629" to 14, "900143500370" to 3, "900154500185" to 13, "900165500222" to 14,
-            "900154500814" to 1, "900121500407" to 12, "900176500740" to 12, "900187500444" to 6,
-            "900198500148" to 6, "900209500074" to 6, "900121500851" to 2, "900176500888" to 2,
+            "900132500629" to 14, "900143500370" to 2, "900154500185" to 13, "900165500222" to 14,
+            "900154500814" to 1, "900121500407" to 12, "900176500740" to 12, "900187500444" to 7,
+            "900198500148" to 7, "900209500074" to 7, "900121500851" to 2, "900176500888" to 2,
         )
         assertEquals(expected, Fixture.events.associate { it.uid to Expansion.occurrences(it).size })
     }
 
     @Test
     fun fixtureTwoWeekRhythmWithOffRhythmExdates() {
-        // GDL Übung: DTSTART itself and off-rhythm dates are in EXDATE.
-        assertEquals(listOf("2026-10-29", "2027-01-07", "2027-01-21"), dates(Fixture.event("900143500370")))
-        // N4 VL Tue every 2 weeks, UNTIL 19.01., 29.12. excluded.
+        // GDL Übung, even weeks: DTSTART itself and off-rhythm dates are in EXDATE; 14.01. (KW2) too, UNTIL 28.01. (KW4).
+        assertEquals(listOf("2026-10-29", "2027-01-28"), dates(Fixture.event("900143500370")))
+        // N4 VL Tue in odd weeks (KW53 and KW1 both), UNTIL 19.01. (KW3), 29.12. excluded.
         assertEquals(
-            listOf("2026-10-20", "2026-11-03", "2026-11-17", "2026-12-01", "2026-12-15", "2027-01-12"),
+            listOf("2026-10-20", "2026-11-03", "2026-11-17", "2026-12-01", "2026-12-15", "2027-01-05", "2027-01-19"),
             dates(Fixture.event("900066500518")),
         )
+    }
+
+    @Test
+    fun fixtureFourteenDaySeriesStays() {
+        // Praktikum Tue from KW43, UNTIL 26.01. (KW4): only the 14-day rhythm ends there.
+        val e = Fixture.event("900077500333")
+        assertEquals(WeekRhythm.EVERY_14_DAYS, Expansion.rhythmOf(e))
+        assertEquals("2027-01-26", dates(e).last())
+        assertEquals(WeekRhythm.ODD_WEEKS, Expansion.rhythmOf(Fixture.event("900066500518")))
     }
 
     @Test

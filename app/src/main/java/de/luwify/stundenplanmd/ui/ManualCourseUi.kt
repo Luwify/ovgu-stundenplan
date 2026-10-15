@@ -259,6 +259,7 @@ fun ManualCourseEditor(
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(
                             ManualCourse.Rhythm.ONCE to R.string.manual_once, ManualCourse.Rhythm.WEEKLY to R.string.manual_weekly,
+                            ManualCourse.Rhythm.EVEN_WEEKS to R.string.manual_even_weeks, ManualCourse.Rhythm.ODD_WEEKS to R.string.manual_odd_weeks,
                             ManualCourse.Rhythm.BIWEEKLY to R.string.manual_biweekly,
                         ).forEach { (r, label) -> FilterChip(rhythm == r, { rhythm = r }, { Text(stringResource(label)) }) }
                     }

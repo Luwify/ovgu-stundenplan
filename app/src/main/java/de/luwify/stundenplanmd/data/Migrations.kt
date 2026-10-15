@@ -16,7 +16,7 @@ class MigrationException(message: String) : Exception(message)
  * stored data must survive every update.
  */
 object Migrations {
-    const val CURRENT = 5
+    const val CURRENT = 6
 
     /** Version n -> n+1. */
     val STEPS: Map<Int, (JsonObject) -> JsonObject> = mapOf(
@@ -46,6 +46,9 @@ object Migrations {
         // 5: manual courses. New: `manualCourses` (courses I added by hand); Event.st has a default. Version 4 keeps its
         // meaning (released to a device on 2026-10-13).
         4 to { o -> JsonObject(o + ("manualCourses" to (o["manualCourses"] ?: JsonArray(emptyList())))) },
+        // 6: even/odd calendar weeks. New: `rhythms` (my rhythm per biweekly series, per person); ManualCourse.Rhythm
+        // gets EVEN_WEEKS/ODD_WEEKS, BIWEEKLY keeps its meaning (every 14 days). Version 5 keeps its meaning (on a device).
+        5 to { o -> JsonObject(o + ("rhythms" to (o["rhythms"] ?: JsonObject(emptyMap())))) },
     )
 
     /** Version of a stored object; a file without the field is the first format. */

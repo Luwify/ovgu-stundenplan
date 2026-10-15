@@ -10,6 +10,8 @@ import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.core.model.ManualCourse
 import de.luwify.stundenplanmd.core.model.ManualType
 import de.luwify.stundenplanmd.core.model.Plan
+import de.luwify.stundenplanmd.core.model.WeekRhythm
+import de.luwify.stundenplanmd.core.schedule.Expansion
 import de.luwify.stundenplanmd.core.share.SharedPlan
 import kotlinx.coroutines.runBlocking
 import de.luwify.stundenplanmd.core.model.Subjects
@@ -207,6 +209,47 @@ class PersistenceTest {
         assertFalse(course.courseKey in repo.data.value!!.courseSettings)
         repo.restore(previous)
         assertEquals(listOf(course), repo.data.value!!.manualCourses)
+    }
+
+    @Test
+    fun version5GetsRhythmsThatSurviveStoreReimportAndBackup() = runBlocking {
+        val d = dir()
+        val biweekly = ManualCourse(
+            id = ManualCourse.newId("0123456789abcdef"), title = "Lerngruppe", rhythm = ManualCourse.Rhythm.BIWEEKLY,
+            startDate = LocalDate.parse("2026-10-20"), endDate = LocalDate.parse("2027-01-26"),
+            start = java.time.LocalTime.parse("17:00"), end = java.time.LocalTime.parse("18:30"), skipFreeWeeks = false,
+        )
+        PlanStore(d).write(withFriend.copy(manualCourses = listOf(biweekly)))
+        val o = kotlinx.serialization.json.Json.parseToJsonElement(File(d, "data.json").readText()) as JsonObject
+        val v5 = JsonObject(o - "rhythms" + ("version" to JsonPrimitive(5))).toString()
+        File(d, "data.json").writeText(v5)
+        val read = PlanStore(d).read() as StoreRead.Ok
+        assertEquals(5, read.migratedFrom)
+        assertUserDataSurvived(read.data)
+        assertEquals(emptyMap<String, Map<String, WeekRhythm>>(), read.data.rhythms)
+        assertEquals(v5, File(d, "data.json.v5").readText())
+        // "Every 2 weeks" of version 5 stays every 14 days (12.01. and 26.01., not 05.01. and 19.01.).
+        val manual = read.data.myEvents.single { it.isManual }
+        assertEquals(LocalDate.parse("2027-01-26"), Expansion.occurrences(manual).last().start.toLocalDate())
+
+        val repo = PlanRepository(d)
+        repo.load()
+        repo.importIcs(File("../core/src/test/resources/lsf_scrubbed.ics").readText())
+        val uid = "900066500518" // N4 VL, odd weeks from the data
+        repo.setRhythm(StoredData.ME, uid, WeekRhythm.EVERY_14_DAYS)
+        repo.setRhythm(friendId, "900066000001", WeekRhythm.EVEN_WEEKS)
+        repo.importIcs(File("../core/src/test/resources/lsf_scrubbed.ics").readText())
+        val after = (PlanStore(d).read() as StoreRead.Ok).data
+        assertEquals(mapOf(StoredData.ME to mapOf(uid to WeekRhythm.EVERY_14_DAYS), friendId to mapOf("900066000001" to WeekRhythm.EVEN_WEEKS)), after.rhythms)
+        assertEquals(WeekRhythm.EVERY_14_DAYS, Expansion.rhythmOf(after.myEvents.single { it.uid == uid }))
+        assertEquals(LocalDate.parse("2027-01-12"), after.mySchedule().occurrences.last { it.event.uid == uid }.date)
+        val restored = BackupCodec.decode(BackupCodec.encode(after, null, theme, "de", UpdatesBackup())) as BackupResult.Ok
+        assertEquals(after.rhythms, restored.backup.data.rhythms)
+        // Back to automatic; a removed friend takes my rhythms for them along.
+        repo.setRhythm(StoredData.ME, uid, null)
+        assertEquals(WeekRhythm.ODD_WEEKS, Expansion.rhythmOf(repo.data.value!!.myEvents.single { it.uid == uid }))
+        repo.deleteFriend(friendId)
+        assertEquals(emptyMap<String, Map<String, WeekRhythm>>(), repo.data.value!!.rhythms)
     }
 
     @Test

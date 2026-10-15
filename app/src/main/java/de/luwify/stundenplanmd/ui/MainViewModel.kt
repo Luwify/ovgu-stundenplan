@@ -20,6 +20,7 @@ import de.luwify.stundenplanmd.core.schedule.Personal
 import de.luwify.stundenplanmd.core.schedule.PersonalChanges
 import de.luwify.stundenplanmd.core.schedule.ManualCourses
 import de.luwify.stundenplanmd.core.model.ManualCourse
+import de.luwify.stundenplanmd.core.model.WeekRhythm
 import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.data.Backup
 import de.luwify.stundenplanmd.AppLanguage
@@ -81,6 +82,8 @@ data class PlanUi(
     val names: Map<String, String> = emptyMap(),
     /** Ids of my favorite friends. */
     val favorites: Set<String> = emptySet(),
+    /** Rhythms I set by hand in this plan (appointment UID -> rhythm). */
+    val rhythms: Map<String, WeekRhythm> = emptyMap(),
 ) {
     val isEmpty: Boolean get() = schedule.events.isEmpty()
     val isMe: Boolean get() = person.isMe
@@ -102,7 +105,7 @@ data class PlanUi(
         fun of(data: StoredData, personId: String, schedules: Map<String, Schedule> = emptyMap()): PlanUi {
             val person = data.person(personId) ?: Person(StoredData.ME, "", isMe = true)
             val plan = data.planOf(person.id)
-            val events = if (person.isMe) data.myEvents else plan?.events.orEmpty()
+            val events = data.eventsOf(person.id)
             val settings = if (person.isMe) data.courseSettings else Subjects.forFriend(
                 events,
                 local = data.friendSettings[person.id].orEmpty(),
@@ -126,6 +129,7 @@ data class PlanUi(
                 together = Together.of(schedule, others),
                 names = data.friends.associate { it.id to it.displayName },
                 favorites = data.friends.filter { it.favorite }.map { it.id }.toSet(),
+                rhythms = data.rhythmsOf(person.id),
             )
         }
     }
@@ -423,8 +427,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val name = identity.name ?: return null
         // Manual courses go with my own changes ("Eigene Änderungen teilen"), without their notes (notes are mine).
         val withChanges = data.share.withChanges
-        val events = plan?.events.orEmpty() +
-            if (withChanges) ManualCourses.merge(plan?.events.orEmpty(), data.manualCourses).filter { it.isManual }.map { it.copy(notes = "") } else emptyList()
+        // So do my rhythms for biweekly series (sent as the dates they give).
+        val events = if (withChanges) data.myEvents.map { if (it.isManual) it.copy(notes = "") else it } else plan?.events.orEmpty()
         if (events.isEmpty()) return null
         return withContext(Dispatchers.Default) {
             SharedPlan(
@@ -480,6 +484,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
+    }
+
+    /** My rhythm for a biweekly series in the plan shown (null = as the data says). */
+    fun setRhythm(uid: String, rhythm: WeekRhythm?) {
+        val p = plan.value ?: return
+        viewModelScope.launch { repo.setRhythm(p.person.id, uid, rhythm) }
     }
 
     fun moveCourse(course: Course, target: String) {

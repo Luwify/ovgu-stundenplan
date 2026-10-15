@@ -26,14 +26,16 @@ class DayPlanTest {
 
     @Test
     fun partlyCancelledDayIsNotFree() {
-        val jan6 = schedule.day(d("2027-01-06"))
-        assertFalse(jan6.free)
-        assertEquals(1, jan6.occurrences.size)
-        assertEquals(3, jan6.cancellations.size)
-        assertEquals(listOf(9, 11, 13, 15), jan6.items().map { it.start.hour })
-        assertEquals(listOf(13), jan6.items(withCancellations = false).map { it.start.hour })
+        val jan14 = schedule.day(d("2027-01-14"))
+        assertFalse(jan14.free)
+        assertEquals(3, jan14.occurrences.size)
+        assertEquals(1, jan14.cancellations.size)
+        assertEquals(listOf(7, 9, 11, 13), jan14.items().map { it.start.hour })
+        assertEquals(listOf(7, 11, 13), jan14.items(withCancellations = false).map { it.start.hour })
         assertTrue(schedule.day(d("2026-12-24")).free)
         assertFalse(schedule.day(d("2026-12-26")).free) // Saturday: nothing at all
+        // KW1: the Wednesday Übung is in even weeks (KW2), the rest of the day is cancelled.
+        assertTrue(schedule.day(d("2027-01-06")).free)
     }
 
     @Test

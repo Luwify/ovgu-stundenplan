@@ -41,6 +41,9 @@ import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.model.CourseKeys
 import de.luwify.stundenplanmd.core.model.Course
 import de.luwify.stundenplanmd.core.model.Subjects
+import de.luwify.stundenplanmd.core.model.Event
+import de.luwify.stundenplanmd.core.model.WeekRhythm
+import de.luwify.stundenplanmd.core.schedule.Expansion
 import de.luwify.stundenplanmd.ui.theme.SubjectColors
 import de.luwify.stundenplanmd.ui.theme.rgbColor
 import de.luwify.stundenplanmd.ui.theme.withContrast
@@ -56,6 +59,7 @@ fun SubjectEditor(
     subjectKey: String,
     onSave: (shortName: String?, color: Int?) -> Unit,
     onMove: (Course, target: String) -> Unit,
+    onRhythm: (uid: String, WeekRhythm?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val subject = plan.subjects.firstOrNull { it.key == subjectKey }
@@ -110,6 +114,10 @@ fun SubjectEditor(
                 Text(stringResource(R.string.courses_of_subject), style = MaterialTheme.typography.titleSmall)
                 subject.courses.forEach { course ->
                     CourseRow(plan, course, subjectKey, onMove)
+                    // LSF's "every 2 weeks" is meant as even/odd calendar weeks; each series can be set by hand.
+                    course.events.filter { it.recurrence?.biweekly == true && !it.isManual }.sortedBy { it.start }.forEach { e ->
+                        RhythmRow(e, plan.rhythms[e.uid]) { onRhythm(e.uid, it) }
+                    }
                 }
             }
         },
@@ -171,4 +179,37 @@ private fun CourseRow(plan: PlanUi, course: Course, subjectKey: String, onMove: 
             }
         }
     }
+}
+
+/** Rhythm of one biweekly series: automatic (from the data) or set by hand; applies at once. */
+@Composable
+private fun RhythmRow(event: Event, chosen: WeekRhythm?, onPick: (WeekRhythm?) -> Unit) {
+    val locale = appLocale()
+    var menu by remember { mutableStateOf(false) }
+    val auto = remember(event) { Expansion.rhythmOf(event.copy(recurrence = event.recurrence?.copy(rhythm = null))) }
+    val autoLabel = stringResource(R.string.rhythm_auto, rhythmName(auto))
+    Row(Modifier.padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "${dayShort(event.start.toLocalDate(), locale)} ${timeRange(event.start, event.end)}",
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box {
+            TextButton(onClick = { menu = true }) { Text(if (chosen == null) autoLabel else rhythmName(chosen)) }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(text = { Text(autoLabel) }, onClick = { menu = false; onPick(null) })
+                WeekRhythm.entries.forEach { r ->
+                    DropdownMenuItem(text = { Text(rhythmName(r)) }, onClick = { menu = false; onPick(r) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun rhythmName(r: WeekRhythm?): String = when (r) {
+    WeekRhythm.EVEN_WEEKS -> stringResource(R.string.manual_even_weeks)
+    WeekRhythm.ODD_WEEKS -> stringResource(R.string.manual_odd_weeks)
+    WeekRhythm.EVERY_14_DAYS, null -> stringResource(R.string.manual_biweekly)
 }
