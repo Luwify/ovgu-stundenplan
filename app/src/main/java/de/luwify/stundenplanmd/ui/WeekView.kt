@@ -79,6 +79,7 @@ import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.LocalDate
 import androidx.compose.ui.layout.AlignmentLine
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
@@ -89,6 +90,9 @@ import java.time.temporal.ChronoUnit
 private val Gutter = 26.dp
 private val BlockTitleStyle = TextStyle(hyphens = Hyphens.Auto, lineBreak = LineBreak.Paragraph)
 private val MinHour = 40.dp
+
+/** Space between the top of the first hour label and the top of the day bar. */
+private val BarGap = 3.dp
 
 /** Height of a digit relative to the font size (cap height of Roboto and most UI fonts). */
 private const val DIGIT_HEIGHT = 0.71f
@@ -170,10 +174,16 @@ private fun WeekPage(
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val n = hours.last - hours.first
-            // Hour labels sit centered on their line: the grid starts half a label lower, so the first one has room.
+            // Hour labels sit centered on their line. The day bar starts a small gap above the first label (its "lead"),
+            // and the grid starts below that, so the first label lies fully inside the bar.
             val labelStyle = MaterialTheme.typography.labelSmall
             val density = LocalDensity.current
-            val top = with(density) { labelStyle.lineHeight.toDp() } / 2 + 2.dp
+            val measurer = rememberTextMeasurer()
+            val labelMiddle = remember(labelStyle, density) {
+                with(density) { (measurer.measure("7", labelStyle).firstBaseline - labelStyle.fontSize.toPx() * DIGIT_HEIGHT / 2).toDp() }
+            }
+            val lead = labelMiddle + BarGap
+            val top = lead + 1.dp
             val hourH = maxOf(MinHour, (maxHeight - top) / n)
             val lines = colors.outlineVariant
             // Now, across the whole week behind the events: only in the current week, Mon–Fri, inside the hour range.
@@ -202,10 +212,12 @@ private fun WeekPage(
             ) {
                 Box(Modifier.width(Gutter).fillMaxHeight()) {
                     val fill = dayProgress(DayProgress.of(monday, now, hours.first, hours.last))
-                    DayProgressFill(fill, Modifier.fillMaxSize().padding(horizontal = 3.dp))
+                    val started = DayProgress.started(monday, now, hours.first)
+                    DayProgressFill(fill, started, lead, Modifier.fillMaxSize().padding(horizontal = 3.dp))
                     for (h in hours.first until hours.last) {
-                        // A label counts as covered once the fill passes its middle, which is on the hour's line.
-                        val covered = fill * n > (h - hours.first)
+                        // A label counts as covered once the fill passes its middle, which is on the hour's line (the
+                        // first one as soon as the day has started: the lead above its line is passed then).
+                        val covered = started && (h == hours.first || fill * n > (h - hours.first))
                         val lineY = hourH * (h - hours.first)
                         Text(
                             "$h",
@@ -339,19 +351,21 @@ private fun dayProgress(progress: Float): Float {
 
 /**
  * The hour column's background from the top of the day range down to now, in the tonal accent, with a slim accent
- * edge at now while the day is running.
+ * edge at now while the day is running. [fill] maps now onto the grid (0 = the first hour's line); the bar's track
+ * starts [lead] above that line (room for the first label), and that part counts as passed once the day has [started].
  */
 @Composable
-private fun DayProgressFill(fill: Float, modifier: Modifier) {
+private fun DayProgressFill(fill: Float, started: Boolean, lead: Dp, modifier: Modifier) {
     val scheme = MaterialTheme.colorScheme
     Box(
         modifier.drawBehind {
-            if (fill <= 0f) return@drawBehind
+            if (!started) return@drawBehind
+            val top = -lead.toPx()
             val h = size.height * fill
-            drawRoundRect(scheme.primaryContainer, size = Size(size.width, h), cornerRadius = CornerRadius(4.dp.toPx()))
+            drawRoundRect(scheme.primaryContainer, Offset(0f, top), Size(size.width, h - top), CornerRadius(4.dp.toPx()))
             if (fill < 1f) {
                 val edge = 2.dp.toPx()
-                drawRect(scheme.primary, Offset(0f, (h - edge).coerceAtLeast(0f)), Size(size.width, minOf(edge, h)))
+                drawRect(scheme.primary, Offset(0f, maxOf(h - edge, top)), Size(size.width, minOf(edge, h - top)))
             }
         },
     )

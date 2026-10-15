@@ -17,4 +17,14 @@ object DayProgress {
         val minutes = Duration.between(today.atTime(firstHour, 0), now).toMinutes()
         return (minutes / ((lastHour - firstHour) * 60f)).coerceIn(0f, 1f)
     }
+
+    /**
+     * Today's day range has begun ([firstHour] reached, or the weekend), in the week of [monday] only: the bar's part
+     * above the first line (room for its label) is filled from then on.
+     */
+    fun started(monday: LocalDate, now: LocalDateTime, firstHour: Int): Boolean {
+        val today = now.toLocalDate()
+        if (Schedule.monday(today.atStartOfDay()) != monday) return false
+        return today.dayOfWeek.value > 5 || !now.isBefore(today.atTime(firstHour, 0))
+    }
 }

@@ -12,3 +12,4 @@ Calendar files (.ics):
 
 Fixed:
 - The hours on the left of the week view now sit centered on their line, and the first one is no longer cut off
+- The day bar next to the hours starts just above the first hour, so it lies fully inside the bar

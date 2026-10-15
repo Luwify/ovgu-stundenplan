@@ -12,3 +12,4 @@ Kalenderdateien (.ics):
 
 Behoben:
 - Die Uhrzeiten links in der Wochenansicht stehen jetzt mittig auf ihrer Linie, die erste wird nicht mehr abgeschnitten
+- Der Tagesbalken neben den Uhrzeiten beginnt knapp über der ersten Uhrzeit, sodass sie ganz im Balken liegt

@@ -19,4 +19,13 @@ class DayProgressTest {
         assertEquals(0f, at("2026-10-20T13:00"), 0f) // next week: this page stays empty
         assertEquals(0f, DayProgress.of(monday.plusWeeks(1), LocalDateTime.parse("2026-10-14T13:00"), 7, 19), 0f)
     }
+
+    @Test
+    fun startedAtTheFirstHourOfThisWeekOnly() {
+        assertEquals(false, DayProgress.started(monday, LocalDateTime.parse("2026-10-14T06:59"), 7))
+        assertEquals(true, DayProgress.started(monday, LocalDateTime.parse("2026-10-14T07:00"), 7))
+        assertEquals(true, DayProgress.started(monday, LocalDateTime.parse("2026-10-14T23:00"), 7))
+        assertEquals(true, DayProgress.started(monday, LocalDateTime.parse("2026-10-17T05:00"), 7)) // Saturday
+        assertEquals(false, DayProgress.started(monday.plusWeeks(1), LocalDateTime.parse("2026-10-14T13:00"), 7))
+    }
 }
