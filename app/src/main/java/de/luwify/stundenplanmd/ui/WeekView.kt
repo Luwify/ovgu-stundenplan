@@ -78,12 +78,20 @@ import de.luwify.stundenplanmd.ui.theme.planColors
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.LocalDate
+import androidx.compose.ui.layout.AlignmentLine
+import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.roundToInt
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
 private val Gutter = 26.dp
 private val BlockTitleStyle = TextStyle(hyphens = Hyphens.Auto, lineBreak = LineBreak.Paragraph)
 private val MinHour = 40.dp
+
+/** Height of a digit relative to the font size (cap height of Roboto and most UI fonts). */
+private const val DIGIT_HEIGHT = 0.71f
 
 /** The now line across the week: primary at this alpha, faint on purpose (ThemeContrastTest keeps it visible). */
 internal const val NOW_LINE_ALPHA = 0.4f
@@ -162,7 +170,11 @@ private fun WeekPage(
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val n = hours.last - hours.first
-            val hourH = maxOf(MinHour, maxHeight / n)
+            // Hour labels sit centered on their line: the grid starts half a label lower, so the first one has room.
+            val labelStyle = MaterialTheme.typography.labelSmall
+            val density = LocalDensity.current
+            val top = with(density) { labelStyle.lineHeight.toDp() } / 2 + 2.dp
+            val hourH = maxOf(MinHour, (maxHeight - top) / n)
             val lines = colors.outlineVariant
             // Now, across the whole week behind the events: only in the current week, Mon–Fri, inside the hour range.
             val nowLine = colors.primary.copy(alpha = NOW_LINE_ALPHA)
@@ -172,6 +184,7 @@ private fun WeekPage(
                 Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
+                    .padding(top = top)
                     .height(hourH * n)
                     .drawBehind {
                         val g = Gutter.toPx()
@@ -191,12 +204,19 @@ private fun WeekPage(
                     val fill = dayProgress(DayProgress.of(monday, now, hours.first, hours.last))
                     DayProgressFill(fill, Modifier.fillMaxSize().padding(horizontal = 3.dp))
                     for (h in hours.first until hours.last) {
-                        // A label counts as covered once the fill passes its middle (label ~ top 2..16 dp of the hour).
-                        val covered = fill * n > (h - hours.first) + 9f / hourH.value
+                        // A label counts as covered once the fill passes its middle, which is on the hour's line.
+                        val covered = fill * n > (h - hours.first)
+                        val lineY = hourH * (h - hours.first)
                         Text(
                             "$h",
-                            Modifier.offset(y = hourH * (h - hours.first) + 2.dp).fillMaxWidth(),
-                            style = MaterialTheme.typography.labelSmall,
+                            Modifier.fillMaxWidth().layout { measurable, constraints ->
+                                val p = measurable.measure(constraints)
+                                // The digits' middle (half the cap height above the baseline) on the line.
+                                val baseline = p[FirstBaseline].takeIf { it != AlignmentLine.Unspecified } ?: (p.height / 2)
+                                val middle = baseline - (labelStyle.fontSize.toPx() * DIGIT_HEIGHT / 2).roundToInt()
+                                layout(p.width, p.height) { p.place(0, lineY.roundToPx() - middle) }
+                            },
+                            style = labelStyle,
                             color = if (covered) colors.onPrimaryContainer else colors.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
