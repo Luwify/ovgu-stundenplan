@@ -37,10 +37,12 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 
@@ -52,10 +54,15 @@ import kotlinx.coroutines.flow.drop
  *
  * With the pager's own drag on as well, a touch while it was still settling went to the pager at once (cutting off the
  * content's drag), and the two snapped it to different pages: swipes right after a fling or a switch did nothing.
+ *
+ * One connection serves every page (a quick second swipe lands on the next person's page and must stop the settle the
+ * first one started), and the pager never stays between two people: every gesture end settles it, and [keepSettled]
+ * catches whatever slips through (it once stuck halfway after a fast double swipe).
  */
 class EdgeOnlyConnection(private val pager: PagerState, private val animate: Boolean) : NestedScrollConnection {
     private var contentMoved = false
     private var settling: Job? = null
+    private var touching by mutableStateOf(false)
 
     /** Vertical drags outside any scrolling content (headers, strips): nothing to scroll, so straight to the pager. */
     internal val outside = DraggableState { dy -> onPostScroll(Offset.Zero, Offset(0f, dy), NestedScrollSource.UserInput) }
@@ -69,6 +76,40 @@ class EdgeOnlyConnection(private val pager: PagerState, private val animate: Boo
         settling?.cancel()
         settling = null
         contentMoved = false
+        touching = true
+    }
+
+    /** The last finger went up. */
+    internal fun onGestureEnd() {
+        touching = false
+    }
+
+    /**
+     * Runs while the pager is shown: when no finger is down, nothing moves the pager and it still sits between two
+     * people for a moment, it goes to the nearer one.
+     */
+    internal suspend fun keepSettled() = coroutineScope {
+        snapshotFlow { !touching && !pager.isScrollInProgress && pager.currentPageOffsetFraction != 0f }
+            .collectLatest { loose ->
+                if (loose) {
+                    delay(LOOSE_MS)
+                    if (settling?.isActive != true) this@coroutineScope.settle(0f)
+                }
+            }
+    }
+
+    /** Onto a page: the nearer one, or the next one for a flick faster than [FLING] px/s in its direction. */
+    private fun CoroutineScope.settle(velocity: Float) {
+        val fraction = pager.currentPageOffsetFraction
+        if (fraction == 0f) return
+        val page = pager.currentPage
+        val target = when {
+            velocity < -FLING && fraction > 0f -> page + 1
+            velocity > FLING && fraction < 0f -> page - 1
+            else -> page
+        }.coerceIn(0, pager.pageCount - 1)
+        settling?.cancel()
+        settling = launch { if (animate) pager.animateScrollToPage(target) else pager.scrollToPage(target) }
     }
 
     private fun movePager(dy: Float): Offset = Offset(0f, -pager.dispatchRawDelta(-dy))
@@ -87,35 +128,35 @@ class EdgeOnlyConnection(private val pager: PagerState, private val animate: Boo
     }
 
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-        val swallow = contentMoved
+        // A fling the content took never carries on to the next person, but the pager still goes onto a page.
+        val velocity = if (contentMoved) 0f else available.y
         contentMoved = false
-        val fraction = pager.currentPageOffsetFraction
-        if (!swallow && fraction != 0f) {
-            val page = pager.currentPage
-            val target = when {
-                available.y < -FLING && fraction > 0f -> page + 1
-                available.y > FLING && fraction < 0f -> page - 1
-                else -> page
-            }.coerceIn(0, pager.pageCount - 1)
-            coroutineScope {
-                settling = launch { if (animate) pager.animateScrollToPage(target) else pager.scrollToPage(target) }
-            }
-        }
+        coroutineScope { settle(velocity) }
         return available.copy(x = 0f)
     }
 
     private companion object {
         /** px/s: a flick this fast goes on to the next person even before halfway. */
         const val FLING = 800f
+
+        /** ms the pager may sit between two people with nothing moving it before [keepSettled] steps in. */
+        const val LOOSE_MS = 300L
     }
 }
 
-/** A people pager page: vertical drags in it go through [edge] (see there), also where nothing in it scrolls. */
+/** A people pager page: vertical drags in it go through [edge] (one for all pages, see there), also where nothing in it scrolls. */
 fun Modifier.edgeSwitching(edge: EdgeOnlyConnection): Modifier = this
     .pointerInput(edge) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             edge.onGestureStart()
+            try {
+                do {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                } while (event.changes.any { it.pressed })
+            } finally {
+                edge.onGestureEnd()
+            }
         }
     }
     .nestedScroll(edge)

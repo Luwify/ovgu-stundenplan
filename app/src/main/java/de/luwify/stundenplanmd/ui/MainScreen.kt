@@ -363,6 +363,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     if (pages.isNotEmpty()) {
                         // One page per person (drawer order); week and day stay where they are when switching.
+                        val edge = remember(people, animate) { EdgeOnlyConnection(people, animate) }
+                        LaunchedEffect(edge) { edge.keepSettled() }
                         VerticalPager(
                             people, Modifier.fillMaxSize(), beyondViewportPageCount = composedAround,
                             // Moved by touch only through EdgeOnlyConnection (its own drag raced the content's).
@@ -371,7 +373,6 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         ) { i ->
                             val page = pages[i]
                             val active = i == people.settledPage
-                            val edge = remember(people, animate) { EdgeOnlyConnection(people, animate) }
                             androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().edgeSwitching(edge)) {
                                 if (page.legacyShare) LegacyShareHint()
                                 // The visible page switches Week/Day at once, with a fade through. The others (out of sight) follow
