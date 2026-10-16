@@ -7,6 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -60,6 +62,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.luwify.stundenplanmd.R
+import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.schedule.Timed
 
 private enum class Tab { WEEK, DAY }
@@ -68,6 +71,9 @@ private enum class Tab { WEEK, DAY }
 private const val MAX_COMPOSED_PEOPLE = 8
 
 private enum class ShareAction { FILE, QR }
+
+/** A QR code on screen: my plan ([friendId] null) or a friend's passed on. */
+private data class QrShown(val code: MyQr, val friendId: String?, val name: String, val planDate: LocalDate?)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,7 +98,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var addChoice by rememberSaveable { mutableStateOf(false) }
     var scanning by rememberSaveable { mutableStateOf(false) }
-    var qr by remember { mutableStateOf<MyQr?>(null) }
+    var qr by remember { mutableStateOf<QrShown?>(null) }
+    var friendShareMenu by remember { mutableStateOf(false) }
     var askName by rememberSaveable { mutableStateOf<ShareAction?>(null) }
     var editShareName by rememberSaveable { mutableStateOf(false) }
     var friendDetails by rememberSaveable { mutableStateOf(false) }
@@ -167,7 +174,20 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 myShare.name == null -> askName = action
                 action == ShareAction.FILE -> vm.writeShareFile()?.let { openShareSheet(context, it) }
                     ?: snackbar.showSnackbar(res.getString(R.string.share_failed))
-                else -> qr = vm.myQr() ?: run { snackbar.showSnackbar(res.getString(R.string.share_failed)); null }
+                else -> qr = vm.myQr()?.let { QrShown(it, null, myShare.name.orEmpty(), myPlan?.planDate) }
+                    ?: run { snackbar.showSnackbar(res.getString(R.string.share_failed)); null }
+            }
+        }
+    }
+
+    /** A friend's plan passed on as they shared it (file or QR). */
+    fun shareFriend(friend: Person, planDate: LocalDate?, action: ShareAction) {
+        scope.launch {
+            when (action) {
+                ShareAction.FILE -> vm.writeFriendShareFile(friend.id)?.let { openShareSheet(context, it) }
+                    ?: snackbar.showSnackbar(res.getString(R.string.share_failed))
+                ShareAction.QR -> qr = vm.friendQr(friend.id)?.let { QrShown(it, friend.id, friend.displayName, planDate) }
+                    ?: run { snackbar.showSnackbar(res.getString(R.string.share_failed)); null }
             }
         }
     }
@@ -313,8 +333,26 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             }
                         },
                         actions = {
-                            plan?.takeIf { !it.isMe }?.person?.let { friend ->
+                            plan?.takeIf { !it.isMe }?.let { shown ->
+                                val friend = shown.person
                                 FavoriteButton(friend.favorite, friend.displayName) { vm.setFavorite(friend.id, !friend.favorite) }
+                                Box {
+                                    IconButton(onClick = { friendShareMenu = true }) {
+                                        Icon(painterResource(R.drawable.ic_share), stringResource(R.string.friend_share, friend.displayName))
+                                    }
+                                    DropdownMenu(expanded = friendShareMenu, onDismissRequest = { friendShareMenu = false }) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.share_as_file)) },
+                                            leadingIcon = { Icon(painterResource(R.drawable.ic_share), null) },
+                                            onClick = { friendShareMenu = false; shareFriend(friend, shown.planDate, ShareAction.FILE) },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.friend_share_qr)) },
+                                            leadingIcon = { Icon(painterResource(R.drawable.ic_qr_code_2), null) },
+                                            onClick = { friendShareMenu = false; shareFriend(friend, shown.planDate, ShareAction.QR) },
+                                        )
+                                    }
+                                }
                             }
                             if (plan?.isMe == true) {
                                 IconButton(onClick = { manualEdit = ManualTarget(null) }) {
@@ -460,13 +498,17 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         Overlay(scanning) {
             ScanScreen(onScanned = { text -> scanning = false; vm.importScanned(text) }, onClose = { scanning = false })
         }
-        Overlay(qr) { code ->
+        Overlay(qr) { shown ->
             QrShowScreen(
-                text = code.text,
-                omitsDetails = code.omitsDetails,
-                name = myShare.name.orEmpty(),
-                stand = standText(myPlan?.planDate),
-                onShareFile = { qr = null; share(ShareAction.FILE) },
+                text = shown.code.text,
+                omitsDetails = shown.code.omitsDetails,
+                name = shown.name,
+                stand = standText(shown.planDate),
+                onShareFile = {
+                    qr = null
+                    val friend = shown.friendId?.let { id -> friends.firstOrNull { it.person.id == id } }
+                    if (friend != null) shareFriend(friend.person, shown.planDate, ShareAction.FILE) else share(ShareAction.FILE)
+                },
                 onClose = { qr = null },
             )
         }

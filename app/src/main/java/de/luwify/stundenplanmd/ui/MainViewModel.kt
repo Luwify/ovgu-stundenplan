@@ -45,6 +45,7 @@ import java.io.File
 import java.time.LocalDate
 import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.model.Plan
+import de.luwify.stundenplanmd.core.share.Forwarding
 import de.luwify.stundenplanmd.core.share.ShareCodec
 import de.luwify.stundenplanmd.core.share.ShareResult
 import de.luwify.stundenplanmd.core.share.SharedPlan
@@ -547,12 +548,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** A friend's plan passed on as they shared it ([Forwarding]); null for me or without events. */
+    fun friendSharedPlan(id: String): SharedPlan? {
+        val data = repo.data.value ?: return null
+        val person = data.person(id) ?: return null
+        val plan = data.planOf(id) ?: return null
+        return Forwarding.of(person, plan, LocalDate.now(PlanZone), PlanZone)
+    }
+
     /** My plan as QR text, and whether the QR leaves out details the file has. */
-    suspend fun myQr(): MyQr? = mySharedPlan()?.let { withContext(Dispatchers.Default) { MyQr(ShareCodec.qrText(it), ShareCodec.qrOmitsDetails(it)) } }
+    suspend fun myQr(): MyQr? = mySharedPlan()?.let { qr(it) }
+
+    /** A friend's plan as QR text ([friendSharedPlan]). */
+    suspend fun friendQr(id: String): MyQr? = friendSharedPlan(id)?.let { qr(it) }
+
+    private suspend fun qr(plan: SharedPlan) = withContext(Dispatchers.Default) { MyQr(ShareCodec.qrText(plan), ShareCodec.qrOmitsDetails(plan)) }
 
     /** Writes my plan as a share file into cache/share (for the share sheet); null on failure. */
-    suspend fun writeShareFile(): File? {
-        val plan = mySharedPlan() ?: return null
+    suspend fun writeShareFile(): File? = mySharedPlan()?.let { writeShareFile(it) }
+
+    /** Writes a friend's plan as a share file ([friendSharedPlan]); null on failure. */
+    suspend fun writeFriendShareFile(id: String): File? = friendSharedPlan(id)?.let { writeShareFile(it) }
+
+    private suspend fun writeShareFile(plan: SharedPlan): File? {
         return withContext(Dispatchers.IO) {
             runCatching {
                 val dir = File(getApplication<Application>().cacheDir, "share").apply { mkdirs() }

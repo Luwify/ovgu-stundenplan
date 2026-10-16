@@ -181,7 +181,9 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   A friend's plan opens in the same Week/Day views, feature complete like mine: detail sheet and the **full
   subject editor** (short name, color, moving courses between subjects), stored as my local settings for that
   friend (`friendSettings[id]`, only what differs from what is shown; "automatic color" = back to the defaults).
-  Events are read-only. Top bar for a friend: name, favorite heart, edit icon -> details dialog (rename = local name,
+  Events are read-only. Top bar for a friend: name, favorite heart, share icon (menu: file / QR; `share/Forwarding`: their
+  plan as they shared it, their id and shared name, none of my local settings; an .ics friend's id = the 16 hex digits of
+  its local id), edit icon -> details dialog (rename = local name,
   empty = shared name; Stand; shared on <export date>; remove with undo). Settings gear only on my plan.
   The drawer opens with the menu button only (swipes stay with the pagers).
 - **Together marker:** Material Symbols "group" icon at the top right of an event block (in narrow split lanes

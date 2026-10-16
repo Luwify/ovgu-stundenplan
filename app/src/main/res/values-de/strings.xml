@@ -116,7 +116,7 @@
         <item quantity="other">%1$d Veranstaltungen</item>
     </plurals>
     <string name="settings_backup">Sicherung</string>
-    <string name="backup_hint">Eine Datei mit Stundenplan, Original-.ics, Fächern, Farben und Design. Es wird nichts hochgeladen; du wählst, wohin die Datei geht.</string>
+    <string name="backup_hint">Eine Datei mit deinem Stundenplan (Original-.ics, eigene Änderungen und Kurse), Fächern und Farben, den Stundenplänen deiner Freunde samt deinen Namen, Favoriten und Farben für sie sowie Design, Sprache und Update-Einstellungen. Es wird nichts hochgeladen; du wählst, wohin die Datei geht.</string>
     <string name="backup_export">Sicherung exportieren</string>
     <string name="backup_import">Sicherung importieren</string>
     <string name="backup_exported">Sicherung gespeichert.</string>
@@ -150,7 +150,7 @@
     <string name="share_broken">Das ist kein lesbarer geteilter Stundenplan.</string>
     <string name="close">Schließen</string>
     <string name="qr_title">Per QR-Code teilen</string>
-    <string name="qr_too_large">Dein Stundenplan ist zu groß für einen QR-Code, der zuverlässig gescannt werden kann. Teile ihn stattdessen als Datei.</string>
+    <string name="qr_too_large">Dieser Stundenplan ist zu groß für einen QR-Code, der zuverlässig gescannt werden kann. Teile ihn stattdessen als Datei.</string>
     <string name="qr_how_to">Auf dem anderen Handy: Stundenplan MD öffnen, Menü antippen, dann + und „QR-Code scannen“.</string>
     <string name="share_as_file">Als Datei teilen</string>
     <string name="scan_title">QR-Code scannen</string>
@@ -159,7 +159,7 @@
     <string name="scan_no_permission">Zum Scannen wird die Kamera gebraucht. Das Bild bleibt auf diesem Handy und wird nicht gespeichert.</string>
     <string name="scan_allow">Kamera erlauben</string>
     <string name="scan_app_settings">App-Einstellungen öffnen</string>
-    <string name="share_failed">Dein Stundenplan konnte nicht geteilt werden.</string>
+    <string name="share_failed">Der Stundenplan konnte nicht geteilt werden.</string>
     <string name="share_chooser">Stundenplan teilen</string>
     <string name="save">Speichern</string>
     <string name="open_drawer">Stundenpläne und Freunde</string>
@@ -181,6 +181,8 @@
     <string name="friend_update_hint">Zum Aktualisieren den neuesten QR-Code oder die neueste Datei erneut hinzufügen: Der Plan wird ersetzt, dein Name und deine Farben dafür bleiben.</string>
     <string name="friend_delete">Freund entfernen</string>
     <string name="friend_deleted">%1$s entfernt.</string>
+    <string name="friend_share">Stundenplan von %1$s teilen</string>
+    <string name="friend_share_qr">QR-Code zeigen</string>
     <string name="friend_details">Details</string>
     <string name="now_in">%1$s bis %2$s</string>
     <string name="now_free_until">frei, ab %1$s %2$s</string>

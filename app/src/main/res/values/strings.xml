@@ -122,7 +122,7 @@
         <item quantity="other">%1$d courses</item>
     </plurals>
     <string name="settings_backup">Backup</string>
-    <string name="backup_hint">One file with your timetable, the original .ics, subjects, colors and theme. Nothing is uploaded; you choose where the file goes.</string>
+    <string name="backup_hint">One file with your timetable (the original .ics, your own changes and courses), subjects and colors, your friends\' timetables with your names, favorites and colors for them, plus theme, language and update settings. Nothing is uploaded; you choose where the file goes.</string>
     <string name="backup_export">Export backup</string>
     <string name="backup_import">Import backup</string>
     <string name="backup_exported">Backup saved.</string>
@@ -156,7 +156,7 @@
     <string name="share_broken">This is not a readable shared timetable.</string>
     <string name="close">Close</string>
     <string name="qr_title">Share by QR code</string>
-    <string name="qr_too_large">Your timetable is too large for a QR code that scans reliably. Share it as a file instead.</string>
+    <string name="qr_too_large">This timetable is too large for a QR code that scans reliably. Share it as a file instead.</string>
     <string name="qr_how_to">On the other phone: open Stundenplan MD, tap the menu, then + and \"Scan QR code\".</string>
     <string name="share_as_file">Share as file</string>
     <string name="scan_title">Scan QR code</string>
@@ -165,7 +165,7 @@
     <string name="scan_no_permission">Scanning needs the camera. The picture stays on this phone and is not saved.</string>
     <string name="scan_allow">Allow camera</string>
     <string name="scan_app_settings">Open app settings</string>
-    <string name="share_failed">Your timetable could not be shared.</string>
+    <string name="share_failed">The timetable could not be shared.</string>
     <string name="share_chooser">Share timetable</string>
     <string name="save">Save</string>
     <string name="open_drawer">Timetables and friends</string>
@@ -187,6 +187,8 @@
     <string name="friend_update_hint">To update, add their newest QR code or file again: their plan is replaced, your name and colors for them stay.</string>
     <string name="friend_delete">Remove friend</string>
     <string name="friend_deleted">Removed %1$s.</string>
+    <string name="friend_share">Share %1$s\'s timetable</string>
+    <string name="friend_share_qr">Show QR code</string>
     <string name="friend_details">Friend details</string>
     <string name="now_in">%1$s until %2$s</string>
     <string name="now_free_until">free, from %1$s %2$s</string>
