@@ -1,5 +1,9 @@
 # Stundenplan MD
 
+> [!WARNING]
+> **This project is completely vibecoded.** The code was written by an AI (Claude Code) from prompts, not by hand.
+> Expect bugs, use it at your own risk, and don't treat the code as a reference for how things should be done.
+
 Android timetable app for students at the OvGU Magdeburg, imported from the LSF iCalendar export ("iCal-Export" of
 the Stundenplan). Offline only: the plan is stored on the device and appears instantly.
 
