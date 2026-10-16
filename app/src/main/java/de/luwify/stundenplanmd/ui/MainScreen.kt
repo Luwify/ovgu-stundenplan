@@ -33,7 +33,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import java.time.LocalDate
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberUpdatedState
@@ -366,12 +365,14 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         // One page per person (drawer order); week and day stay where they are when switching.
                         VerticalPager(
                             people, Modifier.fillMaxSize(), beyondViewportPageCount = composedAround,
+                            // Moved by touch only through EdgeOnlyConnection (its own drag raced the content's).
+                            userScrollEnabled = false,
                             key = { pages.getOrNull(it)?.person?.id ?: it },
                         ) { i ->
                             val page = pages[i]
                             val active = i == people.settledPage
                             val edge = remember(people, animate) { EdgeOnlyConnection(people, animate) }
-                            androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().nestedScroll(edge)) {
+                            androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().edgeSwitching(edge)) {
                                 if (page.legacyShare) LegacyShareHint()
                                 // The visible page switches Week/Day at once, with a fade through. The others (out of sight) follow
                                 // one after the other: switching all of them in one frame composes every person's whole screen.

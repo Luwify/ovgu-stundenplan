@@ -6,6 +6,11 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.DraggableState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,22 +30,46 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 
 /**
- * Sits between a page's content and the vertical people [pager]: the content scrolls first, and a drag only moves the
- * pager when it started with the content already at its top or bottom edge. A drag or fling that scrolled the
- * content never spills over into the next person. The pager does not take leftover scroll from a child that started
- * the drag, so this connection moves it and settles it on a page itself.
+ * Sits between a page's content and the vertical people [pager] and is the only thing that moves it by touch (the pager
+ * itself has user scrolling off; apply with [edgeSwitching]): the content scrolls first, and a drag only moves the pager
+ * when it started with the content already at its top or bottom edge. A drag or fling that scrolled the content never
+ * spills over into the next person. After a drag that moved the pager, this connection settles it on a page.
+ *
+ * With the pager's own drag on as well, a touch while it was still settling went to the pager at once (cutting off the
+ * content's drag), and the two snapped it to different pages: swipes right after a fling or a switch did nothing.
  */
 class EdgeOnlyConnection(private val pager: PagerState, private val animate: Boolean) : NestedScrollConnection {
     private var contentMoved = false
+    private var settling: Job? = null
+
+    /** Vertical drags outside any scrolling content (headers, strips): nothing to scroll, so straight to the pager. */
+    internal val outside = DraggableState { dy -> onPostScroll(Offset.Zero, Offset(0f, dy), NestedScrollSource.UserInput) }
+
+    internal suspend fun outsideStopped(velocity: Float) {
+        onPostFling(Velocity.Zero, Velocity(0f, velocity))
+    }
+
+    /** A finger went down: a new gesture. A settle still running stops; the last gesture's state goes (a fling cut short by a touch never reports its end). */
+    internal fun onGestureStart() {
+        settling?.cancel()
+        settling = null
+        contentMoved = false
+    }
 
     private fun movePager(dy: Float): Offset = Offset(0f, -pager.dispatchRawDelta(-dy))
 
@@ -68,7 +97,9 @@ class EdgeOnlyConnection(private val pager: PagerState, private val animate: Boo
                 available.y > FLING && fraction < 0f -> page - 1
                 else -> page
             }.coerceIn(0, pager.pageCount - 1)
-            if (animate) pager.animateScrollToPage(target) else pager.scrollToPage(target)
+            coroutineScope {
+                settling = launch { if (animate) pager.animateScrollToPage(target) else pager.scrollToPage(target) }
+            }
         }
         return available.copy(x = 0f)
     }
@@ -78,6 +109,18 @@ class EdgeOnlyConnection(private val pager: PagerState, private val animate: Boo
         const val FLING = 800f
     }
 }
+
+/** A people pager page: vertical drags in it go through [edge] (see there), also where nothing in it scrolls. */
+fun Modifier.edgeSwitching(edge: EdgeOnlyConnection): Modifier = this
+    .pointerInput(edge) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            edge.onGestureStart()
+        }
+    }
+    .nestedScroll(edge)
+    // Not a scrollable: that would also be a nested scroll parent of the content and report its flings a second time.
+    .draggable(edge.outside, Orientation.Vertical, onDragStopped = { edge.outsideStopped(it) })
 
 /**
  * Keeps a week/day pager on the [shared] page chosen in another person's plan (when it changes there), and while

@@ -38,7 +38,9 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   `vm.pages` = me + friends in drawer order, synced both ways with `vm.selected`; shared `week`/`day` state so switching
   people keeps the week/day; detail sheet, subject editor, settings overlay), `PeoplePager` (`EdgeOnlyConnection`:
   content scrolls first, the pager moves only for drags that start at the content's edge, the connection moves and
-  settles the pager itself; `FollowSharedPage`; `PersonIndicator` name pill while switching), `WeekView` (hour column
+  settles the pager itself and is its only touch input: the pager has `userScrollEnabled = false` (its own drag grabbed
+  touches while it settled and swallowed swipes); `Modifier.edgeSwitching` = reset at every touch-down + nestedScroll +
+  a `draggable` for areas without scrolling content; `FollowSharedPage`; `PersonIndicator` name pill while switching), `WeekView` (hour column
   background fills in primaryContainer from the top of the day range down to now (hour labels on it in
   onPrimaryContainer, 2dp primary edge at now), `DayProgress` in `:core`: this week only, 0 before / 1 after the day
   range and on the weekend; no red now line), `DayScreen` (day pager, Mon–Fri, cancellations only near today),

@@ -20,6 +20,10 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
  * graphics layer; on a change that layer stops updating and keeps the last frame of the old theme, which is drawn over the
  * new theme and fades out. Nothing is recomposed while it fades (animating the colors themselves recomposes the whole
  * app every frame). With [enabled] false the change is a cut.
+ *
+ * The fade leaves the layer at alpha 0: every live frame sets it back to 1 (it once stayed at 0, and the next redraw,
+ * e.g. closing the settings, drew the whole app invisible), and the end of the fade redraws at once, so the layer
+ * records the live screen again instead of holding the old frame.
  */
 @Composable
 fun ThemeCrossfade(key: Any, enabled: Boolean, content: @Composable () -> Unit) {
@@ -38,6 +42,8 @@ fun ThemeCrossfade(key: Any, enabled: Boolean, content: @Composable () -> Unit) 
         old.snapTo(1f)
         old.animateTo(0f, tween(Motion.Long, easing = Motion.Standard))
         state.frozen = false
+        // The last frozen frame read old.value: changing it invalidates that draw, so the live branch runs now.
+        old.snapTo(1f)
     }
     Box(
         Modifier.drawWithContent {
@@ -46,6 +52,7 @@ fun ThemeCrossfade(key: Any, enabled: Boolean, content: @Composable () -> Unit) 
                 layer.alpha = old.value
                 drawLayer(layer)
             } else {
+                layer.alpha = 1f
                 layer.record { this@drawWithContent.drawContent() }
                 drawLayer(layer)
             }
