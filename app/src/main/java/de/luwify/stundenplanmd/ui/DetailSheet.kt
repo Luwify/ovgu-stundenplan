@@ -73,6 +73,7 @@ fun DetailSheet(
     onEditManual: () -> Unit,
     onDeleteManual: () -> Unit,
     onRemoveAdded: () -> Unit,
+    onHide: (de.luwify.stundenplanmd.core.model.Hidden) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -96,7 +97,7 @@ fun DetailSheet(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.size(14.dp).clip(CircleShape).background(stripe))
                 Text(
-                    listOf(subject?.shortName, event.type.name.ifEmpty { null }).filterNotNull().joinToString(" · "),
+                    listOf(subject?.shortNameOf(event.courseKey), event.type.name.ifEmpty { null }).filterNotNull().joinToString(" · "),
                     style = MaterialTheme.typography.labelLarge,
                     color = scheme.onSurfaceVariant,
                 )
@@ -148,15 +149,22 @@ fun DetailSheet(
                             Text(stringResource(if (cancelled) R.string.action_uncancel else R.string.action_cancel_for_me))
                         }
                     }
+                    // Next to "cancelled for me" (still shown, struck through): gone from the plan altogether.
+                    OutlinedButton(onClick = { leave { onHide(HideTargets.date(item)) } }) { Text(stringResource(R.string.hide_date)) }
                     OutlinedButton(onClick = { leave(onPickDates) }) { Text(stringResource(R.string.action_pick_dates)) }
                 }
             }
-            if (subject != null) {
-                OutlinedButton(onClick = { leave { onEditSubject(subject) } }) {
-                    Icon(EditIcon, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.edit_subject))
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (subject != null) {
+                    OutlinedButton(onClick = { leave { onEditSubject(subject) } }) {
+                        Icon(EditIcon, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.edit_subject))
+                    }
                 }
+                if (!plan.isMe) OutlinedButton(onClick = { leave { onHide(HideTargets.date(item)) } }) { Text(stringResource(R.string.hide_date)) }
+                if (subject != null) HideSubjectButton(plan, item, subject) { h -> leave { onHide(h) } }
             }
             Spacer(Modifier.height(8.dp))
         }

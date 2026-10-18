@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
 import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Event
+import de.luwify.stundenplanmd.core.model.Hidden
 import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.core.model.ManualCourse
@@ -250,6 +251,72 @@ class PersistenceTest {
         assertEquals(WeekRhythm.ODD_WEEKS, Expansion.rhythmOf(repo.data.value!!.myEvents.single { it.uid == uid }))
         repo.deleteFriend(friendId)
         assertEquals(emptyMap<String, Map<String, WeekRhythm>>(), repo.data.value!!.rhythms)
+    }
+
+    /**
+     * Version 8 adds what I hid (per person) and the type part of short names. A version 7 file keeps its short names as
+     * the prefix shared by all types, so every name looks as before; hidden things survive a re-import, the backup, and
+     * come back with "Wiederherstellen".
+     */
+    @Test
+    fun version7GetsHidingAndKeepsShortNamesAsPrefix() = runBlocking {
+        val d = dir()
+        PlanStore(d).write(withFriend)
+        val o = kotlinx.serialization.json.Json.parseToJsonElement(File(d, "data.json").readText()) as JsonObject
+        val v7 = JsonObject(o - "hidden" + ("version" to JsonPrimitive(7))).toString()
+        File(d, "data.json").writeText(v7)
+        val read = PlanStore(d).read() as StoreRead.Ok
+        assertEquals(7, read.migratedFrom)
+        assertUserDataSurvived(read.data)
+        assertEquals(emptyMap<String, List<Hidden>>(), read.data.hidden)
+        assertEquals(v7, File(d, "data.json.v7").readText())
+        // Short names: the old one is the prefix, no type has a part of its own; shown exactly as before.
+        val n4 = Subjects.build(read.data.myPlan!!.events, read.data.courseSettings).single { it.shortName == "N4x" }
+        assertEquals(emptyMap<String, String>(), n4.typeShortNames)
+        n4.courses.forEach { assertEquals("N4x", n4.displayNameOf(it.key)) }
+
+        val repo = PlanRepository(d)
+        repo.load()
+        val ics = File("../core/src/test/resources/lsf_scrubbed.ics").readText()
+        repo.importIcs(ics)
+        val subject = Subjects.build(repo.data.value!!.myEvents, repo.data.value!!.courseSettings).single { it.name == "Wellen und Felder" }
+        val hideSubject = Hidden(Hidden.Kind.SUBJECT, subject = subject.key, courses = subject.courses.mapTo(LinkedHashSet()) { it.key }, title = subject.name)
+        val first = repo.data.value!!.mySchedule().occurrences.first { it.event.courseKey == "lsf:900066" }
+        val hideDate = Hidden(Hidden.Kind.DATE, courses = setOf("lsf:900066"), uid = first.ref.uid, date = first.ref.date, title = first.event.title)
+        val hideFriend = Hidden(Hidden.Kind.COURSE, courses = setOf("lsf:900066"), title = "Numerik N4 (VL)")
+        repo.hide(StoredData.ME, hideSubject)
+        val beforeDate = repo.hide(StoredData.ME, hideDate)!!
+        repo.hide(friendId, hideFriend)
+        repo.updateSettings { Subjects.setTypeShortName(it, subject.courses.first(), "VL") }
+
+        fun check(data: StoredData) {
+            val mine = data.mySchedule()
+            assertTrue(mine.occurrences.none { it.event.courseKey in hideSubject.courses })
+            assertTrue(mine.cancellations.none { it.event.courseKey in hideSubject.courses })
+            assertTrue(mine.occurrences.none { it.ref == first.ref })
+            assertTrue(mine.occurrences.any { it.event.courseKey == "lsf:900066" })
+            assertTrue(data.schedule(data.planOf(friendId)!!).occurrences.isEmpty())
+            // The data is all still there.
+            assertTrue(data.myEvents.any { it.courseKey in hideSubject.courses })
+            assertEquals("VL", data.courseSettings.getValue(subject.courses.first().key).typeShortName)
+        }
+        // A re-import of the .ics brings nothing back.
+        repo.importIcs(ics)
+        val after = (PlanStore(d).read() as StoreRead.Ok).data
+        assertEquals(listOf(hideSubject, hideDate), after.hiddenOf(StoredData.ME))
+        check(after)
+        // Backup round trip.
+        val restored = (BackupCodec.decode(BackupCodec.encode(after, ics, theme, "de", UpdatesBackup())) as BackupResult.Ok).backup.data
+        assertEquals(after.hidden, restored.hidden)
+        check(restored)
+        // "Wiederherstellen", and undo of a hide.
+        repo.unhide(StoredData.ME, hideSubject)
+        assertTrue(repo.data.value!!.mySchedule().occurrences.any { it.event.courseKey in hideSubject.courses })
+        repo.restore(beforeDate)
+        assertEquals(listOf(hideSubject), repo.data.value!!.hiddenOf(StoredData.ME))
+        // A removed friend takes what I hid in their plan along.
+        repo.deleteFriend(friendId)
+        assertEquals(setOf(StoredData.ME), repo.data.value!!.hidden.keys)
     }
 
     /**

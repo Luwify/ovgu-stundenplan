@@ -44,7 +44,7 @@ fun weekNumber(monday: LocalDate) = monday.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR
 fun weekLabel(monday: LocalDate, locale: Locale): String = (if (locale.language == "de") "KW " else "Week ") + weekNumber(monday)
 
 /** Name shown on a block: the subject's short name, else its title stem (the type has its own label). */
-fun blockName(subject: Subject?, item: Timed): String = subject?.displayName ?: item.event.title
+fun blockName(subject: Subject?, item: Timed): String = subject?.displayNameOf(item.event.courseKey) ?: item.event.title
 
 fun PlanUi.colorOf(item: Timed): Int {
     val subject = subjectOf[item.event.courseKey] ?: return SubjectColors.defaultColor(0)

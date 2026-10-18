@@ -87,6 +87,8 @@ fun SettingsScreen(
     val myShare by vm.myShare.collectAsStateWithLifecycle()
     val orphans by vm.orphans.collectAsStateWithLifecycle()
     var undoOrphans by remember { mutableStateOf<List<de.luwify.stundenplanmd.core.model.PersonalChange>?>(null) }
+    val hidden by vm.hidden.collectAsStateWithLifecycle()
+    var showHidden by rememberSaveable { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
         Surface(Modifier.fillMaxSize()) {
@@ -157,7 +159,8 @@ fun SettingsScreen(
                     if (subjects.isNotEmpty()) {
                         item(key = "subjects-title") { SectionHeading(stringResource(R.string.settings_subjects)) }
                         items(subjects, key = { "subject-${it.key}" }) { subject ->
-                            SubjectRow(subject, subject.color ?: SubjectColors.defaultColor(subjects.indexOf(subject))) { onEditSubject(subject) }
+                            val isHidden = plan?.hidden.orEmpty().any { it.kind == de.luwify.stundenplanmd.core.model.Hidden.Kind.SUBJECT && it.subject == subject.key }
+                            SubjectRow(subject, subject.color ?: SubjectColors.defaultColor(subjects.indexOf(subject)), isHidden) { onEditSubject(subject) }
                         }
                     }
 
@@ -202,6 +205,24 @@ fun SettingsScreen(
 
                     item(key = "share-changes") {
                         SwitchRow(stringResource(R.string.share_changes), stringResource(R.string.share_changes_hint), myShare.withChanges, vm::setShareChanges)
+                    }
+
+                    item(key = "hidden-title") { SectionHeading(stringResource(R.string.hidden_title)) }
+                    item(key = "hidden") {
+                        val count = hidden.sumOf { it.second.size }
+                        Row(
+                            Modifier.fillMaxWidth().clickable { showHidden = true }.heightIn(min = 56.dp).padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.hidden_open), style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    if (count == 0) stringResource(R.string.hidden_none) else pluralStringResource(R.plurals.hidden_count, count, count),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                     }
 
                     if (orphans.isNotEmpty() || undoOrphans != null) {
@@ -249,6 +270,7 @@ fun SettingsScreen(
                 }
             }
         }
+        Overlay(showHidden) { HiddenScreen(hidden, onRestore = vm::unhide, onBack = { showHidden = false }) }
         Overlay(showVersions) { VersionOverviewScreen(update, onOpen = { openVersion = it.versionCode }, onBack = { showVersions = false }) }
         Overlay(update.manifest?.releases?.firstOrNull { it.versionCode == openVersion }) { release ->
             VersionDetailScreen(release, updates, onShare = { shareApp = true }, onBack = { openVersion = null })
@@ -262,7 +284,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SubjectRow(subject: Subject, rgb: Int, onClick: () -> Unit) {
+private fun SubjectRow(subject: Subject, rgb: Int, hidden: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 56.dp).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -270,11 +292,13 @@ private fun SubjectRow(subject: Subject, rgb: Int, onClick: () -> Unit) {
         Box(Modifier.size(20.dp).clip(CircleShape).background(rgbColor(rgb)))
         Column(Modifier.weight(1f).padding(start = 16.dp)) {
             Text(subject.displayName, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val hiddenLabel = stringResource(R.string.hidden_badge).takeIf { hidden }
             Text(
                 listOfNotNull(
                     subject.name.takeIf { subject.shortName != null },
                     pluralStringResource(R.plurals.course_count, subject.courses.size, subject.courses.size) +
                         " · " + subject.courses.joinToString("/") { it.type.short },
+                    hiddenLabel,
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

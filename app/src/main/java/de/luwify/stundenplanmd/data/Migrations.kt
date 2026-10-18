@@ -21,7 +21,7 @@ class MigrationException(message: String) : Exception(message)
  * stored data must survive every update.
  */
 object Migrations {
-    const val CURRENT = 7
+    const val CURRENT = 8
 
     /** Version n -> n+1. */
     val STEPS: Map<Int, (JsonObject) -> JsonObject> = mapOf(
@@ -84,6 +84,10 @@ object Migrations {
             }
             if (plans == null) o else JsonObject(o + ("plans" to JsonArray(plans)))
         },
+        // 8: hiding and short names per type. New: `hidden` (what I hid, per person); CourseSetting.typeShortName and
+        // Plan.sharedHidden have defaults. The existing short name stays as it is and becomes the prefix shared by all
+        // types of the subject, so names look the same as before.
+        7 to { o -> JsonObject(o + ("hidden" to (o["hidden"] ?: JsonObject(emptyMap())))) },
     )
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }

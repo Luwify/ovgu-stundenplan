@@ -122,7 +122,7 @@
         <item quantity="other">%1$d courses</item>
     </plurals>
     <string name="settings_backup">Backup</string>
-    <string name="backup_hint">One file with your timetable (the original .ics, your own changes and courses), subjects and colors, your friends\' timetables with your names, favorites and colors for them, plus theme, language and update settings. Nothing is uploaded; you choose where the file goes.</string>
+    <string name="backup_hint">One file with your timetable (the original .ics, your own changes and courses), subjects and colors, what you hid, your friends\' timetables with your names, favorites and colors for them, plus theme, language and update settings. Nothing is uploaded; you choose where the file goes.</string>
     <string name="backup_export">Export backup</string>
     <string name="backup_import">Import backup</string>
     <string name="backup_exported">Backup saved.</string>
@@ -385,4 +385,31 @@
     <string name="added_course_hint">From a separate .ics file. A full import that contains this appointment replaces it. Removing affects this group only.</string>
     <string name="added_remove">Remove from my plan</string>
     <string name="legacy_share_hint">Shared from an older version: some dates after New Year may differ. Ask for a new share.</string>
+    <string name="hide">Hide</string>
+    <string name="hide_subject">Hide subject</string>
+    <string name="hide_type">Hide only %1$s</string>
+    <string name="hide_group">Hide only this group</string>
+    <string name="hide_date">Hide this date</string>
+    <string name="hidden_title">Hidden</string>
+    <string name="hidden_open">Hidden subjects and dates</string>
+    <string name="hidden_none">Nothing hidden</string>
+    <plurals name="hidden_count">
+        <item quantity="one">%d entry</item>
+        <item quantity="other">%d entries</item>
+    </plurals>
+    <string name="hidden_empty">Nothing is hidden. Subjects, single types or groups and single dates can be hidden in the details of a date.</string>
+    <string name="hidden_hint">Hidden things stay saved, also after a new import. They don\'t count for “Together with” and are not shared.</string>
+    <string name="hidden_restore">Restore</string>
+    <string name="hidden_kind_subject">Whole subject</string>
+    <string name="hidden_kind_type">Type</string>
+    <string name="hidden_kind_group">Group</string>
+    <string name="hidden_kind_date">Date</string>
+    <string name="hidden_named_type">%1$s (%2$s)</string>
+    <string name="hidden_named_group">%1$s, group %2$s</string>
+    <string name="hidden_named_date">%1$s on %2$s</string>
+    <string name="hidden_snackbar">Hid “%s”</string>
+    <string name="hidden_badge">hidden</string>
+    <string name="short_name_all">Short name (all types)</string>
+    <string name="short_name_type">Short name (this type)</string>
+    <string name="short_name_preview">Preview:</string>
 </resources>

@@ -33,6 +33,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import java.time.LocalDate
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
@@ -95,6 +97,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     var pickDates by remember { mutableStateOf<Timed?>(null) }
     var manualEdit by remember { mutableStateOf<ManualTarget?>(null) }
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
+    // The course the subject editor was opened from (its part of the short name comes first).
+    var editingCourse by rememberSaveable { mutableStateOf<String?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var addChoice by rememberSaveable { mutableStateOf(false) }
     var scanning by rememberSaveable { mutableStateOf(false) }
@@ -252,6 +256,14 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                     )
                     if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
                 }
+                is UiMessage.Hid -> {
+                    val r = snackbar.showSnackbar(
+                        res.getString(R.string.hidden_snackbar, msg.what),
+                        actionLabel = res.getString(R.string.undo),
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                }
                 is UiMessage.CancelledForMe -> {
                     val date = dayAndDate(msg.date, appLocaleOf(res))
                     val r = snackbar.showSnackbar(
@@ -316,22 +328,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                                 Icon(painterResource(R.drawable.ic_menu), stringResource(R.string.open_drawer))
                             }
                         },
-                        title = {
-                            androidx.compose.foundation.layout.Column {
-                                Text(
-                                    plan?.takeIf { !it.isMe }?.person?.displayName ?: stringResource(R.string.app_name),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                if (plan?.person?.fromIcs == true) {
-                                    Text(
-                                        stringResource(R.string.from_ics),
-                                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        },
+                        title = { PagerTitle(people, pages, animate) },
                         actions = {
                             plan?.takeIf { !it.isMe }?.let { shown ->
                                 val friend = shown.person
@@ -453,13 +450,14 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                     if (p != null && item != null) {
                         DetailSheet(
                             p, item,
-                            onEditSubject = { editing = it.key },
+                            onEditSubject = { editing = it.key; editingCourse = item.event.courseKey },
                             onEditPersonal = { personalEdit = item },
                             onCancelForMe = { cancel -> vm.setCancelledForMe(item.ref, item.event.title, cancel) },
                             onPickDates = { pickDates = item },
                             onEditManual = { manualEdit = ManualTarget(item.event.uid) },
                             onDeleteManual = { vm.deleteManual(item.event.uid) },
                             onRemoveAdded = { vm.removeAdded(item, item.event.title) },
+                            onHide = { h -> vm.hide(h, hiddenName(res, h)) },
                             onDismiss = { selected = null },
                         )
                     }
@@ -487,7 +485,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         Overlay(showSettings) {
             SettingsScreen(
                 vm, myPlan, myShare.name,
-                onEditSubject = { editing = it.key },
+                onEditSubject = { editing = it.key; editingCourse = null },
                 onImport = onImport,
                 onExportBackup = onExportBackup,
                 onImportBackup = onImportBackup,
@@ -581,15 +579,68 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     val key = editing
     if (current != null && key != null) {
         SubjectEditor(
-            current, key,
-            onSave = { name, color ->
-                current.subjects.firstOrNull { it.key == key }?.let { vm.setSubjectStyle(it, name, color) }
+            current, key, editingCourse,
+            onSave = { name, color, typed ->
+                current.subjects.firstOrNull { it.key == key }?.let { vm.setSubjectStyle(it, name, color, typed) }
                 editing = null
             },
             onMove = vm::moveCourse,
             onRhythm = vm::setRhythm,
+            onHide = { h -> editing = null; vm.hide(h, hiddenName(res, h)) },
             onDismiss = { editing = null },
         )
+    }
+}
+
+/**
+ * The top bar title: "Stundenplan MD" on my plan, the friend's name on theirs. Follows the people pager's live position
+ * (not the settled page), so it moves with the finger: the name of the page leaving slides and fades out, the next one
+ * comes in. Without animations the nearer page's name is shown at once.
+ */
+@Composable
+private fun PagerTitle(state: androidx.compose.foundation.pager.PagerState, pages: List<PlanUi>, animate: Boolean) {
+    // Only the two pages around the position are composed; alpha and offset are read while drawing (no recomposition per frame).
+    val lower by remember(state) { androidx.compose.runtime.derivedStateOf { kotlin.math.floor(state.currentPage + state.currentPageOffsetFraction).toInt() } }
+    if (pages.isEmpty()) {
+        TitleText(null)
+        return
+    }
+    Box(Modifier.clipToBounds()) {
+        for (i in lower..lower + 1) {
+            val page = pages.getOrNull(i) ?: continue
+            key(page.person.id) {
+                TitleText(
+                    page,
+                    Modifier.graphicsLayer {
+                        val d = i - (state.currentPage + state.currentPageOffsetFraction)
+                        if (animate) {
+                            alpha = (1f - kotlin.math.abs(d) * 1.6f).coerceIn(0f, 1f)
+                            translationY = d * size.height * 0.8f
+                        } else {
+                            alpha = if (kotlin.math.abs(d) < 0.5f) 1f else 0f
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TitleText(page: PlanUi?, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.layout.Column(modifier) {
+        Text(
+            page?.takeIf { !it.isMe }?.person?.displayName ?: stringResource(R.string.app_name),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (page?.person?.fromIcs == true) {
+            Text(
+                stringResource(R.string.from_ics),
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

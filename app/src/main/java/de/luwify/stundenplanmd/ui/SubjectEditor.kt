@@ -40,6 +40,9 @@ import androidx.compose.ui.unit.dp
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.model.CourseKeys
 import de.luwify.stundenplanmd.core.model.Course
+import de.luwify.stundenplanmd.core.model.Hidden
+import de.luwify.stundenplanmd.core.model.Subject
+import androidx.compose.material3.FilterChip
 import de.luwify.stundenplanmd.core.model.Subjects
 import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.model.WeekRhythm
@@ -49,17 +52,20 @@ import de.luwify.stundenplanmd.ui.theme.rgbColor
 import de.luwify.stundenplanmd.ui.theme.withContrast
 
 /**
- * Short name and color of a subject (saved on OK), and which courses belong to it (moves apply at once:
- * the grouping is a heuristic the user corrects). Closes itself if the subject loses its last course.
+ * Short name (a prefix for all types plus a part per type) and color of a subject (saved on OK), and which courses
+ * belong to it (moves apply at once: the grouping is a heuristic the user corrects). [courseKey]: the type opened from
+ * (its part is edited first). Closes itself if the subject loses its last course.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SubjectEditor(
     plan: PlanUi,
     subjectKey: String,
-    onSave: (shortName: String?, color: Int?) -> Unit,
+    courseKey: String?,
+    onSave: (shortName: String?, color: Int?, typed: Map<String, String?>) -> Unit,
     onMove: (Course, target: String) -> Unit,
     onRhythm: (uid: String, WeekRhythm?) -> Unit,
+    onHide: (Hidden) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val subject = plan.subjects.firstOrNull { it.key == subjectKey }
@@ -69,6 +75,11 @@ fun SubjectEditor(
     }
     val index = plan.subjects.indexOf(subject)
     var shortName by rememberSaveable(subjectKey) { mutableStateOf(subject.shortName.orEmpty()) }
+    // Course key -> its part of the short name, for every course of the subject.
+    // (Held as a HashMap, which the saved state can store; replaced on every change, never mutated.)
+    var typeParts by rememberSaveable(subjectKey) { mutableStateOf<Map<String, String>>(HashMap(subject.courses.associate { it.key to subject.typeShortNames[it.key].orEmpty() })) }
+    var focus by rememberSaveable(subjectKey) { mutableStateOf(courseKey?.takeIf { k -> subject.courses.any { it.key == k } } ?: subject.courses.first().key) }
+    val focused = subject.courses.firstOrNull { it.key == focus } ?: subject.courses.first()
     // null = automatic color.
     var color by rememberSaveable(subjectKey) { mutableStateOf(subject.color) }
     val shown = color ?: SubjectColors.defaultColor(index)
@@ -95,11 +106,40 @@ fun SubjectEditor(
                 OutlinedTextField(
                     value = shortName,
                     onValueChange = { shortName = it.take(24) },
-                    label = { Text(stringResource(R.string.short_name)) },
+                    label = { Text(stringResource(R.string.short_name_all)) },
                     placeholder = { Text(subject.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (subject.courses.size > 1) {
+                    // Which type's part is edited.
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        subject.courses.forEach { c ->
+                            FilterChip(
+                                selected = c.key == focused.key,
+                                onClick = { focus = c.key },
+                                label = { Text(HideTargets.typeName(c), maxLines = 1) },
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = typeParts[focused.key].orEmpty(),
+                    onValueChange = { v -> typeParts = HashMap(typeParts).apply { put(focused.key, v.take(16)) } },
+                    label = { Text(stringResource(R.string.short_name_type)) },
+                    supportingText = { Text(HideTargets.typeName(focused) + " · " + focused.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.short_name_preview), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val preview = Subject.compose(shortName.trim().ifEmpty { subject.name }, typeParts[focused.key])
+                    val page = MaterialTheme.colorScheme.surfaceContainerHigh
+                    val tint = remember(shown, page) { SubjectColors.block(shown, page) }
+                    Box(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp)).background(tint.container).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        Text(preview, color = tint.content, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
                 Text(stringResource(R.string.color), style = MaterialTheme.typography.titleSmall)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SubjectColors.palette.forEach { rgb ->
@@ -113,16 +153,20 @@ fun SubjectEditor(
                 HorizontalDivider()
                 Text(stringResource(R.string.courses_of_subject), style = MaterialTheme.typography.titleSmall)
                 subject.courses.forEach { course ->
-                    CourseRow(plan, course, subjectKey, onMove)
+                    CourseRow(plan, course, subjectKey, onMove, onHide)
                     // LSF's "every 2 weeks" is meant as even/odd calendar weeks; each series can be set by hand.
                     course.events.filter { it.recurrence?.biweekly == true && !it.isManual }.sortedBy { it.start }.forEach { e ->
                         RhythmRow(e, plan.rhythms[e.uid]) { onRhythm(e.uid, it) }
                     }
                 }
+                HorizontalDivider()
+                TextButton(onClick = { onHide(HideTargets.subject(subject)) }) { Text(stringResource(R.string.hide_subject)) }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(shortName.trim().ifEmpty { null }, color) }) { Text(stringResource(android.R.string.ok)) }
+            TextButton(onClick = { onSave(shortName.trim().ifEmpty { null }, color, typeParts.mapValues { it.value.trim().ifEmpty { null } }) }) {
+                Text(stringResource(android.R.string.ok))
+            }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
     )
@@ -148,7 +192,7 @@ internal fun Swatch(rgb: Int, selected: Boolean, label: String? = null, onClick:
 }
 
 @Composable
-private fun CourseRow(plan: PlanUi, course: Course, subjectKey: String, onMove: (Course, String) -> Unit) {
+private fun CourseRow(plan: PlanUi, course: Course, subjectKey: String, onMove: (Course, String) -> Unit, onHide: (Hidden) -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val id = CourseKeys.courseId(course.events.first().uid)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -168,6 +212,10 @@ private fun CourseRow(plan: PlanUi, course: Course, subjectKey: String, onMove: 
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.move_to_own)) },
                         onClick = { menu = false; onMove(course, own) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.hide_type, HideTargets.typeName(course))) },
+                        onClick = { menu = false; onHide(HideTargets.course(course)) },
                     )
                 }
                 plan.subjects.filter { it.key != subjectKey }.forEach { target ->

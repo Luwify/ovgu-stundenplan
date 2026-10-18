@@ -3,6 +3,8 @@ package de.luwify.stundenplanmd.data
 import de.luwify.stundenplanmd.core.ical.LsfImport
 import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Event
+import de.luwify.stundenplanmd.core.model.Hidden
+import de.luwify.stundenplanmd.core.schedule.Hiding
 import de.luwify.stundenplanmd.core.model.ManualCourse
 import de.luwify.stundenplanmd.core.schedule.ManualCourses
 import de.luwify.stundenplanmd.core.schedule.Expansion
@@ -57,6 +59,8 @@ data class StoredData(
     val rhythms: Map<String, Map<String, WeekRhythm>> = emptyMap(),
     /** LSF courses added to my plan from another .ics ([AddedCourses]); kept across re-imports unless the plan has them. */
     val addedEvents: List<Event> = emptyList(),
+    /** What I hid, per person ([ME] or a friend's id): subjects, courses, groups, dates. Kept across re-imports. */
+    val hidden: Map<String, List<Hidden>> = emptyMap(),
 ) {
     /** My LSF events: the imported plan plus the added courses it does not have. */
     val myLsfEvents: List<Event> get() = myPlan?.events.orEmpty().let { it + AddedCourses.visible(it, addedEvents) }
@@ -79,10 +83,34 @@ data class StoredData(
     fun planOf(personId: String): Plan? = plans.firstOrNull { it.personId == personId }
     fun person(id: String): Person? = people.firstOrNull { it.id == id }
 
-    /** [plan] expanded with the own changes: mine for my plan, the friend's shared ones for theirs. */
-    fun schedule(plan: Plan): Schedule = if (plan.personId == ME) mySchedule() else Schedule(eventsOf(plan.personId), plan.sharedChanges)
+    fun hiddenOf(personId: String): List<Hidden> = hidden[personId].orEmpty()
 
-    fun mySchedule(): Schedule = Schedule(myEvents, personalChanges)
+    /**
+     * The course settings shown for [personId]: mine, or for a friend my local overrides, else mine (resolved) for courses
+     * I take too, else theirs ([Subjects.forFriend]).
+     */
+    fun settingsOf(personId: String, events: List<Event> = eventsOf(personId)): Map<String, CourseSetting> =
+        if (personId == ME) courseSettings else Subjects.forFriend(
+            events,
+            local = friendSettings[personId].orEmpty(),
+            mine = Subjects.resolved(myEvents, courseSettings, de.luwify.stundenplanmd.ui.theme.SubjectColors::defaultColor),
+            shared = planOf(personId)?.sharedSettings.orEmpty(),
+        )
+
+    /** What is left out of [personId]'s plan: what I hid there and, for a friend, the dates they hid before sharing. */
+    fun hidingOf(personId: String, events: List<Event> = eventsOf(personId)): Hiding? {
+        val items = hiddenOf(personId)
+        val shared = if (personId == ME) emptyList() else planOf(personId)?.sharedHidden.orEmpty()
+        if (items.isEmpty() && shared.isEmpty()) return null
+        return Hiding.of(items, events, settingsOf(personId, events), shared)
+    }
+
+    /** [plan] expanded with the own changes (mine for my plan, the friend's shared ones for theirs), without what is hidden. */
+    fun schedule(plan: Plan): Schedule = if (plan.personId == ME) mySchedule() else eventsOf(plan.personId).let { events ->
+        Schedule(events, plan.sharedChanges, hidingOf(plan.personId, events))
+    }
+
+    fun mySchedule(): Schedule = myEvents.let { Schedule(it, personalChanges, hidingOf(ME, it)) }
 
     companion object {
         const val ME = "me"
@@ -240,6 +268,7 @@ class PlanRepository(dir: File) {
             sharedSettings = shared.settings,
             sharedChanges = shared.changes,
             legacyShare = shared.legacy,
+            sharedHidden = shared.hidden,
         )
         val local = current.friendSettings[shared.personId]
         write(
@@ -282,6 +311,7 @@ class PlanRepository(dir: File) {
                 plans = current.plans.filterNot { it.personId == id },
                 friendSettings = current.friendSettings - id,
                 rhythms = current.rhythms - id,
+                hidden = current.hidden - id,
             ),
         )
         current
@@ -325,6 +355,20 @@ class PlanRepository(dir: File) {
         val (courses, changes) = ManualCourses.remove(current.manualCourses, current.personalChanges, id)
         write(current.copy(manualCourses = courses, personalChanges = changes, courseSettings = current.courseSettings - course.courseKey))
         current
+    }
+
+    /** Hides [item] in [personId]'s plan (narrower items it covers are dropped); returns the previous state for undo. */
+    suspend fun hide(personId: String, item: Hidden): StoredData? = mutex.withLock {
+        val current = _data.value ?: return@withLock null
+        write(current.copy(hidden = current.hidden + (personId to Hidden.add(current.hiddenOf(personId), item))))
+        current
+    }
+
+    /** Shows [item] in [personId]'s plan again ("Wiederherstellen"). */
+    suspend fun unhide(personId: String, item: Hidden) = mutex.withLock {
+        val current = _data.value ?: return@withLock
+        val list = Hidden.remove(current.hiddenOf(personId), item)
+        write(current.copy(hidden = if (list.isEmpty()) current.hidden - personId else current.hidden + (personId to list)))
     }
 
     suspend fun setShareChanges(on: Boolean) = mutex.withLock {

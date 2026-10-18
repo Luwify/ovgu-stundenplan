@@ -116,7 +116,7 @@
         <item quantity="other">%1$d Veranstaltungen</item>
     </plurals>
     <string name="settings_backup">Sicherung</string>
-    <string name="backup_hint">Eine Datei mit deinem Stundenplan (Original-.ics, eigene Änderungen und Kurse), Fächern und Farben, den Stundenplänen deiner Freunde samt deinen Namen, Favoriten und Farben für sie sowie Design, Sprache und Update-Einstellungen. Es wird nichts hochgeladen; du wählst, wohin die Datei geht.</string>
+    <string name="backup_hint">Eine Datei mit deinem Stundenplan (Original-.ics, eigene Änderungen und Kurse), Fächern und Farben, Ausgeblendetem, den Stundenplänen deiner Freunde samt deinen Namen, Favoriten und Farben für sie sowie Design, Sprache und Update-Einstellungen. Es wird nichts hochgeladen; du wählst, wohin die Datei geht.</string>
     <string name="backup_export">Sicherung exportieren</string>
     <string name="backup_import">Sicherung importieren</string>
     <string name="backup_exported">Sicherung gespeichert.</string>
@@ -379,4 +379,31 @@
     <string name="added_course_hint">Aus einer eigenen .ics-Datei. Ein vollständiger Import, der diesen Termin enthält, ersetzt ihn. Entfernen betrifft nur diese Gruppe.</string>
     <string name="added_remove">Aus meinem Plan entfernen</string>
     <string name="legacy_share_hint">Aus einer älteren Version geteilt, einzelne Termine nach Neujahr können abweichen, neu teilen lassen.</string>
+    <string name="hide">Ausblenden</string>
+    <string name="hide_subject">Fach ausblenden</string>
+    <string name="hide_type">Nur %1$s ausblenden</string>
+    <string name="hide_group">Nur diese Gruppe ausblenden</string>
+    <string name="hide_date">Termin ausblenden</string>
+    <string name="hidden_title">Ausgeblendet</string>
+    <string name="hidden_open">Ausgeblendete Fächer und Termine</string>
+    <string name="hidden_none">Nichts ausgeblendet</string>
+    <plurals name="hidden_count">
+        <item quantity="one">%d Eintrag</item>
+        <item quantity="other">%d Einträge</item>
+    </plurals>
+    <string name="hidden_empty">Nichts ausgeblendet. Fächer, einzelne Typen oder Gruppen und einzelne Termine lassen sich in den Details eines Termins ausblenden.</string>
+    <string name="hidden_hint">Ausgeblendetes bleibt gespeichert, auch nach einem neuen Import. Es zählt nicht für „Zusammen mit“ und wird nicht geteilt.</string>
+    <string name="hidden_restore">Wiederherstellen</string>
+    <string name="hidden_kind_subject">Ganzes Fach</string>
+    <string name="hidden_kind_type">Typ</string>
+    <string name="hidden_kind_group">Gruppe</string>
+    <string name="hidden_kind_date">Termin</string>
+    <string name="hidden_named_type">%1$s (%2$s)</string>
+    <string name="hidden_named_group">%1$s, Gruppe %2$s</string>
+    <string name="hidden_named_date">%1$s am %2$s</string>
+    <string name="hidden_snackbar">„%s“ ausgeblendet</string>
+    <string name="hidden_badge">ausgeblendet</string>
+    <string name="short_name_all">Kürzel (alle Typen)</string>
+    <string name="short_name_type">Kürzel (dieser Typ)</string>
+    <string name="short_name_preview">Vorschau:</string>
 </resources>

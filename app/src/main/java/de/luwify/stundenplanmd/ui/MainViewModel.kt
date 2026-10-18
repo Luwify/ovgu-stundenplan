@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import de.luwify.stundenplanmd.StundenplanApp
 import de.luwify.stundenplanmd.core.model.Course
 import de.luwify.stundenplanmd.core.model.CourseSetting
+import de.luwify.stundenplanmd.core.model.Hidden
+import de.luwify.stundenplanmd.core.schedule.Hiding
 import de.luwify.stundenplanmd.core.model.Subject
 import de.luwify.stundenplanmd.core.model.Subjects
 import de.luwify.stundenplanmd.core.schedule.Schedule
@@ -96,6 +98,8 @@ data class PlanUi(
     val addedUids: Set<String> = emptySet(),
     /** Friend's plan shared by an older version; some dates after New Year may differ ([Plan.legacyShare]). */
     val legacyShare: Boolean = false,
+    /** What I hid in this plan. */
+    val hidden: List<Hidden> = emptyList(),
 ) {
     val isEmpty: Boolean get() = schedule.events.isEmpty()
     val isMe: Boolean get() = person.isMe
@@ -118,14 +122,9 @@ data class PlanUi(
             val person = data.person(personId) ?: Person(StoredData.ME, "", isMe = true)
             val plan = data.planOf(person.id)
             val events = data.eventsOf(person.id)
-            val settings = if (person.isMe) data.courseSettings else Subjects.forFriend(
-                events,
-                local = data.friendSettings[person.id].orEmpty(),
-                mine = Subjects.resolved(data.myEvents, data.courseSettings, SubjectColors::defaultColor),
-                shared = plan?.sharedSettings.orEmpty(),
-            )
+            val settings = data.settingsOf(person.id, events)
             val subjects = Subjects.build(events, settings)
-            val schedule = schedules[person.id] ?: if (person.isMe) data.mySchedule() else plan?.let(data::schedule) ?: Schedule(events)
+            val schedule = schedules[person.id] ?: if (person.isMe) data.mySchedule() else plan?.let(data::schedule) ?: Schedule(events, hiding = data.hidingOf(person.id, events))
             // In my plan: friends. In a friend's: me and the other friends.
             val others = data.people.filter { it.id != person.id }
                 .mapNotNull { p -> (schedules[p.id] ?: data.planOf(p.id)?.let(data::schedule))?.let { p.id to it } }
@@ -144,6 +143,7 @@ data class PlanUi(
                 rhythms = data.rhythmsOf(person.id),
                 addedUids = if (person.isMe) data.addedUids else emptySet(),
                 legacyShare = !person.isMe && plan?.legacyShare == true,
+                hidden = data.hiddenOf(person.id),
             )
         }
     }
@@ -182,6 +182,8 @@ sealed interface UiMessage {
     data object ShareBroken : UiMessage
 
     /** A date cancelled for me ([cancelled]) or back again; undo restores [previous]. */
+    /** Something hidden ([what] names it); undo restores [previous]. */
+    data class Hid(val what: String, val previous: StoredData) : UiMessage
     data class ManualDeleted(val title: String, val previous: StoredData) : UiMessage
     data class CancelledForMe(val title: String, val date: LocalDate, val cancelled: Boolean, val previous: List<PersonalChange>) : UiMessage
 }
@@ -531,19 +533,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // Manual courses go with my own changes ("Eigene Änderungen teilen"), without their notes (notes are mine).
         val withChanges = data.share.withChanges
         // So do my rhythms for biweekly series (sent as the dates they give).
-        val events = if (withChanges) data.myEvents.map { if (it.isManual) it.copy(notes = "") else it } else data.myLsfEvents
-        if (events.isEmpty()) return null
+        val all = if (withChanges) data.myEvents.map { if (it.isManual) it.copy(notes = "") else it } else data.myLsfEvents
         return withContext(Dispatchers.Default) {
+            // What I hid stays on my phone: hidden courses are left out, hidden dates listed so the friend never sees them.
+            // Notes never leave the phone ([PersonalChange.forSharing]); my changes only while the setting is on.
+            val shared = Hiding.forSharing(
+                all,
+                if (withChanges) data.personalChanges.mapNotNull { it.forSharing() } else emptyList(),
+                data.hidingOf(StoredData.ME, data.myEvents),
+            )
+            val events = shared.events
+            if (events.isEmpty()) return@withContext null
+            val keys = events.mapTo(HashSet()) { it.courseKey }
             SharedPlan(
                 personId = identity.id!!,
                 name = name,
                 exportedOn = LocalDate.now(PlanZone),
                 planDate = (plan?.importedAt ?: java.time.Instant.now()).atZone(PlanZone).toLocalDate(),
                 events = events,
-                settings = Subjects.resolved(events, data.courseSettings, SubjectColors::defaultColor),
+                // Resolved over my whole plan, so automatic colors are the ones I see.
+                settings = Subjects.resolved(data.myEvents, data.courseSettings, SubjectColors::defaultColor).filterKeys { it in keys },
                 complete = true,
-                // Notes never leave the phone ([PersonalChange.forSharing]); the rest only while the setting is on.
-                changes = if (withChanges) data.personalChanges.mapNotNull { it.forSharing() } else emptyList(),
+                changes = shared.changes,
+                hidden = shared.hidden,
             )
         }
     }
@@ -585,25 +597,49 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.restore(previous) }
     }
 
-    /** In my plan: my settings. In a friend's: my local overrides for them; no short name and color = their defaults. */
-    fun setSubjectStyle(subject: Subject, shortName: String?, color: Int?) {
+    /**
+     * Short name prefix and color of [subject], and the type parts of the short name in [typed] (course key -> part). In my
+     * plan: my settings. In a friend's: my local overrides for them; nothing set = their defaults.
+     */
+    fun setSubjectStyle(subject: Subject, shortName: String?, color: Int?, typed: Map<String, String?> = emptyMap()) {
         val p = plan.value ?: return
+        fun apply(settings: Map<String, CourseSetting>) = typed.entries.fold(Subjects.setStyle(settings, subject, shortName, color)) { acc, (key, part) ->
+            subject.courses.firstOrNull { it.key == key }?.let { Subjects.setTypeShortName(acc, it, part) } ?: acc
+        }
         viewModelScope.launch {
             if (p.isMe) {
-                repo.updateSettings { Subjects.setStyle(it, subject, shortName, color) }
+                repo.updateSettings(::apply)
             } else {
-                val edited = Subjects.setStyle(p.settings, subject, shortName, color)
+                val edited = apply(p.settings)
                 repo.updateFriendSettings(p.person.id) { local ->
                     val keys = subject.courses.map { it.key }.toSet()
-                    if (shortName.isNullOrBlank() && color == null) {
+                    if (shortName.isNullOrBlank() && color == null && keys.all { edited[it]?.typeShortName == null }) {
                         local.filterKeys { it !in keys || local[it]?.subject != null }
-                            .mapValues { (k, v) -> if (k in keys) v.copy(shortName = null, color = null) else v }
+                            .mapValues { (k, v) -> if (k in keys) v.copy(shortName = null, color = null, typeShortName = null) else v }
                     } else {
                         Subjects.overrides(local, p.settings, edited)
                     }
                 }
             }
         }
+    }
+
+    /** Hides [item] in the plan shown; [what] names it in the snackbar (with undo). */
+    fun hide(item: Hidden, what: String) {
+        val p = plan.value ?: return
+        viewModelScope.launch {
+            val previous = repo.hide(p.person.id, item) ?: return@launch
+            _messages.send(UiMessage.Hid(what, previous))
+        }
+    }
+
+    /** Everything hidden, per person in drawer order (me first); people with nothing hidden are left out. */
+    val hidden: StateFlow<List<Pair<Person, List<Hidden>>>> = repo.data.filterNotNull().map { data ->
+        data.people.mapNotNull { p -> data.hiddenOf(p.id).takeIf { it.isNotEmpty() }?.let { p to it } }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun unhide(personId: String, item: Hidden) {
+        viewModelScope.launch { repo.unhide(personId, item) }
     }
 
     /** My rhythm for a biweekly series in the plan shown (null = as the data says). */
