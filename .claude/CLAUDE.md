@@ -26,9 +26,11 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
     `forFriend`/`overrides` for a friend's plan), `CourseSetting`, `PersonalChange` (own changes, see below), `Hidden`
     (see "Hiding"); kotlinx JSON.
   - `schedule/`: `Expansion` (slots incl. cancelled), `Schedule` (occurrences with `Status`
-    Regular/Changed/Extra, unreplaced `cancellations`, `day`/`week`, `hours`), `DayPlan`/`WeekPlan`
-    (`free` = all cancelled -> "Vorlesungsfrei"), `Navigation` (`weekToOpen`, `weeks` = strip/pager range from 1 week
-    before the first event, `dayToOpen`, `TodayView`), `DayLayout`, `NowStatus` (drawer now-line), `Together`
+    Regular/Changed/Extra, unreplaced `cancellations`, `day`/`week` (Mon–Fri plus Sat/Sun only when something is on them,
+    hidden dates don't count; `WeekPlan.lastDay`), `hours`), `DayPlan`/`WeekPlan`
+    (`free` = all cancelled -> "Vorlesungsfrei"), `Navigation` (`weekToOpen` (with a schedule: this week on a weekend day
+    while something of it is still to come), `weeks` = strip/pager range from 1 week before the first event, `days` /
+    `dayPage` = the day pager's pages (the days each week shows), `dayToOpen`, `TodayView`), `DayLayout`, `NowStatus` (drawer now-line), `Together`
     (matching, `OccurrenceKey`), `Personal` (own changes resolved per occurrence, `PersonalChanges` editing + orphans),
     `Hiding` (what a `Schedule` leaves out, `forSharing`).
   - `share/`: `Base45` (RFC 9285), `ShareCodec` (`SharedPlan`, `ShareResult`, QR text / file, limits).
@@ -38,9 +40,15 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   `shareIdentity`), `data/PersonIds`, `data/IcsSource` (uri -> bytes, text UTF-8/1252),
   `data/settings/ThemeSettings` (DataStore, Mensa MD keys). UI: `MainScreen` (Week/Day tabs, `VerticalPager` over
   `vm.pages` = me + friends in drawer order, synced both ways with `vm.selected`; shared `week`/`day` state so switching
-  people keeps the week/day; detail sheet, subject editor, settings overlay; top bar title `PagerTitle` follows the
-  pager's live position, not the settled page: the two names around it slide/fade by the offset (graphicsLayer, no
-  recomposition per frame), without animations the nearer one at once), `PeoplePager` (`EdgeOnlyConnection`:
+  people keeps the week/day; detail sheet, subject editor, settings overlay; top bar title and actions follow the
+  pager's live position, not the settled page (`PagerLayers`: the two pages around it, each laid out with its own
+  content and centered on its own in a block of fixed height `TopBarBlock`, so an .ics friend's subtitle never moves the
+  bar or a name; slide/fade by the offset in graphicsLayer, no recomposition per frame; only the nearer one takes taps and
+  semantics; without animations the nearer one at once); detail sheet keyed by `SheetKey` (person, `ref`, UID) and looked
+  up in the shown plan on every change: editors/dialogs opened from it hide it while open and bring it back on any close,
+  with the new state; hiding/removing close it (gone from the plan); the snackbar host sits above the overlays), `PeoplePager` (`edgeTouches` on the pager itself: gesture start/end and the finger's velocity measured in the
+  pager's coordinates (content measures on its page, which moves with the finger: a grid that fits the screen reported 0,
+  so flicks only switched past halfway); the settle uses that velocity; `EdgeOnlyConnection`:
   content scrolls first, the pager moves only for drags that start at the content's edge, the connection moves and
   settles the pager itself and is its only touch input: the pager has `userScrollEnabled = false` (its own drag grabbed
   touches while it settled and swallowed swipes); one connection for all pages (a fast second swipe lands on the next
@@ -101,7 +109,9 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   moved or cancelled the date, my room/time/cancel are `overruled`: shown next to the official change, never applied over
   it. Series edit ends the earlier series the day before. `orphans` (no slot left after a re-import) -> cleanup list in
   settings, never dropped silently. UI: detail sheet actions (editor, "Fällt für mich aus" + undo, "Termine
-  auswählen"), markers: dashed violet border + pencil (`PlanColors.own`), note icon, s.t. badge; LSF changes keep amber.
+  auswählen": every date of the group incl. ones cancelled for me or hidden (DATE `Hidden`), checked = takes place; for
+  the unchecked ones it asks each time "Als ausgefallen zeigen" / "Ausblenden" (preselected only if they already share
+  one state; nothing remembered), `PlanRepository.setDates` writes cancellations and hidden dates at once, never both), markers: dashed violet border + pencil (`PlanColors.own`), note icon, s.t. badge; LSF changes keep amber.
 - Sharing: notes never; the rest while `MyShare.withChanges` ("Eigene Änderungen teilen"); friend's in
   `Plan.sharedChanges`, shown as "Von <Name> geändert".
 
@@ -120,7 +130,9 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   Forwarding passes a friend's `sharedHidden` on.
 - UI: detail sheet "Termin ausblenden" (mine: next to "Fällt für mich aus"; friends: next to "Fach bearbeiten") and
   "Ausblenden" (menu: Fach / Nur <Typ> / Nur diese Gruppe; a plain "Fach ausblenden" button when only that applies);
-  subject editor: "Fach ausblenden", course row menu "Nur <Typ> ausblenden". Snackbar with undo. Settings section
+  subject editor: "Fach ausblenden", course row menu "Optionen" (Nur <Typ> ausblenden; my plan: Kurs bearbeiten/löschen
+  for manual courses, Aus meinem Plan entfernen for added ones; under "Verschieben" the move targets), so every subject
+  is reachable from the settings' subject list whatever its days. Snackbar with undo. Settings section
   "Ausgeblendet" -> `HiddenScreen` (per person, me first, "Wiederherstellen", empty state).
 
 ## Short names
