@@ -364,6 +364,23 @@ class PlanRepository(dir: File) {
         current
     }
 
+    /**
+     * "Termine auswählen" in my plan, in one write: [cancelled] = date -> cancelled for me or not, [hidden] = date ->
+     * hidden or not.
+     */
+    suspend fun setDates(cancelled: Map<de.luwify.stundenplanmd.core.schedule.OccurrenceRef, Boolean>, hidden: Map<Hidden, Boolean>, title: String) = mutex.withLock {
+        val current = _data.value ?: return@withLock
+        val changes = cancelled.entries.fold(current.personalChanges) { acc, (ref, on) ->
+            de.luwify.stundenplanmd.core.schedule.PersonalChanges.setCancelled(acc, ref, title, on)
+        }
+        val list = hidden.entries.fold(current.hiddenOf(StoredData.ME)) { acc, (item, on) -> if (on) Hidden.add(acc, item) else Hidden.remove(acc, item) }
+        val next = current.copy(
+            personalChanges = changes,
+            hidden = if (list.isEmpty()) current.hidden - StoredData.ME else current.hidden + (StoredData.ME to list),
+        )
+        if (next != current) write(next)
+    }
+
     /** Shows [item] in [personId]'s plan again ("Wiederherstellen"). */
     suspend fun unhide(personId: String, item: Hidden) = mutex.withLock {
         val current = _data.value ?: return@withLock

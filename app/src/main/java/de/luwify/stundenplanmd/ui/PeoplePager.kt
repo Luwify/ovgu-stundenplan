@@ -32,6 +32,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,13 +64,17 @@ import kotlinx.coroutines.flow.drop
 class EdgeOnlyConnection(private val pager: PagerState, private val animate: Boolean) : NestedScrollConnection {
     private var contentMoved = false
     private var settling: Job? = null
+
+    /** px/s of the finger when the last gesture ended (see [onGestureEnd]). */
+    private var gestureVelocity = 0f
     private var touching by mutableStateOf(false)
 
     /** Vertical drags outside any scrolling content (headers, strips): nothing to scroll, so straight to the pager. */
     internal val outside = DraggableState { dy -> onPostScroll(Offset.Zero, Offset(0f, dy), NestedScrollSource.UserInput) }
 
-    internal suspend fun outsideStopped(velocity: Float) {
-        onPostFling(Velocity.Zero, Velocity(0f, velocity))
+    /** A drag outside scrolling content ended (its speed comes from [onGestureEnd], like every other). */
+    internal suspend fun outsideStopped() {
+        onPostFling(Velocity.Zero, Velocity.Zero)
     }
 
     /** A finger went down: a new gesture. A settle still running stops; the last gesture's state goes (a fling cut short by a touch never reports its end). */
@@ -76,11 +82,16 @@ class EdgeOnlyConnection(private val pager: PagerState, private val animate: Boo
         settling?.cancel()
         settling = null
         contentMoved = false
+        gestureVelocity = 0f
         touching = true
     }
 
-    /** The last finger went up. */
-    internal fun onGestureEnd() {
+    /**
+     * The last finger went up, at [velocity] px/s (measured on the pager, [edgeTouches], before the content sees the up).
+     * Without it a flick only went on to the next person when it had also passed halfway.
+     */
+    internal fun onGestureEnd(velocity: Float = 0f) {
+        gestureVelocity = velocity
         touching = false
     }
 
@@ -129,7 +140,9 @@ class EdgeOnlyConnection(private val pager: PagerState, private val animate: Boo
 
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
         // A fling the content took never carries on to the next person, but the pager still goes onto a page.
-        val velocity = if (contentMoved) 0f else available.y
+        // The finger's speed as the pager saw it: the content measures on its page, which moves along with the finger,
+        // so its velocity says next to nothing (none at all for a week grid that fits the screen).
+        val velocity = if (contentMoved) 0f else gestureVelocity
         contentMoved = false
         coroutineScope { settle(velocity) }
         return available.copy(x = 0f)
@@ -144,24 +157,39 @@ class EdgeOnlyConnection(private val pager: PagerState, private val animate: Boo
     }
 }
 
-/** A people pager page: vertical drags in it go through [edge] (one for all pages, see there), also where nothing in it scrolls. */
-fun Modifier.edgeSwitching(edge: EdgeOnlyConnection): Modifier = this
-    .pointerInput(edge) {
-        awaitEachGesture {
-            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-            edge.onGestureStart()
-            try {
-                do {
-                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                } while (event.changes.any { it.pressed })
-            } finally {
-                edge.onGestureEnd()
-            }
+/**
+ * On the people pager itself (it stays where it is while its pages move with the finger): tells [edge] when a gesture
+ * starts and ends, and how fast the finger was going then, measured in the pager's own coordinates. Measured on a page,
+ * a finger dragging that page along hardly moves at all.
+ */
+fun Modifier.edgeTouches(edge: EdgeOnlyConnection): Modifier = pointerInput(edge) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        edge.onGestureStart()
+        // The first finger's speed, for flings the content reports without one.
+        val tracker = VelocityTracker()
+        tracker.addPointerInputChange(down)
+        var velocity = 0f
+        try {
+            do {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                event.changes.firstOrNull { it.id == down.id }?.let { tracker.addPointerInputChange(it) }
+            } while (event.changes.any { it.pressed })
+            velocity = tracker.calculateVelocity().y
+        } finally {
+            edge.onGestureEnd(velocity)
         }
     }
+}
+
+/**
+ * A people pager page: vertical drags in it go through [edge] (one for all pages, see there), also where nothing in it
+ * scrolls. The pager carries [edgeTouches].
+ */
+fun Modifier.edgeSwitching(edge: EdgeOnlyConnection): Modifier = this
     .nestedScroll(edge)
     // Not a scrollable: that would also be a nested scroll parent of the content and report its flings a second time.
-    .draggable(edge.outside, Orientation.Vertical, onDragStopped = { edge.outsideStopped(it) })
+    .draggable(edge.outside, Orientation.Vertical, onDragStopped = { edge.outsideStopped() })
 
 /**
  * Keeps a week/day pager on the [shared] page chosen in another person's plan (when it changes there), and while

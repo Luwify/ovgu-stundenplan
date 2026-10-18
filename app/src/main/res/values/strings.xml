@@ -295,7 +295,7 @@
     <string name="editor_end">End</string>
     <string name="editor_time_invalid">Times like 9:15, end after start</string>
     <string name="pick_dates_title">Dates of %1$s</string>
-    <string name="pick_dates_hint">Unchecked dates are cancelled for you.</string>
+    <string name="pick_dates_hint">Checked dates take place for you.</string>
     <string name="note_marker">Has a note</string>
     <string name="own_marker">Changed by you</string>
     <string name="share_changes">Share own changes</string>
@@ -412,4 +412,9 @@
     <string name="short_name_all">Short name (all types)</string>
     <string name="short_name_type">Short name (this type)</string>
     <string name="short_name_preview">Preview:</string>
+    <string name="pick_dates_unselected">Dates not selected</string>
+    <string name="pick_dates_as_cancelled">Show as cancelled</string>
+    <string name="pick_dates_hide">Hide</string>
+    <string name="pick_dates_hidden_now">hidden</string>
+    <string name="course_options">Options</string>
 </resources>

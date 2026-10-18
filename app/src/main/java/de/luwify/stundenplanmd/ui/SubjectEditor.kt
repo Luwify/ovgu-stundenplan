@@ -43,6 +43,8 @@ import de.luwify.stundenplanmd.core.model.Course
 import de.luwify.stundenplanmd.core.model.Hidden
 import de.luwify.stundenplanmd.core.model.Subject
 import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
 import de.luwify.stundenplanmd.core.model.Subjects
 import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.model.WeekRhythm
@@ -67,6 +69,8 @@ fun SubjectEditor(
     onRhythm: (uid: String, WeekRhythm?) -> Unit,
     onHide: (Hidden) -> Unit,
     onDismiss: () -> Unit,
+    /** My plan: a manual course's editor / delete, removing a course added from another .ics (null elsewhere). */
+    courseActions: CourseActions? = null,
 ) {
     val subject = plan.subjects.firstOrNull { it.key == subjectKey }
     if (subject == null) {
@@ -127,7 +131,16 @@ fun SubjectEditor(
                     value = typeParts[focused.key].orEmpty(),
                     onValueChange = { v -> typeParts = HashMap(typeParts).apply { put(focused.key, v.take(16)) } },
                     label = { Text(stringResource(R.string.short_name_type)) },
-                    supportingText = { Text(HideTargets.typeName(focused) + " · " + focused.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    // The full title, cut to one line; a tap shows all of it (and folds it again).
+                    supportingText = {
+                        var full by rememberSaveable(focused.key) { mutableStateOf(false) }
+                        Text(
+                            HideTargets.typeName(focused) + " · " + focused.title,
+                            Modifier.clickable { full = !full },
+                            maxLines = if (full) Int.MAX_VALUE else 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -152,11 +165,15 @@ fun SubjectEditor(
                 }
                 HorizontalDivider()
                 Text(stringResource(R.string.courses_of_subject), style = MaterialTheme.typography.titleSmall)
-                subject.courses.forEach { course ->
-                    CourseRow(plan, course, subjectKey, onMove, onHide)
-                    // LSF's "every 2 weeks" is meant as even/odd calendar weeks; each series can be set by hand.
-                    course.events.filter { it.recurrence?.biweekly == true && !it.isManual }.sortedBy { it.start }.forEach { e ->
-                        RhythmRow(e, plan.rhythms[e.uid]) { onRhythm(e.uid, it) }
+                // One group per course: its row, then its series' rhythms indented under it; a divider between courses.
+                Column {
+                    subject.courses.forEachIndexed { i, course ->
+                        if (i > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                        CourseRow(plan, course, subjectKey, onMove, onHide, courseActions)
+                        // LSF's "every 2 weeks" is meant as even/odd calendar weeks; each series can be set by hand.
+                        course.events.filter { it.recurrence?.biweekly == true && !it.isManual }.sortedBy { it.start }.forEach { e ->
+                            RhythmRow(e, plan.rhythms[e.uid]) { onRhythm(e.uid, it) }
+                        }
                     }
                 }
                 HorizontalDivider()
@@ -192,7 +209,7 @@ internal fun Swatch(rgb: Int, selected: Boolean, label: String? = null, onClick:
 }
 
 @Composable
-private fun CourseRow(plan: PlanUi, course: Course, subjectKey: String, onMove: (Course, String) -> Unit, onHide: (Hidden) -> Unit) {
+private fun CourseRow(plan: PlanUi, course: Course, subjectKey: String, onMove: (Course, String) -> Unit, onHide: (Hidden) -> Unit, actions: CourseActions?) {
     var menu by remember { mutableStateOf(false) }
     val id = CourseKeys.courseId(course.events.first().uid)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -204,18 +221,35 @@ private fun CourseRow(plan: PlanUi, course: Course, subjectKey: String, onMove: 
             }
         }
         Box {
-            TextButton(onClick = { menu = true }) { Text(stringResource(R.string.move)) }
+            // Move, hide and (my plan) edit/delete/remove: more than moving, hence "Optionen".
+            TextButton(onClick = { menu = true }) { Text(stringResource(R.string.course_options)) }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                val manual = course.events.firstOrNull { it.isManual }
+                if (actions != null && manual != null) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.manual_edit)) }, onClick = { menu = false; actions.editManual(manual.uid) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.manual_delete)) }, onClick = { menu = false; actions.deleteManual(manual.uid) })
+                }
+                if (actions != null && course.events.any { it.uid in plan.addedUids }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.added_remove)) }, onClick = { menu = false; actions.removeAdded(course) })
+                }
                 val own = Subjects.ownKey(course.key)
                 val alone = plan.subjects.first { it.key == subjectKey }.courses.size == 1
                 if (!alone) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.move_to_own)) },
-                        onClick = { menu = false; onMove(course, own) },
-                    )
-                    DropdownMenuItem(
                         text = { Text(stringResource(R.string.hide_type, HideTargets.typeName(course))) },
                         onClick = { menu = false; onHide(HideTargets.course(course)) },
+                    )
+                }
+                // Where this course can be moved to: a subject of its own, or another one.
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.move), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    onClick = {},
+                    enabled = false,
+                )
+                if (!alone) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.move_to_own)) },
+                        onClick = { menu = false; onMove(course, own) },
                     )
                 }
                 plan.subjects.filter { it.key != subjectKey }.forEach { target ->
@@ -229,6 +263,9 @@ private fun CourseRow(plan: PlanUi, course: Course, subjectKey: String, onMove: 
     }
 }
 
+/** What the subject editor can do with a course of my plan besides moving and hiding it. */
+class CourseActions(val editManual: (uid: String) -> Unit, val deleteManual: (uid: String) -> Unit, val removeAdded: (Course) -> Unit)
+
 /** Rhythm of one biweekly series: automatic (from the data) or set by hand; applies at once. */
 @Composable
 private fun RhythmRow(event: Event, chosen: WeekRhythm?, onPick: (WeekRhythm?) -> Unit) {
@@ -236,15 +273,19 @@ private fun RhythmRow(event: Event, chosen: WeekRhythm?, onPick: (WeekRhythm?) -
     var menu by remember { mutableStateOf(false) }
     val auto = remember(event) { Expansion.rhythmOf(event.copy(recurrence = event.recurrence?.copy(rhythm = null))) }
     val autoLabel = stringResource(R.string.rhythm_auto, rhythmName(auto))
-    Row(Modifier.padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Indented under its course's title (past the type label).
+    Row(Modifier.padding(start = 36.dp).heightIn(min = 36.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             "${dayShort(event.start.toLocalDate(), locale)} ${timeRange(event.start, event.end)}",
-            Modifier.weight(1f),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            softWrap = false,
         )
+        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
         Box {
-            TextButton(onClick = { menu = true }) { Text(if (chosen == null) autoLabel else rhythmName(chosen)) }
+            TextButton(onClick = { menu = true }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp), modifier = Modifier.heightIn(min = 32.dp)) {
+                Text(if (chosen == null) autoLabel else rhythmName(chosen), style = MaterialTheme.typography.bodySmall, maxLines = 2)
+            }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text(autoLabel) }, onClick = { menu = false; onPick(null) })
                 WeekRhythm.entries.forEach { r ->

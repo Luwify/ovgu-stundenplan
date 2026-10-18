@@ -35,6 +35,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import java.time.LocalDate
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
@@ -92,7 +97,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     val scope = rememberCoroutineScope()
     val drawer = rememberDrawerState(DrawerValue.Closed)
     var tab by rememberSaveable { mutableStateOf(Tab.WEEK) }
-    var selected by remember { mutableStateOf<Timed?>(null) }
+    // The appointment whose detail sheet is open; looked up again in the plan shown, so it shows every change at once.
+    var selected by remember { mutableStateOf<SheetKey?>(null) }
     var personalEdit by remember { mutableStateOf<Timed?>(null) }
     var pickDates by remember { mutableStateOf<Timed?>(null) }
     var manualEdit by remember { mutableStateOf<ManualTarget?>(null) }
@@ -329,45 +335,47 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             }
                         },
                         title = { PagerTitle(people, pages, animate) },
+                        // Like the title: the icons of the two people around the pager's position, faded with it.
                         actions = {
-                            plan?.takeIf { !it.isMe }?.let { shown ->
-                                val friend = shown.person
-                                FavoriteButton(friend.favorite, friend.displayName) { vm.setFavorite(friend.id, !friend.favorite) }
-                                Box {
-                                    IconButton(onClick = { friendShareMenu = true }) {
-                                        Icon(painterResource(R.drawable.ic_share), stringResource(R.string.friend_share, friend.displayName))
-                                    }
-                                    DropdownMenu(expanded = friendShareMenu, onDismissRequest = { friendShareMenu = false }) {
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(R.string.share_as_file)) },
-                                            leadingIcon = { Icon(painterResource(R.drawable.ic_share), null) },
-                                            onClick = { friendShareMenu = false; shareFriend(friend, shown.planDate, ShareAction.FILE) },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(R.string.friend_share_qr)) },
-                                            leadingIcon = { Icon(painterResource(R.drawable.ic_qr_code_2), null) },
-                                            onClick = { friendShareMenu = false; shareFriend(friend, shown.planDate, ShareAction.QR) },
-                                        )
-                                    }
-                                }
-                            }
-                            if (plan?.isMe == true) {
-                                IconButton(onClick = { manualEdit = ManualTarget(null) }) {
-                                    Icon(painterResource(R.drawable.ic_add), stringResource(R.string.manual_add))
-                                }
-                            }
-                            if (plan?.isMe == false) {
-                                IconButton(onClick = { friendDetails = true }) {
-                                    Icon(painterResource(R.drawable.ic_edit), stringResource(R.string.friend_details))
-                                }
-                            } else {
-                                IconButton(onClick = { showSettings = true }) {
-                                    if (update.offer != null) {
-                                        BadgedBox(badge = { Badge() }) {
-                                            Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings_update_badge))
+                            PagerLayers(people, pages, animate, Alignment.CenterEnd) { shown, near ->
+                                androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (!shown.isMe) {
+                                        val friend = shown.person
+                                        FavoriteButton(friend.favorite, friend.displayName) { vm.setFavorite(friend.id, !friend.favorite) }
+                                        Box {
+                                            IconButton(onClick = { friendShareMenu = true }) {
+                                                Icon(painterResource(R.drawable.ic_share), stringResource(R.string.friend_share, friend.displayName))
+                                            }
+                                            // Only the nearer page's menu (both pages' icons are there while switching).
+                                            DropdownMenu(expanded = friendShareMenu && near, onDismissRequest = { friendShareMenu = false }) {
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(R.string.share_as_file)) },
+                                                    leadingIcon = { Icon(painterResource(R.drawable.ic_share), null) },
+                                                    onClick = { friendShareMenu = false; shareFriend(friend, shown.planDate, ShareAction.FILE) },
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text(stringResource(R.string.friend_share_qr)) },
+                                                    leadingIcon = { Icon(painterResource(R.drawable.ic_qr_code_2), null) },
+                                                    onClick = { friendShareMenu = false; shareFriend(friend, shown.planDate, ShareAction.QR) },
+                                                )
+                                            }
+                                        }
+                                        IconButton(onClick = { vm.select(friend.id); friendDetails = true }) {
+                                            Icon(painterResource(R.drawable.ic_edit), stringResource(R.string.friend_details))
                                         }
                                     } else {
-                                        Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings))
+                                        IconButton(onClick = { manualEdit = ManualTarget(null) }) {
+                                            Icon(painterResource(R.drawable.ic_add), stringResource(R.string.manual_add))
+                                        }
+                                        IconButton(onClick = { showSettings = true }) {
+                                            if (update.offer != null) {
+                                                BadgedBox(badge = { Badge() }) {
+                                                    Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings_update_badge))
+                                                }
+                                            } else {
+                                                Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings))
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -392,7 +400,6 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         }
                     }
                 },
-                snackbarHost = { SnackbarHost(snackbar) },
             ) { padding ->
                 val p = plan
                 Box(Modifier.fillMaxSize().padding(padding)) {
@@ -401,7 +408,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         val edge = remember(people, animate) { EdgeOnlyConnection(people, animate) }
                         LaunchedEffect(edge) { edge.keepSettled() }
                         VerticalPager(
-                            people, Modifier.fillMaxSize(), beyondViewportPageCount = composedAround,
+                            people, Modifier.fillMaxSize().edgeTouches(edge), beyondViewportPageCount = composedAround,
                             // Moved by touch only through EdgeOnlyConnection (its own drag raced the content's).
                             userScrollEnabled = false,
                             key = { pages.getOrNull(it)?.person?.id ?: it },
@@ -433,8 +440,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                                 ) { shown ->
                                     when (shown) {
                                         null -> EmptyState(onImport)
-                                        Tab.WEEK -> WeekScreen(page, now, week, active, onWeek = { week = it }, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
-                                        Tab.DAY -> DayScreen(page, now, day, active, onDay = { day = it }, onOpen = { selected = it }, modifier = Modifier.fillMaxSize())
+                                        Tab.WEEK -> WeekScreen(page, now, week, active, onWeek = { week = it }, onOpen = { selected = SheetKey.of(page, it) }, modifier = Modifier.fillMaxSize())
+                                        Tab.DAY -> DayScreen(page, now, day, active, onDay = { day = it }, onOpen = { selected = SheetKey.of(page, it) }, modifier = Modifier.fillMaxSize())
                                     }
                                 }
                             }
@@ -446,8 +453,13 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             Modifier.align(Alignment.TopCenter).padding(top = 76.dp),
                         )
                     }
-                    val item = selected
-                    if (p != null && item != null) {
+                    val item = selected?.let { k -> p?.let { k.find(it) } }
+                    // Gone (hidden, removed, another person shown): the sheet closes.
+                    LaunchedEffect(selected, item == null) { if (selected != null && item == null) selected = null }
+                    // An action opened from the sheet (editor, dialog) hides it while open; closing it in any way
+                    // (save, cancel, back, outside) brings the sheet back.
+                    val subOpen = personalEdit != null || pickDates != null || editing != null || manualEdit != null
+                    if (p != null && item != null && !subOpen) {
                         DetailSheet(
                             p, item,
                             onEditSubject = { editing = it.key; editingCourse = item.event.courseKey },
@@ -455,9 +467,9 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             onCancelForMe = { cancel -> vm.setCancelledForMe(item.ref, item.event.title, cancel) },
                             onPickDates = { pickDates = item },
                             onEditManual = { manualEdit = ManualTarget(item.event.uid) },
-                            onDeleteManual = { vm.deleteManual(item.event.uid) },
-                            onRemoveAdded = { vm.removeAdded(item, item.event.title) },
-                            onHide = { h -> vm.hide(h, hiddenName(res, h)) },
+                            onDeleteManual = { selected = null; vm.deleteManual(item.event.uid) },
+                            onRemoveAdded = { selected = null; vm.removeAdded(item, item.event.title) },
+                            onHide = { h -> selected = null; vm.hide(h, hiddenName(res, h)) },
                             onDismiss = { selected = null },
                         )
                     }
@@ -476,6 +488,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         PickDatesDialog(
                             p, dates,
                             onSave = { pickDates = null; vm.setDates(it, dates.event.title) },
+                            hiddenDates = p.hidden,
                             onDismiss = { pickDates = null },
                         )
                     }
@@ -510,6 +523,12 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 onClose = { qr = null },
             )
         }
+        // Above the pages that cover the plan (settings), so an undo from there is seen: over the bottom bar on the plan.
+        val overPlan = !showSettings && !scanning && qr == null && plan?.isEmpty == false
+        SnackbarHost(
+            snackbar,
+            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (overPlan) 80.dp else 0.dp),
+        )
     }
 
     update.manifest?.releases?.firstOrNull { it.versionCode == updateDialog }?.let { release ->
@@ -586,8 +605,13 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
             },
             onMove = vm::moveCourse,
             onRhythm = vm::setRhythm,
-            onHide = { h -> editing = null; vm.hide(h, hiddenName(res, h)) },
+            onHide = { h -> editing = null; selected = null; vm.hide(h, hiddenName(res, h)) },
             onDismiss = { editing = null },
+            courseActions = if (current.isMe) CourseActions(
+                editManual = { uid -> editing = null; manualEdit = ManualTarget(uid) },
+                deleteManual = { uid -> editing = null; selected = null; vm.deleteManual(uid) },
+                removeAdded = { c -> editing = null; selected = null; vm.removeAddedCourse(c) },
+            ) else null,
         )
     }
 }
@@ -599,28 +623,56 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
  */
 @Composable
 private fun PagerTitle(state: androidx.compose.foundation.pager.PagerState, pages: List<PlanUi>, animate: Boolean) {
-    // Only the two pages around the position are composed; alpha and offset are read while drawing (no recomposition per frame).
-    val lower by remember(state) { androidx.compose.runtime.derivedStateOf { kotlin.math.floor(state.currentPage + state.currentPageOffsetFraction).toInt() } }
     if (pages.isEmpty()) {
-        TitleText(null)
+        Box(Modifier.height(TopBarBlock), contentAlignment = Alignment.CenterStart) { TitleText(null) }
         return
     }
-    Box(Modifier.clipToBounds()) {
-        for (i in lower..lower + 1) {
-            val page = pages.getOrNull(i) ?: continue
+    PagerLayers(state, pages, animate, Alignment.CenterStart) { page, _ -> TitleText(page) }
+}
+
+/** Height of the title and action blocks: fixed, so a subtitle (an .ics friend's) never changes the bar or moves a name. */
+private val TopBarBlock = 48.dp
+
+/**
+ * The top bar part of the two pages around the pager's position, stacked: each laid out with its own content, centered
+ * on its own in a block of fixed height, faded and slid by its distance from the position (read while drawing, no
+ * recomposition per frame). Only the nearer one takes taps and is read out; without animations only it is shown.
+ */
+@Composable
+private fun PagerLayers(
+    state: androidx.compose.foundation.pager.PagerState,
+    pages: List<PlanUi>,
+    animate: Boolean,
+    alignment: Alignment,
+    content: @Composable (page: PlanUi, near: Boolean) -> Unit,
+) {
+    val lower by remember(state) { androidx.compose.runtime.derivedStateOf { kotlin.math.floor(state.currentPage + state.currentPageOffsetFraction).toInt() } }
+    // The page after [lower] only while the pager is between the two (settled, it is out of sight: not composed at all).
+    val between by remember(state) { androidx.compose.runtime.derivedStateOf { state.currentPageOffsetFraction != 0f } }
+    val nearest by remember(state) { androidx.compose.runtime.derivedStateOf { kotlin.math.round(state.currentPage + state.currentPageOffsetFraction).toInt() } }
+    Box(Modifier.height(TopBarBlock).clipToBounds(), contentAlignment = alignment) {
+        // The farther page first, so the nearer one lies on top and gets the taps.
+        val shown = (if (between) lower..lower + 1 else nearest..nearest).filter { pages.getOrNull(it) != null }.sortedBy { if (it == nearest) 1 else 0 }
+        for (i in shown) {
+            val page = pages[i]
             key(page.person.id) {
-                TitleText(
-                    page,
-                    Modifier.graphicsLayer {
-                        val d = i - (state.currentPage + state.currentPageOffsetFraction)
-                        if (animate) {
-                            alpha = (1f - kotlin.math.abs(d) * 1.6f).coerceIn(0f, 1f)
-                            translationY = d * size.height * 0.8f
-                        } else {
-                            alpha = if (kotlin.math.abs(d) < 0.5f) 1f else 0f
+                val near = i == nearest
+                Box(
+                    Modifier
+                        .graphicsLayer {
+                            val d = i - (state.currentPage + state.currentPageOffsetFraction)
+                            if (animate) {
+                                alpha = (1f - kotlin.math.abs(d) * 1.6f).coerceIn(0f, 1f)
+                                translationY = d * size.height * 0.8f
+                            } else {
+                                alpha = if (kotlin.math.abs(d) < 0.5f) 1f else 0f
+                            }
                         }
-                    },
-                )
+                        .then(if (near) Modifier else Modifier.clearAndSetSemantics { }),
+                    contentAlignment = alignment,
+                ) { content(page, near) }
+                // Taps on the farther page's icons go nowhere.
+                if (!near) Box(Modifier.matchParentSize().pointerInput(Unit) { detectTapGestures { } })
             }
         }
     }
@@ -641,6 +693,19 @@ private fun TitleText(page: PlanUi?, modifier: Modifier = Modifier) {
                 color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** The appointment of the open detail sheet: whose plan, its [ref] (stays the same across my changes) and event UID. */
+private data class SheetKey(val personId: String, val ref: de.luwify.stundenplanmd.core.schedule.OccurrenceRef, val uid: String) {
+    fun find(plan: PlanUi): Timed? {
+        if (plan.person.id != personId) return null
+        val all: List<Timed> = plan.schedule.occurrences + plan.schedule.cancellations
+        return all.firstOrNull { it.ref == ref && it.event.uid == uid } ?: all.firstOrNull { it.ref == ref }
+    }
+
+    companion object {
+        fun of(plan: PlanUi, item: Timed) = SheetKey(plan.person.id, item.ref, item.event.uid)
     }
 }
 

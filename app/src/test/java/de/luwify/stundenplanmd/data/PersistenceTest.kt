@@ -319,6 +319,70 @@ class PersistenceTest {
         assertEquals(setOf(StoredData.ME), repo.data.value!!.hidden.keys)
     }
 
+    /** A course only on Saturdays: in the overview, in the week (Saturday column), and removable with undo. */
+    @Test
+    fun weekendOnlyManualCourseIsReachableAndRemovable() = runBlocking {
+        val repo = PlanRepository(dir())
+        repo.load()
+        repo.importIcs(File("../core/src/test/resources/lsf_scrubbed.ics").readText())
+        val course = ManualCourse(
+            id = ManualCourse.newId("00000000000000bb"), title = "Wochenendkurs", rhythm = ManualCourse.Rhythm.WEEKLY,
+            startDate = LocalDate.parse("2026-10-18"), endDate = LocalDate.parse("2026-11-08"),
+            start = java.time.LocalTime.parse("14:00"), end = java.time.LocalTime.parse("16:00"), skipFreeWeeks = false,
+        )
+        repo.saveManual(course, null)
+        val data = repo.data.value!!
+        assertTrue(Subjects.build(data.myEvents, data.courseSettings).any { s -> s.courses.any { it.key == course.courseKey } })
+        val week = data.mySchedule().week(LocalDate.parse("2026-10-12"))
+        assertEquals(LocalDate.parse("2026-10-18"), week.days.last().date)
+        assertEquals(course.id, week.days.last().occurrences.single().event.uid)
+        val previous = repo.deleteManual(course.id)!!
+        assertEquals(5, repo.data.value!!.mySchedule().week(LocalDate.parse("2026-10-12")).days.size)
+        repo.restore(previous)
+        assertEquals(listOf(course), repo.data.value!!.manualCourses)
+    }
+
+    /**
+     * "Termine auswählen": unselected dates either cancelled for me or hidden (then in the Ausgeblendet list and
+     * restorable there); switching between the two never leaves both; all of it is in the backup. Stored with the
+     * existing personal changes and hidden items, so no new storage version.
+     */
+    @Test
+    fun pickedDatesAreCancelledOrHiddenAndRestorable() = runBlocking {
+        val repo = PlanRepository(dir())
+        repo.load()
+        val ics = File("../core/src/test/resources/lsf_scrubbed.ics").readText()
+        repo.importIcs(ics)
+        val dates = repo.data.value!!.mySchedule().occurrences.filter { it.event.uid == "900066500555" }.take(2)
+        val (a, b) = dates
+        fun hiddenItem(t: de.luwify.stundenplanmd.core.schedule.Timed) =
+            Hidden(Hidden.Kind.DATE, courses = setOf(t.event.courseKey), uid = t.ref.uid, date = t.ref.date, title = t.event.title)
+        repo.setDates(cancelled = mapOf(a.ref to true, b.ref to false), hidden = mapOf(hiddenItem(a) to false, hiddenItem(b) to true), title = a.event.title)
+        fun state(data: StoredData) = data.mySchedule().let { s ->
+            listOf(a, b).map { t ->
+                when {
+                    s.occurrences.any { it.ref == t.ref } -> "on"
+                    s.cancellations.any { it.ref == t.ref && it.byMe } -> "cancelled"
+                    else -> "hidden"
+                }
+            }
+        }
+        assertEquals(listOf("cancelled", "hidden"), state(repo.data.value!!))
+        assertEquals(listOf(hiddenItem(b)), repo.data.value!!.hiddenOf(StoredData.ME))
+        // Backup round trip, and the next import keeps both.
+        val restored = (BackupCodec.decode(BackupCodec.encode(repo.data.value!!, ics, theme, "de", UpdatesBackup())) as BackupResult.Ok).backup.data
+        assertEquals(listOf("cancelled", "hidden"), state(restored))
+        repo.importIcs(ics)
+        assertEquals(listOf("cancelled", "hidden"), state(repo.data.value!!))
+        // Switched: the cancelled one hidden, the hidden one cancelled; never both.
+        repo.setDates(cancelled = mapOf(a.ref to false, b.ref to true), hidden = mapOf(hiddenItem(a) to true, hiddenItem(b) to false), title = a.event.title)
+        assertEquals(listOf("hidden", "cancelled"), state(repo.data.value!!))
+        assertTrue(repo.data.value!!.personalChanges.none { it.uid == a.ref.uid && it.date == a.ref.date && it.cancelled })
+        // "Wiederherstellen" in the Ausgeblendet list brings it back.
+        repo.unhide(StoredData.ME, hiddenItem(a))
+        assertEquals(listOf("on", "cancelled"), state(repo.data.value!!))
+    }
+
     /**
      * Version 6 holds friends' plans as apps before 1.2.2 decoded them: biweekly series counted every 14 days. Version 7
      * converts them once to even/odd calendar weeks and marks the plan where dates after the week 53 may differ; my plan,

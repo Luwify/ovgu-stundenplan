@@ -49,13 +49,12 @@ import de.luwify.stundenplanmd.core.schedule.Timed
 import de.luwify.stundenplanmd.core.schedule.Schedule
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 import de.luwify.stundenplanmd.ui.theme.SubjectColors
 import de.luwify.stundenplanmd.ui.theme.planColors
 import java.time.LocalDateTime
 
 /**
- * Day strip above a pager with one page per weekday (Mon–Fri); opens on [day] (shared between people, null = today or
+ * Day strip above a pager with one page per day shown (Mon–Fri, Saturday/Sunday when something is on them); opens on [day] (shared between people, null = today or
  * the next day with events), clamped to this plan's range. While [active], days the user moves to go to [onDay].
  */
 @Composable
@@ -72,21 +71,20 @@ fun DayScreen(
     val today = now.toLocalDate()
     val openDate = Navigation.dayToOpen(schedule, now)
     val weeks = remember(schedule, openDate) { Navigation.weeks(schedule, Schedule.monday(openDate.atStartOfDay())) }
-    val start = weeks.first()
-    val count = weeks.size * 5
-    fun pageOf(date: LocalDate) =
-        (ChronoUnit.WEEKS.between(start, Schedule.monday(date.atStartOfDay())).toInt() * 5 + minOf(date.dayOfWeek.value - 1, 4)).coerceIn(0, count - 1)
-    fun dateOf(page: Int): LocalDate = start.plusWeeks((page / 5).toLong()).plusDays((page % 5).toLong())
+    val days = remember(schedule, weeks) { Navigation.days(schedule, weeks) }
+    val count = days.size
+    fun pageOf(date: LocalDate) = Navigation.dayPage(days, date)
+    fun dateOf(page: Int): LocalDate = days[page.coerceIn(0, count - 1)]
     val openPage = pageOf(day ?: openDate)
 
-    key(start, count) {
+    key(days) {
         val pager = rememberPagerState(initialPage = openPage) { count }
         FollowSharedPage(pager, day?.let(::pageOf), active) { onDay(dateOf(it)) }
         val scope = rememberCoroutineScope()
         val animate = animationsEnabled()
         val locale = appLocale()
         val goTo: (Int) -> Unit = { page -> scope.launch { if (animate) pager.animateScrollToPage(page, animationSpec = tween(Motion.Long, easing = Motion.Standard)) else pager.scrollToPage(page) } }
-        val labels = remember(plan, start, count, today, locale) {
+        val labels = remember(plan, days, today, locale) {
             (0 until count).map { page ->
                 val date = dateOf(page)
                 ChipLabel(

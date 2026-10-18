@@ -84,10 +84,14 @@ fun DetailSheet(
     val stripe = remember(rgb, scheme.surfaceContainerLow) { SubjectColors.block(rgb, scheme.surfaceContainerLow).stripe }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    // An action closes the sheet by sliding it away, like a swipe or back, instead of removing it at once.
+    // An action that makes the appointment disappear closes the sheet by sliding it away, like a swipe or back.
     fun leave(action: () -> Unit) {
         action()
         scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+    }
+    // An action that opens an editor or dialog slides the sheet away first; the screen brings it back when that closes.
+    fun open(action: () -> Unit) {
+        scope.launch { sheetState.hide() }.invokeOnCompletion { action() }
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -108,7 +112,7 @@ fun DetailSheet(
             if (event.isManual) {
                 ManualBox(
                     who = if (plan.isMe) null else plan.person.displayName,
-                    onEdit = { leave(onEditManual) }.takeIf { plan.isMe },
+                    onEdit = { open(onEditManual) }.takeIf { plan.isMe },
                     onDelete = { leave(onDeleteManual) }.takeIf { plan.isMe },
                 )
             }
@@ -137,7 +141,7 @@ fun DetailSheet(
                 // Own changes: my plan only (a friend's plan is read-only).
                 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { leave(onEditPersonal) }) {
+                    OutlinedButton(onClick = { open(onEditPersonal) }) {
                         Icon(NoteIcon, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.action_edit_personal))
@@ -145,19 +149,19 @@ fun DetailSheet(
                     val lsfCancelled = item is Cancellation && !item.byMe
                     if (!lsfCancelled) {
                         val cancelled = item.cancelledForMe
-                        OutlinedButton(onClick = { leave { onCancelForMe(!cancelled) } }) {
+                        OutlinedButton(onClick = { onCancelForMe(!cancelled) }) {
                             Text(stringResource(if (cancelled) R.string.action_uncancel else R.string.action_cancel_for_me))
                         }
                     }
                     // Next to "cancelled for me" (still shown, struck through): gone from the plan altogether.
                     OutlinedButton(onClick = { leave { onHide(HideTargets.date(item)) } }) { Text(stringResource(R.string.hide_date)) }
-                    OutlinedButton(onClick = { leave(onPickDates) }) { Text(stringResource(R.string.action_pick_dates)) }
+                    OutlinedButton(onClick = { open(onPickDates) }) { Text(stringResource(R.string.action_pick_dates)) }
                 }
             }
             @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (subject != null) {
-                    OutlinedButton(onClick = { leave { onEditSubject(subject) } }) {
+                    OutlinedButton(onClick = { open { onEditSubject(subject) } }) {
                         Icon(EditIcon, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.edit_subject))

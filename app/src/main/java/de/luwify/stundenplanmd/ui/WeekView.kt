@@ -101,7 +101,7 @@ private const val DIGIT_HEIGHT = 0.71f
 internal const val NOW_LINE_ALPHA = 0.4f
 
 /**
- * Week strip above a Mon–Fri grid, one pager page per week; opens on [week] (shared between people, null = this week,
+ * Week strip above a Mon–Fri grid (Saturday/Sunday added in weeks with something on them), one pager page per week; opens on [week] (shared between people, null = this week,
  * next week on weekends), clamped to this plan's weeks. While [active], weeks the user moves to are reported to [onWeek].
  */
 @Composable
@@ -115,7 +115,7 @@ fun WeekScreen(
     modifier: Modifier = Modifier,
 ) {
     val schedule = plan.schedule
-    val openMonday = Navigation.weekToOpen(now.toLocalDate())
+    val openMonday = Navigation.weekToOpen(schedule, now.toLocalDate())
     val firstMonday = Schedule.monday(schedule.firstDate!!.atStartOfDay())
     val lastMonday = Schedule.monday(schedule.lastDate!!.atStartOfDay())
     val weeks = remember(schedule, openMonday) { Navigation.weeks(schedule, openMonday) }
@@ -135,7 +135,7 @@ fun WeekScreen(
             weeks.map { monday ->
                 ChipLabel(
                     top = weekLabel(monday, locale),
-                    bottom = "${monday.dayOfMonth}.${monday.monthValue}. - ${monday.plusDays(4).let { "${it.dayOfMonth}.${it.monthValue}." }}",
+                    bottom = "${monday.dayOfMonth}.${monday.monthValue}. - ${schedule.week(monday).lastDay.let { "${it.dayOfMonth}.${it.monthValue}." }}",
                     muted = schedule.week(monday).days.all { it.occurrences.isEmpty() },
                     current = monday == thisMonday,
                 )
@@ -186,10 +186,12 @@ private fun WeekPage(
             val top = lead + 1.dp
             val hourH = maxOf(MinHour, (maxHeight - top) / n)
             val lines = colors.outlineVariant
-            // Now, across the whole week behind the events: only in the current week, Mon–Fri, inside the hour range.
+            // Now, across the whole week behind the events: only in the current week, on a day shown, inside the hour range.
             val nowLine = colors.primary.copy(alpha = NOW_LINE_ALPHA)
+            val todayShown = week.days.any { it.date == today }
+            val columns = week.days.size
             val nowHours = (Duration.between(now.toLocalDate().atTime(hours.first, 0), now).toMinutes() / 60f)
-                .takeIf { today in monday..monday.plusDays(4) && it > 0f && it < n }
+                .takeIf { todayShown && it > 0f && it < n }
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -202,8 +204,8 @@ private fun WeekPage(
                             val y = (hourH * i).toPx().coerceAtMost(size.height - 1f)
                             drawLine(lines, Offset(g, y), Offset(size.width, y), 1f)
                         }
-                        val w = (size.width - g) / 5f
-                        for (d in 1 until 5) drawLine(lines, Offset(g + w * d, 0f), Offset(g + w * d, size.height), 1f)
+                        val w = (size.width - g) / columns
+                        for (d in 1 until columns) drawLine(lines, Offset(g + w * d, 0f), Offset(g + w * d, size.height), 1f)
                         if (nowHours != null) {
                             val y = (hourH * nowHours).toPx()
                             drawLine(nowLine, Offset(g, y), Offset(size.width, y), 1.5.dp.toPx())
@@ -211,8 +213,8 @@ private fun WeekPage(
                     },
             ) {
                 Box(Modifier.width(Gutter).fillMaxHeight()) {
-                    val fill = dayProgress(DayProgress.of(monday, now, hours.first, hours.last))
-                    val started = DayProgress.started(monday, now, hours.first)
+                    val fill = dayProgress(DayProgress.of(monday, now, hours.first, hours.last, todayShown))
+                    val started = DayProgress.started(monday, now, hours.first, todayShown)
                     DayProgressFill(fill, started, lead, Modifier.fillMaxSize().padding(horizontal = 3.dp))
                     for (h in hours.first until hours.last) {
                         // A label counts as covered once the fill passes its middle, which is on the hour's line (the

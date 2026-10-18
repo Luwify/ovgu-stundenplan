@@ -289,7 +289,7 @@
     <string name="editor_end">Ende</string>
     <string name="editor_time_invalid">Zeiten wie 9:15, Ende nach Beginn</string>
     <string name="pick_dates_title">Termine von %1$s</string>
-    <string name="pick_dates_hint">Abgewählte Termine fallen für dich aus.</string>
+    <string name="pick_dates_hint">Ausgewählte Termine finden für dich statt.</string>
     <string name="note_marker">Mit Notiz</string>
     <string name="own_marker">Von dir geändert</string>
     <string name="share_changes">Eigene Änderungen teilen</string>
@@ -406,4 +406,9 @@
     <string name="short_name_all">Kürzel (alle Typen)</string>
     <string name="short_name_type">Kürzel (dieser Typ)</string>
     <string name="short_name_preview">Vorschau:</string>
+    <string name="pick_dates_unselected">Nicht ausgewählte Termine</string>
+    <string name="pick_dates_as_cancelled">Als ausgefallen zeigen</string>
+    <string name="pick_dates_hide">Ausblenden</string>
+    <string name="pick_dates_hidden_now">ausgeblendet</string>
+    <string name="course_options">Optionen</string>
 </resources>

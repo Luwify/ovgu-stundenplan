@@ -270,22 +270,44 @@ private fun ScopeRow(text: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
+/** What "Termine auswählen" makes of a date: it takes place, is shown as cancelled for me, or is hidden. */
+enum class DateState { ON, CANCELLED, HIDDEN }
+
 /**
- * "Termine auswählen": every date of [item]'s course in my plan (LSF cancellations left out), checked = takes place for
- * me. Saves only what was toggled.
+ * "Termine auswählen": every date of [item]'s group in my plan (LSF cancellations left out), checked = takes place for
+ * me. Dates cancelled for me or hidden ([hiddenDates]) are listed too, unchecked, so they can always be brought back or
+ * switched. For the unchecked dates the dialog asks every time: shown as cancelled, or hidden. Preselected only when
+ * they are all in the same state already. Saves only what changed.
  */
 @Composable
-fun PickDatesDialog(plan: PlanUi, item: Timed, onSave: (Map<OccurrenceRef, Boolean>) -> Unit, onDismiss: () -> Unit) {
+fun PickDatesDialog(
+    plan: PlanUi,
+    item: Timed,
+    onSave: (Map<Timed, DateState>) -> Unit,
+    onDismiss: () -> Unit,
+    hiddenDates: List<de.luwify.stundenplanmd.core.model.Hidden> = emptyList(),
+) {
     val locale = appLocale()
     val course = item.event.courseKey
-    // Only this group's dates (a course can have several groups, e.g. exercise groups in other time slots).
-    val dates = remember(plan, item) {
-        val group = Groups.of(plan.schedule, item)
-        (plan.schedule.occurrences + plan.schedule.cancellations.filter { it.byMe })
+    val hiddenRefs = remember(hiddenDates) {
+        hiddenDates.filter { it.kind == de.luwify.stundenplanmd.core.model.Hidden.Kind.DATE && it.uid != null && it.date != null }
+            .mapTo(HashSet()) { OccurrenceRef(it.uid!!, it.date!!) }
+    }
+    // Only this group's dates (a course can have several groups, e.g. exercise groups in other time slots), with the
+    // hidden ones: from the plan without hiding.
+    val dates: List<Pair<Timed, DateState>> = remember(plan, item, hiddenRefs) {
+        val full = de.luwify.stundenplanmd.core.schedule.Schedule(plan.schedule.events, plan.schedule.changes)
+        val group = Groups.of(full, item)
+        (full.occurrences + full.cancellations.filter { it.byMe })
             .filter { it.event.uid in group }
             .sortedBy { it.start }
+            .map { t -> t to if (t.ref in hiddenRefs) DateState.HIDDEN else if (t is Cancellation) DateState.CANCELLED else DateState.ON }
     }
-    val choices = remember { mutableStateMapOf<OccurrenceRef, Boolean>() }
+    val checked = remember { mutableStateMapOf<OccurrenceRef, Boolean>() }
+    fun isOn(t: Timed, initial: DateState) = checked[t.ref] ?: (initial == DateState.ON)
+    val initialOff = dates.filter { it.second != DateState.ON }.map { it.second }.toSet()
+    var choice by rememberSaveable { mutableStateOf(initialOff.singleOrNull()) }
+    val anyOff = dates.any { (t, s) -> !isOn(t, s) }
     val name = blockName(plan.subjectOf[course], item)
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -293,27 +315,46 @@ fun PickDatesDialog(plan: PlanUi, item: Timed, onSave: (Map<OccurrenceRef, Boole
         text = {
             Column {
                 Text(stringResource(R.string.pick_dates_hint), style = MaterialTheme.typography.bodyMedium)
-                LazyColumn(Modifier.padding(top = 8.dp)) {
-                    items(dates, key = { "${it.ref}@${it.event.uid}" }) { d ->
-                        val checked = choices[d.ref] ?: (d is Occurrence)
+                LazyColumn(Modifier.padding(top = 8.dp).weight(1f, fill = false)) {
+                    items(dates, key = { "${it.first.ref}@${it.first.event.uid}" }) { (d, initial) ->
+                        val on = isOn(d, initial)
                         Row(
-                            Modifier.fillMaxWidth().clickable { choices[d.ref] = !checked }.padding(vertical = 2.dp),
+                            Modifier.fillMaxWidth().clickable { checked[d.ref] = !on }.padding(vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Checkbox(checked, { choices[d.ref] = it })
+                            Checkbox(on, { checked[d.ref] = it })
                             Text(
-                                "${dayAndDate(d.date, locale)}  ${timeRange(d.start, d.end)}" + (d.room?.let { " · $it" } ?: ""),
+                                "${dayAndDate(d.date, locale)}  ${timeRange(d.start, d.end)}" + (d.room?.let { " · $it" } ?: "") +
+                                    if (initial == DateState.HIDDEN) " · " + stringResource(R.string.pick_dates_hidden_now) else "",
                                 style = MaterialTheme.typography.bodyMedium,
+                                color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
                 }
+                if (anyOff) {
+                    Text(
+                        stringResource(R.string.pick_dates_unselected),
+                        Modifier.padding(top = 12.dp, bottom = 4.dp),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    ScopeRow(stringResource(R.string.pick_dates_as_cancelled), choice == DateState.CANCELLED) { choice = DateState.CANCELLED }
+                    ScopeRow(stringResource(R.string.pick_dates_hide), choice == DateState.HIDDEN) { choice = DateState.HIDDEN }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                onSave(choices.filter { (ref, on) -> dates.first { it.ref == ref }.let { (it is Occurrence) != on } })
-            }) { Text(stringResource(R.string.save)) }
+            TextButton(
+                enabled = !anyOff || choice != null,
+                onClick = {
+                    onSave(
+                        dates.mapNotNull { (d, initial) ->
+                            val target = if (isOn(d, initial)) DateState.ON else choice ?: initial
+                            (d to target).takeIf { target != initial }
+                        }.toMap(),
+                    )
+                },
+            ) { Text(stringResource(R.string.save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )

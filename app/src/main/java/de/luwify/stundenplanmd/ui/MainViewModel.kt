@@ -477,6 +477,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Removes every added appointment of [course] (all its groups) from my plan, from the subject editor (undo in the snackbar). */
+    fun removeAddedCourse(course: Course) {
+        viewModelScope.launch {
+            val previous = repo.removeAdded(course.events.mapTo(HashSet()) { it.uid }) ?: return@launch
+            _messages.send(UiMessage.AddedRemoved(course.title, previous))
+        }
+    }
+
     /** A scanned QR text. */
     fun importScanned(text: String) {
         viewModelScope.launch { receiveShare(withContext(Dispatchers.Default) { ShareCodec.parse(text) }) }
@@ -681,12 +689,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** "Termine auswählen": [choices] = date -> takes place for me. */
-    fun setDates(choices: Map<OccurrenceRef, Boolean>, title: String) {
+    /**
+     * "Termine auswählen": the new state of each changed date (takes place, shown as cancelled, or hidden). A date is
+     * either cancelled for me or hidden, never both.
+     */
+    fun setDates(states: Map<Timed, DateState>, title: String) {
+        if (states.isEmpty()) return
         viewModelScope.launch {
-            repo.updatePersonalChanges { changes ->
-                choices.entries.fold(changes) { acc, (ref, on) -> PersonalChanges.setCancelled(acc, ref, title, !on) }
-            }
+            repo.setDates(
+                cancelled = states.entries.associate { (t, s) -> t.ref to (s == DateState.CANCELLED) },
+                hidden = states.entries.associate { (t, s) -> HideTargets.date(t) to (s == DateState.HIDDEN) },
+                title = title,
+            )
         }
     }
 
