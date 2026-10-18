@@ -163,8 +163,13 @@ class Schedule(val events: List<Event>, val changes: List<PersonalChange> = empt
 
     fun day(date: LocalDate): DayPlan = days.getOrPut(date) { DayPlan(date, on(date), cancelledByDate[date].orEmpty()) }
 
-    /** Monday to Friday of the week starting at [monday]. */
-    fun week(monday: LocalDate): WeekPlan = weeks.getOrPut(monday) { WeekPlan(monday, (0L until 5L).map { day(monday.plusDays(it)) }) }
+    /**
+     * Monday to Friday of the week starting at [monday], plus Saturday and Sunday when something is on them (an
+     * occurrence or a cancellation; hidden dates don't count): weekend dates must stay reachable.
+     */
+    fun week(monday: LocalDate): WeekPlan = weeks.getOrPut(monday) {
+        WeekPlan(monday, (0L until 7L).map { day(monday.plusDays(it)) }.filterIndexed { i, d -> i < 5 || d.occurrences.isNotEmpty() || d.cancellations.isNotEmpty() })
+    }
 
 
     /** Whole hours covering every occurrence and cancellation (for the week grid); 8–18 for an empty plan. */

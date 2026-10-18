@@ -20,8 +20,12 @@ data class DayPlan(val date: LocalDate, val occurrences: List<Occurrence>, val c
     val placed: List<Placed<Timed>> by lazy { DayLayout.place(items()) }
 }
 
+/** The days shown for a week: Monday to Friday, and Saturday/Sunday only when something is on them ([Schedule.week]). */
 data class WeekPlan(val monday: LocalDate, val days: List<DayPlan>) {
-    /** Nothing takes place Mon–Fri and something was cancelled: one "Vorlesungsfrei" banner for the week. */
+    /** The last day shown (Friday, or Saturday/Sunday). */
+    val lastDay: LocalDate get() = days.last().date
+
+    /** Nothing takes place on the days shown and something was cancelled: one "Vorlesungsfrei" banner for the week. */
     val free: Boolean get() = days.all { it.occurrences.isEmpty() } && days.any { d -> d.cancellations.any { !it.byMe } }
 }
 
@@ -51,6 +55,20 @@ object Navigation {
         val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         return if (today.dayOfWeek >= DayOfWeek.SATURDAY) monday.plusWeeks(1) else monday
     }
+
+    /** Like [weekToOpen], but on the weekend this week stays open while something of it is still to come (today or Sunday). */
+    fun weekToOpen(schedule: Schedule, today: LocalDate): LocalDate {
+        val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        if (today.dayOfWeek >= DayOfWeek.SATURDAY && schedule.week(monday).days.any { !it.date.isBefore(today) && it.occurrences.isNotEmpty() }) return monday
+        return weekToOpen(today)
+    }
+
+    /** The days of the day pager for [weeks] (Mondays): the days each week shows ([Schedule.week]). */
+    fun days(schedule: Schedule, weeks: List<LocalDate>): List<LocalDate> = weeks.flatMap { m -> schedule.week(m).days.map { it.date } }
+
+    /** The page of [date] in [days]: that day, or the next one shown (a weekend day without events: the next Monday). */
+    fun dayPage(days: List<LocalDate>, date: LocalDate): Int =
+        days.indexOfFirst { !it.isBefore(date) }.let { if (it < 0) days.lastIndex else it }.coerceAtLeast(0)
 
     /**
      * Mondays of the weeks the strips and pagers cover: from one week before the first event to the week of the

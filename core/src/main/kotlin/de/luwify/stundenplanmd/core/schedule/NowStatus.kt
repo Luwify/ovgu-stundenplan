@@ -15,7 +15,7 @@ sealed interface NowStatus {
     /** No more events today (or none at all on a weekday of the semester). */
     data object FreeToday : NowStatus
 
-    /** Weekend or outside the semester: nothing is shown. */
+    /** Weekend without events or outside the semester: nothing is shown. */
     data object None : NowStatus
 
     companion object {
@@ -23,8 +23,8 @@ sealed interface NowStatus {
             val first = schedule.firstDate ?: return None
             val today = now.toLocalDate()
             if (today.isBefore(first) || today.isAfter(schedule.lastDate!!)) return None
-            if (today.dayOfWeek >= DayOfWeek.SATURDAY) return None
             val day = schedule.on(today)
+            if (today.dayOfWeek >= DayOfWeek.SATURDAY && day.isEmpty()) return None
             // Overlapping events: the one that started last is where they most likely are.
             day.filter { !it.start.isAfter(now) && it.end.isAfter(now) }.maxByOrNull { it.start }?.let { return In(it, it.end.toLocalTime()) }
             return day.filter { it.start.isAfter(now) }.minByOrNull { it.start }?.let { FreeUntil(it) } ?: FreeToday
