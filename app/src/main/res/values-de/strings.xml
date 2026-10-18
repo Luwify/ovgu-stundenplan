@@ -215,7 +215,7 @@
     <string name="check_too_new">Diese Version kann die Versionsliste nicht mehr lesen: bitte die App von Hand aktualisieren.</string>
     <string name="update_row">Update auf %1$s</string>
     <string name="auto_check">Automatisch suchen</string>
-    <string name="auto_check_hint">Höchstens einmal am Tag beim Start der App. Geladen wird nur die Versionsliste aus dem Release-Repo, ohne Kennungen.</string>
+    <string name="auto_check_hint">Höchstens alle 6 Stunden, wenn die App geöffnet wird oder wieder in den Vordergrund kommt. Geladen wird nur die Versionsliste aus dem Release-Repo, ohne Kennungen.</string>
     <string name="version_installed">installiert</string>
     <string name="version_title">Version %1$s</string>
     <string name="version_changes">Änderungen</string>

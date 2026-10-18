@@ -221,7 +221,7 @@
     <string name="check_too_new">This version can\'t read the version list any more: please update the app by hand.</string>
     <string name="update_row">Update to %1$s</string>
     <string name="auto_check">Check automatically</string>
-    <string name="auto_check_hint">At most once a day when the app starts. Only the version list of the release repo is loaded, without identifiers.</string>
+    <string name="auto_check_hint">At most every 6 hours when the app is opened or comes back to the foreground. Only the version list of the release repo is loaded, without identifiers.</string>
     <string name="version_installed">installed</string>
     <string name="version_title">Version %1$s</string>
     <string name="version_changes">Changes</string>

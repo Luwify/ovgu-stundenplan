@@ -16,6 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import java.io.File
 import java.io.IOException
 
@@ -63,7 +65,8 @@ sealed interface DownloadState {
 data class PermissionAsk(val release: Release, val explain: Boolean)
 
 /**
- * The in-app updater: checks the manifest (automatically at most daily at app start, or by hand), downloads,
+ * The in-app updater: checks the manifest (automatically when the app comes to the foreground, at most every
+ * [UpdatePolicy.CHECK_INTERVAL_MILLIS], or by hand), downloads,
  * verifies and installs an update. No background job: it lives as long as the process.
  */
 class Updates(context: Context, private val settings: UpdateSettings, private val source: UpdateSource) {
@@ -106,11 +109,24 @@ class Updates(context: Context, private val settings: UpdateSettings, private va
 
     fun canInstall(release: Release) = UpdatePolicy.canInstall(release, installed.code, sdk) && source.allowsApk(release.apkUrl)
 
-    /** At app start: removes APKs left from an earlier run and checks if it's due. */
-    fun onAppStart() {
+    /** Once per process, before the first check: removes APKs left from an earlier run, migrates the settings. */
+    private val startup: Job by lazy {
         scope.launch {
             withContext(Dispatchers.IO) { cleanUp() }
             settings.migrate()
+        }
+    }
+
+    /**
+     * Each time the app comes to the foreground (process ON_START: cold start, back from the background, restored
+     * after Android killed the process; not on rotation): checks if it's due, after the next frame so it never
+     * delays the UI.
+     */
+    fun onForeground() {
+        scope.launch {
+            startup.join()
+            awaitFrame()
+            yield() // awaitFrame resumes inside the frame callback, before that frame is drawn
             val p = settings.current()
             if (UpdatePolicy.shouldAutoCheck(p.autoCheck, p.lastCheckMillis, System.currentTimeMillis())) check()
         }

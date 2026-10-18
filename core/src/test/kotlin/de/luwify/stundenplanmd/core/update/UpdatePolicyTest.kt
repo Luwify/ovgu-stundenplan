@@ -28,13 +28,28 @@ class UpdatePolicyTest {
         .withRelease(release("2.0.0", minSdk = 30))
 
     @Test
-    fun autoCheckAtMostDaily() {
-        val day = UpdatePolicy.CHECK_INTERVAL_MILLIS
+    fun autoCheckAtMostEverySixHours() {
+        val hour = 60 * 60 * 1000L
+        assertEquals(6 * hour, UpdatePolicy.CHECK_INTERVAL_MILLIS)
         assertTrue(UpdatePolicy.shouldAutoCheck(true, null, 5))
-        assertFalse(UpdatePolicy.shouldAutoCheck(true, 1000, 1000 + day - 1))
-        assertTrue(UpdatePolicy.shouldAutoCheck(true, 1000, 1000 + day))
-        assertTrue(UpdatePolicy.shouldAutoCheck(true, 1000 + day, 1000)) // clock went back
+        assertFalse(UpdatePolicy.shouldAutoCheck(true, 1000, 1000 + 6 * hour - 1))
+        assertTrue(UpdatePolicy.shouldAutoCheck(true, 1000, 1000 + 6 * hour))
+        assertTrue(UpdatePolicy.shouldAutoCheck(true, 1000 + 6 * hour, 1000)) // clock went back
         assertFalse(UpdatePolicy.shouldAutoCheck(false, null, 5))
+    }
+
+    @Test
+    fun restoredProcessDecidesFromTheStoredCheckOnly() {
+        // After Android killed the process, the restore starts a new process: ON_START fires again and the only
+        // state is the stored last check (DataStore), so the throttle holds across the restore: within 6 h of the
+        // last successful check nothing is fetched, after that it is.
+        val hour = 60 * 60 * 1000L
+        val lastCheck = 1_000_000L
+        assertFalse(UpdatePolicy.shouldAutoCheck(true, lastCheck, lastCheck + 2 * hour))
+        assertTrue(UpdatePolicy.shouldAutoCheck(true, lastCheck, lastCheck + 7 * hour))
+        // The snackbar isn't shown again for the version announced before (announcedCode is stored too).
+        val offer = UpdatePolicy.offer(manifest, 10000, 28, null)
+        assertFalse(UpdatePolicy.shouldAnnounce(offer, offer!!.versionCode))
     }
 
     @Test

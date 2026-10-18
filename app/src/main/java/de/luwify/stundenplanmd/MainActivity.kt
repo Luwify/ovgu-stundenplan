@@ -37,8 +37,6 @@ class MainActivity : ComponentActivity() {
         // Opened with / shared an .ics file. Not again after a configuration change.
         if (savedInstanceState == null) {
             handleFile(intent)
-            // Update check (at most daily, if on) and leftover APKs from an earlier run.
-            (application as StundenplanApp).container.updates.onAppStart()
         }
         setContent {
             // Many file managers label .ics as octet-stream or plain text: the content is checked on import.

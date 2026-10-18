@@ -92,9 +92,12 @@ data class UpdateSource(
 
 /** What the updater shows and offers, from a manifest and the installed version. */
 object UpdatePolicy {
-    const val CHECK_INTERVAL_MILLIS = 24 * 60 * 60 * 1000L
+    const val CHECK_INTERVAL_MILLIS = 6 * 60 * 60 * 1000L
 
-    /** The automatic check at app start: at most once per [CHECK_INTERVAL_MILLIS] (and again if the clock went back). */
+    /**
+     * The automatic check when the app comes to the foreground: at most once per [CHECK_INTERVAL_MILLIS] since the
+     * last successful one (and again if the clock went back).
+     */
     fun shouldAutoCheck(enabled: Boolean, lastCheckMillis: Long?, nowMillis: Long): Boolean =
         enabled && (lastCheckMillis == null || nowMillis - lastCheckMillis >= CHECK_INTERVAL_MILLIS || nowMillis < lastCheckMillis)
 

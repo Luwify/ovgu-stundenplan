@@ -334,7 +334,7 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 ## In-app updater
 - `:core` `update/UpdatePolicy.kt`: `UpdateSource` (manifest URL, APK prefix `.../releases/download/`, redirect
   rules, `override` for debug; `forManifestUrl` accepts only `https://github.com/<owner>/<repo>/releases/latest/
-  download/<file>`), `UpdatePolicy` (auto check at most every 24 h, overview hides withdrawn except the installed
+  download/<file>`), `UpdatePolicy` (auto check at most every 6 h since the last successful one, overview hides withdrawn except the installed
   one, `canInstall` = newer + not withdrawn + minSdk, `offer` minus the skipped version, snackbar once per version),
   `ApkCheck` (size, sha256, package, versionCode > installed and == manifest, signer set == installed). Manifest
   validation allows plain http only for 127.0.0.1/localhost (the release source still requires https).
@@ -347,10 +347,11 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   `release-assets.githubusercontent.com` (`GITHUB_ASSET_HOSTS`); at most `MAX_REDIRECTS` = 3. Nothing else
   (not `objects.githubusercontent.com`, GitHub's former asset host: if GitHub moves again, the updater fails safe
   and a new version must add the host). The initial APK URL must be below the APK prefix (`allowsApk`).
-- `:app` `data/update/`: `Updates` (process-wide in `AppContainer`: state, check at app start in
-  `MainActivity.onCreate`, download to `cacheDir/updates` with progress/cancel, verify, PackageInstaller session,
+- `:app` `data/update/`: `Updates` (process-wide in `AppContainer`: state, check whenever the app comes to the
+  foreground (`ProcessLifecycleOwner` ON_START registered in `StundenplanApp`, after the next frame; APK cleanup and
+  settings migration once per process before it), download to `cacheDir/updates` with progress/cancel, verify, PackageInstaller session,
   "install unknown apps" explanation once then `ACTION_MANAGE_UNKNOWN_APP_SOURCES`, continues in `onResume`; APKs
-  deleted after the session write and at every start), `UpdateHttp` (HttpURLConnection, checked redirects),
+  deleted after the session write and once per process start), `UpdateHttp` (HttpURLConnection, checked redirects),
   `ApkInspector`/`ApkInstaller`/`InstallResultReceiver`, `UpdateSettings` (own DataStore `updates`, `schema_version`
   1: auto_check, last_check, manifest (last good one, shown offline), announced_code, skipped_code,
   unknown_sources_explained; auto_check and skipped_code are in the backup).

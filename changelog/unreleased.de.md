@@ -17,3 +17,4 @@ Geändert:
 - Symbole oben rechts wechseln beim Wischen zwischen Personen zusammen mit dem Namen; der Name springt am Ende des Wischens nicht mehr
 - Schnelles Wischen über den Wochenplan wechselt zur nächsten Person, auch wenn nur ein kurzes Stück gewischt wird
 - Hinweise mit „Rückgängig“ erscheinen auch über den Einstellungen
+- Nach Updates wird automatisch höchstens alle 6 Stunden gesucht statt einmal am Tag, auch wenn die App aus dem Hintergrund zurückkommt; der Hinweis auf eine neue Version erscheint weiterhin nur einmal

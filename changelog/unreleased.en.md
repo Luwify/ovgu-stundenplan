@@ -17,3 +17,4 @@ Changed:
 - The icons at the top right change together with the name while swiping between people; the name no longer jumps at the end of a swipe
 - A quick swipe over the week grid moves on to the next person, even when it is only a short swipe
 - Notices with "Undo" also appear over the settings
+- The automatic update check runs at most every 6 hours instead of once a day, also when the app comes back from the background; the notice about a new version still appears only once
