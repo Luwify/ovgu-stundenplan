@@ -23,12 +23,14 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
     `titleStem`), `LsfImport` -> `ImportResult(events, source, warnings)`.
   - `model/`: `Event`, `Location`, `Recurrence`, `Plan`, `Person`, `CourseKeys` (UID hypothesis),
     `CourseType`, `Subjects` (grouping, `setStyle`, `move`, `carryOver`, `resolved` = automatic colors filled in,
-    `forFriend`/`overrides` for a friend's plan), `CourseSetting`, `PersonalChange` (own changes, see below); kotlinx JSON.
+    `forFriend`/`overrides` for a friend's plan), `CourseSetting`, `PersonalChange` (own changes, see below), `Hidden`
+    (see "Hiding"); kotlinx JSON.
   - `schedule/`: `Expansion` (slots incl. cancelled), `Schedule` (occurrences with `Status`
     Regular/Changed/Extra, unreplaced `cancellations`, `day`/`week`, `hours`), `DayPlan`/`WeekPlan`
     (`free` = all cancelled -> "Vorlesungsfrei"), `Navigation` (`weekToOpen`, `weeks` = strip/pager range from 1 week
     before the first event, `dayToOpen`, `TodayView`), `DayLayout`, `NowStatus` (drawer now-line), `Together`
-    (matching, `OccurrenceKey`), `Personal` (own changes resolved per occurrence, `PersonalChanges` editing + orphans).
+    (matching, `OccurrenceKey`), `Personal` (own changes resolved per occurrence, `PersonalChanges` editing + orphans),
+    `Hiding` (what a `Schedule` leaves out, `forSharing`).
   - `share/`: `Base45` (RFC 9285), `ShareCodec` (`SharedPlan`, `ShareResult`, QR text / file, limits).
   - `update/`: `UpdateManifest`, `UpdatePolicy` (see "In-app updater").
 - `:app`: `data/PlanRepository` (one atomic JSON file `files/plans/data.json` + `me.ics`, `StoredData`
@@ -36,7 +38,9 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   `shareIdentity`), `data/PersonIds`, `data/IcsSource` (uri -> bytes, text UTF-8/1252),
   `data/settings/ThemeSettings` (DataStore, Mensa MD keys). UI: `MainScreen` (Week/Day tabs, `VerticalPager` over
   `vm.pages` = me + friends in drawer order, synced both ways with `vm.selected`; shared `week`/`day` state so switching
-  people keeps the week/day; detail sheet, subject editor, settings overlay), `PeoplePager` (`EdgeOnlyConnection`:
+  people keeps the week/day; detail sheet, subject editor, settings overlay; top bar title `PagerTitle` follows the
+  pager's live position, not the settled page: the two names around it slide/fade by the offset (graphicsLayer, no
+  recomposition per frame), without animations the nearer one at once), `PeoplePager` (`EdgeOnlyConnection`:
   content scrolls first, the pager moves only for drags that start at the content's edge, the connection moves and
   settles the pager itself and is its only touch input: the pager has `userScrollEnabled = false` (its own drag grabbed
   touches while it settled and swallowed swipes); one connection for all pages (a fast second swipe lands on the next
@@ -101,6 +105,30 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 - Sharing: notes never; the rest while `MyShare.withChanges` ("Eigene Änderungen teilen"); friend's in
   `Plan.sharedChanges`, shown as "Von <Name> geändert".
 
+## Hiding (any plan, local)
+- `Hidden` (`:core`): kind SUBJECT (subject key + its course keys when hidden; matches either, so a course id changed by a
+  re-import or a course moved in by hand stays hidden), COURSE (= a type, course key, all its groups), GROUP (course key +
+  series UID, `Groups.baseUid`: the dates LSF moved out of it go with it; offered only when `Groups.count` > 1), DATE
+  (`Timed.ref`: UID + original date). Plus title/type/day/time/room for the list. `Hidden.add` replaces the same target
+  and drops narrower items the new one covers. Stored per person: `StoredData.hidden[personId]`, never touched by imports.
+- `Schedule(events, changes, hiding)` drops hidden occurrences and cancellations after change detection (no "fällt aus",
+  no "Vorlesungsfrei" from them), so the views, together matching (both sides) and the drawer now-line never see them.
+  `StoredData.settingsOf`/`hidingOf` give the shown settings (subject keys) per person. Subjects list (settings, editor)
+  is built from all events, so automatic colors don't shift.
+- My share: `Hiding.forSharing` leaves out events whose every date is hidden and lists the other hidden dates (UID + date
+  of the slot) -> `SharedPlan.hidden` -> `Plan.sharedHidden`, hidden on the friend's side; changes only for events sent.
+  Forwarding passes a friend's `sharedHidden` on.
+- UI: detail sheet "Termin ausblenden" (mine: next to "Fällt für mich aus"; friends: next to "Fach bearbeiten") and
+  "Ausblenden" (menu: Fach / Nur <Typ> / Nur diese Gruppe; a plain "Fach ausblenden" button when only that applies);
+  subject editor: "Fach ausblenden", course row menu "Nur <Typ> ausblenden". Snackbar with undo. Settings section
+  "Ausgeblendet" -> `HiddenScreen` (per person, me first, "Wiederherstellen", empty state).
+
+## Short names
+- `CourseSetting.shortName` = prefix for all types of the subject ("Kürzel (alle Typen)", same in every course),
+  `typeShortName` = this course's part ("Kürzel (dieser Typ)"). Shown: `Subject.displayNameOf(courseKey)` = prefix (or the
+  subject name) + space + part; no part = only the prefix. Storage 7 -> 8 keeps old short names as the prefix (nothing
+  changes visibly). Editor: type chips pick the course whose part is edited (opened from a date: its course), live preview.
+
 ## Manual courses (my plan)
 - `ManualCourse` (`:core`): id `manual-<16 hex>` = UID of its one event (never a 12-digit LSF UID), course key
   `manual:<id>` (never merged by title); type, room, lecturer, note, `st`, once / weekly / every 2 weeks, start/end date,
@@ -114,9 +142,10 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 
 ## Persistence (user data must survive every update)
 - Files in `files/plans/`: `data.json` (`StoredData`: people (list order = drawer order, me first; `Person.favorite`),
-  plans, courseSettings, friendSettings, share, personalChanges, manualCourses, rhythms, addedEvents; field `version`, currently 7; step 2 -> 3 sorts friends
+  plans, courseSettings, friendSettings, share, personalChanges, manualCourses, rhythms, addedEvents, hidden; field `version`, currently 8; step 2 -> 3 sorts friends
   by shown name, the order v2 displayed; step 3 -> 4 adds `personalChanges`; 4 -> 5 adds `manualCourses`; 5 -> 6 adds `rhythms` and `addedEvents` (.ics friends need no step: `ics-` ids); 6 -> 7 converts friends' plans from shares
-  of apps before 1.2.2 (`LegacyShares`, see the share codec) and sets `Plan.legacyShare`;
+  of apps before 1.2.2 (`LegacyShares`, see the share codec) and sets `Plan.legacyShare`; 7 -> 8 adds `hidden`
+  (`CourseSetting.typeShortName`, `Plan.sharedHidden` have defaults);
   versions 4 and 5 are on a real device, never change their meaning) and `me.ics` (raw import). Theme: DataStore `settings` (key `schema_version`).
   `data/PlanStore` does the I/O: atomic writes (tmp + fsync + rename, `AtomicFiles`), a leftover `data.json.bak` from
   the old AtomicFile scheme is restored, an unreadable or too-new `data.json` is renamed to `data.json.broken[.n]`
@@ -210,7 +239,9 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   start/length in quarter hours (escape for other minutes), slot count (0 = single), interval, bitmask of
   cancelled slots. Escapes for non-LSF UIDs and other RRULEs. Format 2 appends own changes (UID, date, series/until,
   s.t., cancelled, room, time; no notes); a plan without shareable changes is still written as 1, so older apps import
-  it (they reject 2 as "newer version"). Dropped: off-rhythm EXDATEs, PRODID. Flag bit 4 (since 1.2.2, ignored by older
+  it (they reject 2 as "newer version"). Format 3 appends hidden dates (UID, day) and type parts of short names (index
+  into the settings, text); written only when there are any (`ShareCodec.version` = the lowest that holds everything).
+  Dropped: off-rhythm EXDATEs, PRODID. Flag bit 4 (since 1.2.2, ignored by older
   readers): plain INTERVAL=2 series are in the calendar-week parity of their first date. Without it (apps before 1.2.2)
   they were counted every 14 days: `share/LegacyShares` re-expands them by parity (end = first parity date on or after
   the old last one, cancelled slots kept by date, `manual-` ones stay 14-day) and, where a series changed (it crossed
@@ -340,6 +371,12 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   and course titles, UIDs remapped consistently; keep structure and every quirk listed below.
 - Small commits. After each: `./gradlew testDebugUnitTest assembleDebug lint`.
 - Write own lenient iCal parser for the LSF subset; no iCal library.
+### Input safety for adb input tap/swipe:
+- Before every scripted input, check that the foreground activity is the app under test (`dumpsys activity activities | grep -m1 topResumedActivity` or `dumpsys window | grep mCurrentFocus`). If it isn't, stop the script. Don't tap anything else.
+- Turn on Do Not Disturb at the start of a test run (`cmd notification set_dnd priority`), restore the previous state afterwards, and record the previous state first.
+- Record rotation settings (`settings get system accelerometer_rotation` and `user_rotation`) before testing and restore them at the end.
+- Never tap the status bar area, never open the notification shade or the control centre, never interact with other apps.
+- If anything happened outside the app under test, report it at the top of the summary.
 
 ## LSF export findings (PRODID "QIS-LSF HIS eG")
 - CRLF line endings; inside multi-line DESCRIPTION the line breaks are `\r\r\n`. Split on `\r*\n`.
