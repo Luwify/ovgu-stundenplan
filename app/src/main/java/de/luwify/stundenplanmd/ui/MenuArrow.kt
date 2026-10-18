@@ -11,10 +11,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import de.luwify.stundenplanmd.R
 
-/**
- * Trailing arrow of a button that opens a menu instead of acting (its label ends with "…"; a button that opens a
- * choice dialog gets only the "…"). Put it after the button's Text.
- */
+/** Trailing arrow of the detail sheet's "Ausblenden" button, which opens a menu instead of acting. After its Text. */
 @Composable
 internal fun RowScope.MenuArrow() {
     Spacer(Modifier.width(4.dp))

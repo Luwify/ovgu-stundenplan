@@ -282,7 +282,7 @@
     <string name="action_edit_personal">Note &amp; changes</string>
     <string name="action_cancel_for_me">Cancel for me</string>
     <string name="action_uncancel">Takes place after all</string>
-    <string name="action_pick_dates">Choose dates…</string>
+    <string name="action_pick_dates">Choose dates</string>
     <string name="cancelled_for_me">%1$s on %2$s cancelled for you</string>
     <string name="uncancelled_for_me">%1$s on %2$s takes place for you again</string>
     <string name="editor_scope_one">Only this date (%1$s)</string>
@@ -385,7 +385,7 @@
     <string name="added_course_hint">From a separate .ics file. A full import that contains this appointment replaces it. Removing affects this group only.</string>
     <string name="added_remove">Remove from my plan</string>
     <string name="legacy_share_hint">Shared from an older version: some dates after New Year may differ. Ask for a new share.</string>
-    <string name="hide">Hide…</string>
+    <string name="hide">Hide</string>
     <string name="hide_subject">Hide subject</string>
     <string name="hide_type">Hide only %1$s</string>
     <string name="hide_group">Hide only this group</string>
@@ -416,5 +416,5 @@
     <string name="pick_dates_as_cancelled">Show as cancelled</string>
     <string name="pick_dates_hide">Hide</string>
     <string name="pick_dates_hidden_now">hidden</string>
-    <string name="course_options">Options…</string>
+    <string name="course_options">Options</string>
 </resources>

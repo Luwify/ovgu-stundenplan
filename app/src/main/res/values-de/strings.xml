@@ -276,7 +276,7 @@
     <string name="action_edit_personal">Notiz &amp; Änderungen</string>
     <string name="action_cancel_for_me">Fällt für mich aus</string>
     <string name="action_uncancel">Findet doch statt</string>
-    <string name="action_pick_dates">Termine auswählen…</string>
+    <string name="action_pick_dates">Termine auswählen</string>
     <string name="cancelled_for_me">%1$s am %2$s fällt für dich aus</string>
     <string name="uncancelled_for_me">%1$s am %2$s findet für dich wieder statt</string>
     <string name="editor_scope_one">Nur dieser Termin (%1$s)</string>
@@ -379,7 +379,7 @@
     <string name="added_course_hint">Aus einer eigenen .ics-Datei. Ein vollständiger Import, der diesen Termin enthält, ersetzt ihn. Entfernen betrifft nur diese Gruppe.</string>
     <string name="added_remove">Aus meinem Plan entfernen</string>
     <string name="legacy_share_hint">Aus einer älteren Version geteilt, einzelne Termine nach Neujahr können abweichen, neu teilen lassen.</string>
-    <string name="hide">Ausblenden…</string>
+    <string name="hide">Ausblenden</string>
     <string name="hide_subject">Fach ausblenden</string>
     <string name="hide_type">Nur %1$s ausblenden</string>
     <string name="hide_group">Nur diese Gruppe ausblenden</string>
@@ -410,5 +410,5 @@
     <string name="pick_dates_as_cancelled">Als ausgefallen zeigen</string>
     <string name="pick_dates_hide">Ausblenden</string>
     <string name="pick_dates_hidden_now">ausgeblendet</string>
-    <string name="course_options">Optionen…</string>
+    <string name="course_options">Optionen</string>
 </resources>

@@ -222,10 +222,7 @@ private fun CourseRow(plan: PlanUi, course: Course, subjectKey: String, onMove: 
         }
         Box {
             // Move, hide and (my plan) edit/delete/remove: more than moving, hence "Optionen".
-            TextButton(onClick = { menu = true }) {
-                Text(stringResource(R.string.course_options))
-                MenuArrow()
-            }
+            TextButton(onClick = { menu = true }) { Text(stringResource(R.string.course_options)) }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 val manual = course.events.firstOrNull { it.isManual }
                 if (actions != null && manual != null) {
@@ -287,9 +284,7 @@ private fun RhythmRow(event: Event, chosen: WeekRhythm?, onPick: (WeekRhythm?) -
         androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
         Box {
             TextButton(onClick = { menu = true }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp), modifier = Modifier.heightIn(min = 32.dp)) {
-                // Shows the chosen value, so no "…": only the arrow says it's a menu.
-                Text(if (chosen == null) autoLabel else rhythmName(chosen), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, maxLines = 2)
-                MenuArrow()
+                Text(if (chosen == null) autoLabel else rhythmName(chosen), style = MaterialTheme.typography.bodySmall, maxLines = 2)
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text(autoLabel) }, onClick = { menu = false; onPick(null) })
