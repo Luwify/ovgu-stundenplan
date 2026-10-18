@@ -1,11 +1,21 @@
+@file:UseSerializers(LocalDateSerializer::class)
+
 package de.luwify.stundenplanmd.core.schedule
+
+import de.luwify.stundenplanmd.core.model.LocalDateSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.UseSerializers
 
 import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.model.PersonalChange
 import java.time.LocalDate
 import java.time.LocalTime
 
-/** An occurrence as LSF knows it: the appointment UID and its original date (before a move). */
+/**
+ * An occurrence as LSF knows it: the appointment UID and its original date (before a move). Also a date a friend hid
+ * before sharing ([de.luwify.stundenplanmd.core.model.Plan.sharedHidden]: UID and date of the slot).
+ */
+@Serializable
 data class OccurrenceRef(val uid: String, val date: LocalDate)
 
 /** The values I can change for one occurrence. */

@@ -51,6 +51,8 @@ data class Plan(
      * ([de.luwify.stundenplanmd.core.share.LegacyShares]); some dates after a week 53 may differ. Shows a hint.
      */
     val legacyShare: Boolean = false,
+    /** Friend's plan: dates they hid before sharing (appointment UID + date of the slot); never shown. */
+    val sharedHidden: List<de.luwify.stundenplanmd.core.schedule.OccurrenceRef> = emptyList(),
 )
 
 /** One VEVENT: a single appointment or a weekly series. */

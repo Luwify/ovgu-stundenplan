@@ -9,6 +9,7 @@ import de.luwify.stundenplanmd.core.model.Recurrence
 import de.luwify.stundenplanmd.core.model.Subjects
 import de.luwify.stundenplanmd.core.model.WeekRhythm
 import de.luwify.stundenplanmd.core.schedule.Expansion
+import de.luwify.stundenplanmd.core.schedule.OccurrenceRef
 import java.io.ByteArrayOutputStream
 import java.time.DayOfWeek
 import java.time.Duration
@@ -38,6 +39,8 @@ data class SharedPlan(
     val changes: List<PersonalChange> = emptyList(),
     /** Shared by an app before 1.2.2 and its biweekly series were converted; some dates after a week 53 may differ. */
     val legacy: Boolean = false,
+    /** Dates the sender hid (appointment UID + date of the slot): never shown on the receiving side. */
+    val hidden: List<OccurrenceRef> = emptyList(),
 )
 
 sealed interface ShareResult {
@@ -62,9 +65,10 @@ sealed interface ShareResult {
 object ShareCodec {
     /**
      * 2: own changes and the s.t. flags of events appended after the events; manual courses (`manual-` UIDs) only in 2.
-     * A plan without any of them is still written as 1, which every app reads.
+     * 3: hidden dates and the type parts of short names ([CourseSetting.typeShortName]) appended after those.
+     * A plan is written in the lowest version that holds everything it has (none of them: 1, which every app reads).
      */
-    const val VERSION = 2
+    const val VERSION = 3
     const val QR_PREFIX = "SPMD:"
     val FILE_MAGIC = "SPMD".toByteArray()
     const val FILE_EXTENSION = "stundenplan"
@@ -150,9 +154,12 @@ object ShareCodec {
         }
     }
 
-    /** 1 when an older app can read everything, else 2 (older apps then say a newer version is needed). */
-    fun version(plan: SharedPlan): Int =
-        if (plan.changes.none { it.forSharing() != null } && plan.events.none { it.isManual || it.st }) 1 else 2
+    /** The lowest version that holds everything in [plan] (older apps say a newer version is needed for a higher one). */
+    fun version(plan: SharedPlan): Int = when {
+        plan.hidden.isNotEmpty() || plan.settings.values.any { !it.typeShortName.isNullOrBlank() } -> 3
+        plan.changes.any { it.forSharing() != null } || plan.events.any { it.isManual || it.st } -> 2
+        else -> 1
+    }
 
     fun decode(payload: ByteArray): ShareResult {
         if (payload.isEmpty()) return ShareResult.Broken("empty")
@@ -223,7 +230,8 @@ object ShareCodec {
 
             // Course settings: course ref (index + 1, or 0 + key string), subject, short name, color.
             val settings = Out()
-            val keyed = plan.settings.values.filter { it.subject != null || it.shortName != null || it.color != null }.sortedBy { it.courseKey }
+            val keyed = plan.settings.values.filter { it.subject != null || it.shortName != null || it.color != null || !it.typeShortName.isNullOrBlank() }
+                .sortedBy { it.courseKey }
             settings.varint(keyed.size)
             for (c in keyed) {
                 val ref = c.courseKey.removePrefix("lsf:").takeIf { c.courseKey.startsWith("lsf:") }?.toLongOrNull()?.let { courseIndex[it] }
@@ -275,6 +283,13 @@ object ShareCodec {
                 }
             }
 
+            // Version 3: hidden dates (UID, day), then type parts of short names (index into the settings, text).
+            val hidden = Out()
+            for (h in plan.hidden) { hidden.varint(s(h.uid)); hidden.zigzag(ChronoUnit.DAYS.between(base, h.date)) }
+            val typed = keyed.withIndex().filter { !it.value.typeShortName.isNullOrBlank() }
+            val types = Out()
+            for ((i, c) in typed) { types.varint(i); types.varint(s(c.typeShortName!!.trim())) }
+
             val out = Out()
             out.byte((if (complete) FLAG_SUMMARY or FLAG_ALL_NOTES else 0) or (if (legacy) 0 else FLAG_PARITY))
             require(plan.personId.matches(Regex("[0-9a-f]{16}"))) { "person id" }
@@ -292,6 +307,10 @@ object ShareCodec {
                 out.varint(shared.size); out.bytes(changes.toByteArray())
                 val st = events.withIndex().filter { it.value.st }.map { it.index }
                 out.varint(st.size); var last = 0; st.forEach { out.varint(it - last); last = it }
+            }
+            if (version(plan) >= 3) {
+                out.varint(plan.hidden.size); out.bytes(hidden.toByteArray())
+                out.varint(typed.size); out.bytes(types.toByteArray())
             }
             return out.toByteArray()
         }
@@ -421,14 +440,25 @@ object ShareCodec {
             }
             val st = BooleanArray(n)
             if (version >= 2) { var at = 0L; repeat(r.count(MAX_EVENTS)) { at += r.varint(); require(at < n) { "st" }; st[at.toInt()] = true } }
+            val hidden = if (version < 3) emptyList() else List(r.count(MAX_EVENTS * 4)) { OccurrenceRef(s(r.varint()), base.plusDays(r.zigzag())) }
+            val typeShortNames = if (version < 3) emptyMap() else List(r.count(MAX_EVENTS)) {
+                val i = r.varint().toInt()
+                require(i in rawSettings.indices) { "type short name" }
+                i to s(r.varint())
+            }.toMap()
             require(r.atEnd()) { "trailing data" }
 
             val withSt = events0.mapIndexed { i, e -> if (st[i]) e.copy(st = true) else e }
             val converted = if (parity) LegacyShares.Converted(withSt, false) else LegacyShares.convert(withSt)
             val events = converted.events
             val titleOf = Subjects.courses(events).associate { it.key to it.title }
-            val settings = rawSettings.associate { it.key to CourseSetting(it.key, titleOf[it.key] ?: "", it.subject, it.shortName, it.color) }
-            return SharedPlan(personId, name, exportedOn, planDate, events, settings, complete = flags and FLAG_ALL_NOTES != 0, changes = changes, legacy = converted.incomplete)
+            val settings = rawSettings.withIndex().associate { (i, it) ->
+                it.key to CourseSetting(it.key, titleOf[it.key] ?: "", it.subject, it.shortName, it.color, typeShortNames[i])
+            }
+            return SharedPlan(
+                personId, name, exportedOn, planDate, events, settings, complete = flags and FLAG_ALL_NOTES != 0, changes = changes,
+                legacy = converted.incomplete, hidden = hidden,
+            )
         }
 
         /** INTERVAL=2 in the calendar-week rhythm of [start] ([parity]), or every 14 days from it (older apps). */

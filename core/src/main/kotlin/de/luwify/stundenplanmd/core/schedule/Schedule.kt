@@ -73,9 +73,9 @@ data class Cancellation(
  * (at most [SHORT_SERIES] dates and shorter than the course's longest series), is irregular. An
  * irregular occurrence in a week where a regular slot of the same course was cancelled is a CHANGE of that
  * slot (closest day, then closest time); otherwise it is an EXTRA. Courses without any series (block
- * courses of single dates) are regular throughout.
+ * courses of single dates) are regular throughout. What [hiding] hides is neither an occurrence nor a cancellation.
  */
-class Schedule(val events: List<Event>, val changes: List<PersonalChange> = emptyList()) {
+class Schedule(val events: List<Event>, val changes: List<PersonalChange> = emptyList(), val hiding: Hiding? = null) {
     val occurrences: List<Occurrence>
 
     /** Cancelled regular dates that no change replaces. */
@@ -118,6 +118,11 @@ class Schedule(val events: List<Event>, val changes: List<PersonalChange> = empt
             unmatched += pool
         }
         if (changes.isNotEmpty()) personalize(occ, unmatched)
+        // Hidden after change detection: a hidden series still pairs with its moved dates.
+        if (hiding != null && !hiding.isEmpty) {
+            occ.removeAll(hiding::hides)
+            unmatched.removeAll(hiding::hides)
+        }
         occurrences = occ.sortedWith(compareBy<Occurrence>({ it.start }, { it.end }, { it.event.title }))
         cancellations = unmatched.sortedBy { it.start }
     }

@@ -73,6 +73,13 @@ object Groups {
     /** The appointment a date belongs to: for a moved date the series it was moved out of. */
     fun baseUid(t: Timed): String = ((t as? Occurrence)?.status as? Status.Changed)?.original?.event?.uid ?: t.event.uid
 
+    /** How many groups (series, see above) [item]'s course has in [schedule]: hiding "only this group" needs two. */
+    fun count(schedule: Schedule, item: Timed): Int {
+        val course = item.event.courseKey
+        val all: List<Timed> = (schedule.occurrences + schedule.cancellations).filter { it.event.courseKey == course }
+        return all.filter { it.event.recurrence != null || (it as? Occurrence)?.status is Status.Changed }.mapTo(HashSet(), ::baseUid).size
+    }
+
     /** The appointment UIDs of [item]'s group in [schedule]. */
     fun of(schedule: Schedule, item: Timed): Set<String> {
         val course = item.event.courseKey

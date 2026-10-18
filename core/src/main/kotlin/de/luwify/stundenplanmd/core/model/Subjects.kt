@@ -13,9 +13,12 @@ data class CourseSetting(
     val title: String,
     /** Subject the user moved this course to; null = automatic (title stem). */
     val subject: String? = null,
+    /** The short name of the subject, for all its types ("Kürzel (alle Typen)"); the same in every course of it. */
     val shortName: String? = null,
     /** 0xRRGGBB. */
     val color: Int? = null,
+    /** Only this course's part of the short name ("Kürzel (dieser Typ)"), shown after [shortName], e.g. "N4" + "VL". */
+    val typeShortName: String? = null,
 )
 
 /** All events with one course key, e.g. "Numerik N4 (VL)" (both weekly series). */
@@ -28,8 +31,24 @@ data class Subject(
     val courses: List<Course>,
     val shortName: String?,
     val color: Int?,
+    /** Course key -> its own part of the short name ([CourseSetting.typeShortName]). */
+    val typeShortNames: Map<String, String> = emptyMap(),
 ) {
     val displayName: String get() = shortName?.takeIf { it.isNotBlank() } ?: name
+
+    /** The short name shown for course [courseKey]: prefix + space + type part; only the prefix without one. */
+    fun displayNameOf(courseKey: String): String = compose(displayName, typeShortNames[courseKey])
+
+    /** Like [displayNameOf], null when neither prefix nor type part is set (the full name is shown elsewhere). */
+    fun shortNameOf(courseKey: String): String? {
+        val type = typeShortNames[courseKey]
+        return if (shortName.isNullOrBlank() && type.isNullOrBlank()) null else displayNameOf(courseKey)
+    }
+
+    companion object {
+        fun compose(prefix: String, type: String?): String =
+            if (type.isNullOrBlank()) prefix else listOf(prefix.trim(), type.trim()).filter { it.isNotEmpty() }.joinToString(" ")
+    }
 }
 
 object Subjects {
@@ -55,6 +74,7 @@ object Subjects {
                 courses = courses,
                 shortName = styled.firstNotNullOfOrNull { it.shortName },
                 color = styled.firstNotNullOfOrNull { it.color },
+                typeShortNames = courses.mapNotNull { c -> settings[c.key]?.typeShortName?.takeIf { it.isNotBlank() }?.let { c.key to it } }.toMap(),
             )
         }.sortedBy { it.name.lowercase() }
 
@@ -63,6 +83,10 @@ object Subjects {
         settings + subject.courses.associate { c ->
             c.key to (settings[c.key] ?: CourseSetting(c.key, c.title)).copy(shortName = shortName?.trim()?.ifEmpty { null }, color = color)
         }
+
+    /** Sets the type part of the short name of [courseKey] only (null or blank = none). */
+    fun setTypeShortName(settings: Map<String, CourseSetting>, course: Course, typeShortName: String?) =
+        settings + (course.key to (settings[course.key] ?: CourseSetting(course.key, course.title)).copy(typeShortName = typeShortName?.trim()?.ifEmpty { null }))
 
     /** Moves [course] into [target] (an existing subject key or [ownKey]) and gives it the target's style. */
     fun move(settings: Map<String, CourseSetting>, course: Course, target: String, subjects: List<Subject>): Map<String, CourseSetting> {

@@ -244,4 +244,20 @@ class ShareCodecTest {
         // The real-shaped fixture has series notes: the hint is shown.
         assertTrue(ShareCodec.qrOmitsDetails(plan()))
     }
+
+    @Test
+    fun typePartsOfShortNamesNeedVersion3AndRoundTrip() {
+        val typed = plan().let { p -> p.copy(settings = p.settings + ("lsf:111111" to p.settings.getValue("lsf:111111").copy(typeShortName = "VL"))) }
+        assertEquals(1, ShareCodec.version(plan()))
+        assertEquals(3, ShareCodec.version(typed))
+        for (bytes in listOf(ShareCodec.file(typed), ShareCodec.qrText(typed).toByteArray())) {
+            val read = ok(ShareCodec.parse(bytes))
+            assertEquals("VL", read.settings.getValue("lsf:111111").typeShortName)
+            assertEquals("N4", read.settings.getValue("lsf:111111").shortName)
+            assertEquals(typed.settings.mapValues { it.value.typeShortName }, read.settings.mapValues { it.value.typeShortName }.filterKeys { it in typed.settings })
+        }
+        // Only a type part, nothing else set for that course: still sent.
+        val only = plan().copy(settings = mapOf("title:frei" to CourseSetting("title:frei", "Frei", typeShortName = "Ü")))
+        assertEquals("Ü", ok(ShareCodec.parse(ShareCodec.file(only))).settings.getValue("title:frei").typeShortName)
+    }
 }

@@ -108,4 +108,42 @@ class SubjectsTest {
         // Without anything: automatic (no entry).
         assertEquals(emptyMap<String, CourseSetting>(), Subjects.forFriend(listOf(theirs), emptyMap(), emptyMap(), emptyMap()))
     }
+
+    @Test
+    fun shortNameIsThePrefixPlusThePartOfTheType() {
+        val subject = Subjects.build(events, emptyMap()).single { it.name == "Numerik N4" }
+        var settings = Subjects.setStyle(emptyMap(), subject, "N4", 0x3366CC)
+        val vl = subject.courses.single { it.key == "lsf:900066" }
+        settings = Subjects.setTypeShortName(settings, vl, " VL ")
+        val n4 = Subjects.build(events, settings).single { it.name == "Numerik N4" }
+        assertEquals("N4 VL", n4.displayNameOf("lsf:900066"))
+        // No part for the type: only the prefix, as before.
+        assertEquals("N4", n4.displayNameOf("lsf:900022"))
+        assertEquals("N4", n4.displayName)
+        // A part without a prefix follows the full name; nothing set at all: no short name.
+        val noPrefix = Subjects.build(events, Subjects.setStyle(settings, n4, null, null)).single { it.name == "Numerik N4" }
+        assertEquals("Numerik N4 VL", noPrefix.displayNameOf("lsf:900066"))
+        assertEquals("Numerik N4 VL", noPrefix.shortNameOf("lsf:900066"))
+        assertEquals(null, noPrefix.shortNameOf("lsf:900022"))
+        // Blank = none.
+        val cleared = Subjects.setTypeShortName(settings, vl, "  ")
+        assertEquals(null, cleared["lsf:900066"]!!.typeShortName)
+    }
+
+    @Test
+    fun typePartsStayWithTheirCourseWhenStyledMovedOrResolved() {
+        val subject = Subjects.build(events, emptyMap()).single { it.name == "Numerik N4" }
+        val vl = subject.courses.single { it.key == "lsf:900066" }
+        var settings = Subjects.setTypeShortName(Subjects.setStyle(emptyMap(), subject, "N4", null), vl, "VL")
+        // A new prefix keeps the parts.
+        settings = Subjects.setStyle(settings, Subjects.build(events, settings).single { it.name == "Numerik N4" }, "Num", null)
+        assertEquals("Num VL", Subjects.build(events, settings).single { it.name == "Numerik N4" }.displayNameOf("lsf:900066"))
+        // Shared/resolved settings carry the part.
+        assertEquals("VL", Subjects.resolved(events, settings) { 0 }.getValue("lsf:900066").typeShortName)
+        // Moved to another subject: the part goes along, the prefix is the target's.
+        val subjects = Subjects.build(events, settings)
+        val target = subjects.single { it.name == "Wellen und Felder" }
+        val moved = Subjects.move(Subjects.setStyle(settings, target, "WuF", null), vl, target.key, Subjects.build(events, Subjects.setStyle(settings, target, "WuF", null)))
+        assertEquals("WuF VL", Subjects.build(events, moved).single { it.key == target.key }.displayNameOf("lsf:900066"))
+    }
 }

@@ -7,7 +7,7 @@ import java.time.ZoneId
 
 /**
  * A friend's plan passed on to someone else, as I have it from them: their id, the name they shared, their events,
- * subject defaults and shared changes. Nothing of mine goes along (no local name, colors, subjects or rhythms).
+ * subject defaults, shared changes and the dates they hid. Nothing of mine goes along (no local name, colors, subjects or rhythms).
  * The receiver imports it like a share from that friend, so a later share from the friend replaces it; the friend
  * themselves gets "own timetable" (their id).
  */
@@ -32,6 +32,7 @@ object Forwarding {
             complete = true,
             changes = plan.sharedChanges,
             legacy = plan.legacyShare,
+            hidden = plan.sharedHidden,
         )
     }
 }
