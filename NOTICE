@@ -10,6 +10,7 @@ Icons
             ic_warning.xml (the QR code leaves details out), ic_favorite.xml and
             ic_favorite_filled.xml (favorite friends: "favorite", fill 0 and fill 1),
             ic_chevron_left.xml and ic_chevron_right.xml (back to this week / today; version list),
+            ic_arrow_drop_down.xml (buttons that open a menu),
             ic_list.xml ("format_list_bulleted", version overview), ic_download.xml (install an
             update), ic_open_in_new.xml (actions that leave the page)
   Source:   Material Symbols, Outlined, weight 400, 24px, by Google

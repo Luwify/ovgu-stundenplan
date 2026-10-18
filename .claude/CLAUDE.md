@@ -63,7 +63,8 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   events; while the current chip is less than half visible a round tonal chevron button at that edge jumps back
   (selects it and scrolls the strip); no "Heute" button any more; animations off when the system's animator scale is
   0), `DetailSheet` (note hint from `Event.noteHint`; "Zusammen mit" lists favorites first with a heart),
-  `SubjectEditor`, `SettingsScreen`, `PlanDrawer` (drawer: names titleMedium semi-bold, Stand/now-line bodySmall
+  `SubjectEditor` (buttons that open a menu: label with "…" + `MenuArrow`; a choice dialog: "…" only; a menu that
+  shows its chosen value, e.g. the rhythm: arrow only), `SettingsScreen`, `PlanDrawer` (drawer: names titleMedium semi-bold, Stand/now-line bodySmall
   onSurfaceVariant; friends reordered by long-press drag via `ColumnReorder` (vertical port of Mensa MD's
   `RowReorder`); heart toggle `FavoriteButton`, also in a friend's top bar; add/name/friend dialogs, now-line text),
   `QrScreens` (show QR, scan), `ShareSheet`, `FriendConfirmDialog`; `MainViewModel` (`selected` person, `plan` = shown

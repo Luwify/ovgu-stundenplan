@@ -111,7 +111,10 @@ fun HideSubjectButton(plan: PlanUi, item: Timed, subject: Subject, onHide: (Hidd
     var menu by remember { mutableStateOf(false) }
     Box {
         OutlinedButton(onClick = { if (choices.size == 1) onHide(choices.single().second()) else menu = true }) {
-            Text(stringResource(if (choices.size == 1) R.string.hide_subject else R.string.hide))
+            if (choices.size == 1) Text(stringResource(R.string.hide_subject)) else {
+                Text(stringResource(R.string.hide))
+                MenuArrow()
+            }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             choices.forEach { (label, make) ->
