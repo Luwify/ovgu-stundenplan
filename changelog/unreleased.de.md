@@ -8,3 +8,4 @@ Geändert:
 Behoben:
 - Das Detailfenster eines Termins wackelte beim leichten Herunterziehen und Loslassen auf Deutsch auf und ab, wenn der Inhalt fast die ganze Bildschirmhöhe füllte; es setzt sich jetzt ruhig zurück. Auch im Querformat wippt es nach dem Scrollen bis ganz nach unten nicht mehr dauerhaft auf und ab
 - Ein Wochenwechsel mit direkt folgendem Wischen nach oben oder unten ruckelte; die Pläne von Freunden ziehen jetzt erst zwischen den Gesten zur neuen Woche nach
+- Die Auswahl eines Freundes weiter unten im Menü landete manchmal beim Freund davor

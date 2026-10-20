@@ -143,18 +143,29 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         }
     }
     val latestPages by rememberUpdatedState(pages)
+    // While the drawer's choice moves the pager: the page next to the target it jumps to first counts as settled for a
+    // moment, and selecting that person would cancel the slide on to the one chosen. (Read in the flow: once the move
+    // ends, also one that a swipe interrupted, whoever the pager then sits on counts.)
+    var following by remember { mutableStateOf(false) }
     LaunchedEffect(people) {
-        snapshotFlow { people.settledPage }.collect { i -> latestPages.getOrNull(i)?.let { vm.select(it.person.id) } }
+        snapshotFlow { if (following) null else people.settledPage }.collect { i ->
+            if (i != null) latestPages.getOrNull(i)?.let { vm.select(it.person.id) }
+        }
     }
     LaunchedEffect(selectedId, pages.map { it.person.id }) {
         val i = pages.indexOfFirst { it.person.id == selectedId }
         if (i >= 0 && i != people.currentPage && !people.isScrollInProgress) {
-            // From the drawer: slide to that person (from the page next to it, so far targets don't scroll through all).
-            if (animate && people.layoutInfo.visiblePagesInfo.isNotEmpty()) {
-                if (kotlin.math.abs(i - people.currentPage) > 1) people.scrollToPage(if (i > people.currentPage) i - 1 else i + 1)
-                people.animateScrollToPage(i, animationSpec = tween(Motion.Long, easing = Motion.Standard))
-            } else {
-                people.scrollToPage(i)
+            following = true
+            try {
+                // From the drawer: slide to that person (from the page next to it, so far targets don't scroll through all).
+                if (animate && people.layoutInfo.visiblePagesInfo.isNotEmpty()) {
+                    if (kotlin.math.abs(i - people.currentPage) > 1) people.scrollToPage(if (i > people.currentPage) i - 1 else i + 1)
+                    people.animateScrollToPage(i, animationSpec = tween(Motion.Long, easing = Motion.Standard))
+                } else {
+                    people.scrollToPage(i)
+                }
+            } finally {
+                following = false
             }
         }
     }
