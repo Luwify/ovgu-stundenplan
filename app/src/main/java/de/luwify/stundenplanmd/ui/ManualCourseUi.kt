@@ -72,10 +72,9 @@ fun ManualBadge(size: Dp, modifier: Modifier = Modifier) {
     }
 }
 
-/** The detail sheet's "own course" box: whose course it is; in my plan with edit and delete. */
-@OptIn(ExperimentalLayoutApi::class)
+/** The detail sheet's "own course" box: whose course it is (edit and delete are in the sheet's actions). */
 @Composable
-fun ManualBox(who: String?, onEdit: (() -> Unit)?, onDelete: (() -> Unit)?) {
+fun ManualBox(who: String?) {
     Surface(Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -84,12 +83,6 @@ fun ManualBox(who: String?, onEdit: (() -> Unit)?, onDelete: (() -> Unit)?) {
                     if (who == null) stringResource(R.string.manual_own_course) else stringResource(R.string.manual_own_course_of, who),
                     style = MaterialTheme.typography.bodyLarge,
                 )
-            }
-            if (onEdit != null && onDelete != null) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onEdit) { Text(stringResource(R.string.manual_edit)) }
-                    OutlinedButton(onClick = onDelete) { Text(stringResource(R.string.manual_delete)) }
-                }
             }
         }
     }

@@ -277,6 +277,13 @@
     <string name="action_cancel_for_me">Fällt für mich aus</string>
     <string name="action_uncancel">Findet doch statt</string>
     <string name="action_pick_dates">Termine auswählen</string>
+    <!-- Detail sheet action row: one short line each (full names are the content descriptions) -->
+    <string name="action_short_note">Änderungen</string>
+    <string name="action_short_cancel">Fällt aus</string>
+    <string name="action_short_uncancel">Findet statt</string>
+    <string name="action_short_subject">Fach</string>
+    <string name="action_more">Mehr</string>
+    <string name="action_more_long">Weitere Aktionen</string>
     <string name="cancelled_for_me">%1$s am %2$s fällt für dich aus</string>
     <string name="uncancelled_for_me">%1$s am %2$s findet für dich wieder statt</string>
     <string name="editor_scope_one">Nur dieser Termin (%1$s)</string>

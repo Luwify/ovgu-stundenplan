@@ -1,7 +1,6 @@
 package de.luwify.stundenplanmd.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,12 +17,9 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -94,33 +90,21 @@ fun hiddenName(res: android.content.res.Resources, h: Hidden): String {
 }
 
 /**
- * "Ausblenden" in the detail sheet: the whole subject, only this type (all its groups) when the subject has more than
- * one, only this group when the course has more than one. One choice is a plain button.
+ * "Ausblenden" in the detail sheet: this date, the whole subject, only this type (all its groups) when the subject has
+ * more than one, only this group when the course has more than one.
  */
 @Composable
-fun HideSubjectButton(plan: PlanUi, item: Timed, subject: Subject, onHide: (Hidden) -> Unit) {
-    val course = subject.courses.firstOrNull { it.key == item.event.courseKey }
+fun hideChoices(plan: PlanUi, item: Timed, subject: Subject?): List<Pair<String, () -> Hidden>> {
+    val course = subject?.courses?.firstOrNull { it.key == item.event.courseKey }
     val groups = remember(plan.schedule, item) { Groups.count(plan.schedule, item) }
-    val choices = buildList {
+    return buildList {
+        add(stringResource(R.string.hide_date) to { HideTargets.date(item) })
+        if (subject == null) return@buildList
         add(stringResource(R.string.hide_subject) to { HideTargets.subject(subject) })
         if (course != null && subject.courses.size > 1) {
             add(stringResource(R.string.hide_type, HideTargets.typeName(course)) to { HideTargets.course(course) })
         }
         if (groups > 1) add(stringResource(R.string.hide_group) to { HideTargets.group(plan, item) })
-    }
-    var menu by remember { mutableStateOf(false) }
-    Box {
-        OutlinedButton(onClick = { if (choices.size == 1) onHide(choices.single().second()) else menu = true }) {
-            if (choices.size == 1) Text(stringResource(R.string.hide_subject)) else {
-                Text(stringResource(R.string.hide))
-                MenuArrow()
-            }
-        }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            choices.forEach { (label, make) ->
-                DropdownMenuItem(text = { Text(label) }, onClick = { menu = false; onHide(make()) })
-            }
-        }
     }
 }
 

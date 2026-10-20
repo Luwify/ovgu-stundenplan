@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +25,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -126,14 +124,8 @@ fun DetailSheet(
             SelectionContainer { Text(event.title, style = MaterialTheme.typography.headlineSmall) }
 
             StatusBox(item)
-            if (event.isManual) {
-                ManualBox(
-                    who = if (plan.isMe) null else plan.person.displayName,
-                    onEdit = { open(onEditManual) }.takeIf { plan.isMe },
-                    onDelete = { leave(onDeleteManual) }.takeIf { plan.isMe },
-                )
-            }
-            if (plan.isMe && (item.event.uid in plan.addedUids || Groups.baseUid(item) in plan.addedUids)) AddedBox(onRemove = { leave(onRemoveAdded) })
+            if (event.isManual) ManualBox(who = if (plan.isMe) null else plan.person.displayName)
+            if (plan.isMe && (item.event.uid in plan.addedUids || Groups.baseUid(item) in plan.addedUids)) AddedBox()
             PersonalBox(item, who = if (plan.isMe) null else plan.person.displayName)
 
             Field(
@@ -154,40 +146,41 @@ fun DetailSheet(
             }
             if (event.summary != event.title) Field(stringResource(R.string.detail_lsf_title), event.summary)
 
+            // One row: the actions most used on a single date first, the rest under "Mehr". An action that doesn't apply
+            // here leaves the row (the next one moves up), so the row always has the same columns.
+            val hide = SheetAction(
+                HideIcon, stringResource(R.string.hide), stringResource(R.string.hide),
+                menu = hideChoices(plan, item, subject).map { (label, make) -> MenuEntry(label) { leave { onHide(make()) } } },
+            )
+            val editSubject = subject?.let {
+                SheetAction(EditIcon, stringResource(R.string.action_short_subject), stringResource(R.string.edit_subject), onClick = { open { onEditSubject(it) } })
+            }
             if (plan.isMe) {
                 // Own changes: my plan only (a friend's plan is read-only).
-                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { open(onEditPersonal) }) {
-                        Icon(NoteIcon, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.action_edit_personal))
-                    }
-                    val lsfCancelled = item is Cancellation && !item.byMe
-                    if (!lsfCancelled) {
-                        val cancelled = item.cancelledForMe
-                        OutlinedButton(onClick = { onCancelForMe(!cancelled) }) {
-                            Text(stringResource(if (cancelled) R.string.action_uncancel else R.string.action_cancel_for_me))
-                        }
-                    }
-                    // Next to "cancelled for me" (still shown, struck through): gone from the plan altogether.
-                    OutlinedButton(onClick = { leave { onHide(HideTargets.date(item)) } }) { Text(stringResource(R.string.hide_date)) }
-                    OutlinedButton(onClick = { open(onPickDates) }) { Text(stringResource(R.string.action_pick_dates)) }
-                }
+                val lsfCancelled = item is Cancellation && !item.byMe
+                val cancelled = item.cancelledForMe
+                val cancel = SheetAction(
+                    CancelDateIcon,
+                    stringResource(if (cancelled) R.string.action_short_uncancel else R.string.action_short_cancel),
+                    stringResource(if (cancelled) R.string.action_uncancel else R.string.action_cancel_for_me),
+                    selected = cancelled,
+                    onClick = { onCancelForMe(!cancelled) },
+                ).takeUnless { lsfCancelled }
+                val note = SheetAction(NoteIcon, stringResource(R.string.action_short_note), stringResource(R.string.action_edit_personal), onClick = { open(onEditPersonal) })
+                val added = item.event.uid in plan.addedUids || Groups.baseUid(item) in plan.addedUids
+                SheetActionRow(
+                    primary = listOfNotNull(note, cancel, hide, editSubject),
+                    more = listOfNotNull(
+                        MenuEntry(stringResource(R.string.action_pick_dates)) { open(onPickDates) },
+                        MenuEntry(stringResource(R.string.manual_edit)) { open(onEditManual) }.takeIf { event.isManual },
+                        MenuEntry(stringResource(R.string.manual_delete)) { leave(onDeleteManual) }.takeIf { event.isManual },
+                        MenuEntry(stringResource(R.string.added_remove)) { leave(onRemoveAdded) }.takeIf { added },
+                    ),
+                )
+            } else {
+                SheetActionRow(primary = listOfNotNull(editSubject, hide), more = emptyList())
             }
-            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (subject != null) {
-                    OutlinedButton(onClick = { open { onEditSubject(subject) } }) {
-                        Icon(EditIcon, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.edit_subject))
-                    }
-                }
-                if (!plan.isMe) OutlinedButton(onClick = { leave { onHide(HideTargets.date(item)) } }) { Text(stringResource(R.string.hide_date)) }
-                if (subject != null) HideSubjectButton(plan, item, subject) { h -> leave { onHide(h) } }
-            }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
         }
     }
 }
@@ -287,9 +280,9 @@ private fun rhythm(e: Event, locale: java.util.Locale, byMe: Boolean): String? {
     return if (until != null) stringResource(R.string.rhythm_until, base, dayAndDate(until, locale)) else base
 }
 
-/** An LSF course added to my plan from another .ics: marked, and removable (with undo). */
+/** An LSF course added to my plan from another .ics: marked (removing it is under the sheet's "Mehr", with undo). */
 @Composable
-private fun AddedBox(onRemove: () -> Unit) {
+private fun AddedBox() {
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -297,7 +290,6 @@ private fun AddedBox(onRemove: () -> Unit) {
                 Text(stringResource(R.string.added_course), style = MaterialTheme.typography.bodyLarge)
             }
             Text(stringResource(R.string.added_course_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            OutlinedButton(onClick = onRemove) { Text(stringResource(R.string.added_remove)) }
         }
     }
 }

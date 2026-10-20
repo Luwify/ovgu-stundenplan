@@ -283,6 +283,13 @@
     <string name="action_cancel_for_me">Cancel for me</string>
     <string name="action_uncancel">Takes place after all</string>
     <string name="action_pick_dates">Choose dates</string>
+    <!-- Detail sheet action row: one short line each (full names are the content descriptions) -->
+    <string name="action_short_note">Changes</string>
+    <string name="action_short_cancel">Skip</string>
+    <string name="action_short_uncancel">Restore</string>
+    <string name="action_short_subject">Subject</string>
+    <string name="action_more">More</string>
+    <string name="action_more_long">More actions</string>
     <string name="cancelled_for_me">%1$s on %2$s cancelled for you</string>
     <string name="uncancelled_for_me">%1$s on %2$s takes place for you again</string>
     <string name="editor_scope_one">Only this date (%1$s)</string>

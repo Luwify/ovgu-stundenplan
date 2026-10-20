@@ -96,6 +96,43 @@ val CheckIcon: ImageVector by lazy { lineIcon("Check", 2f) { moveTo(5f, 12.5f); 
 /** A chevron pointing down (drop-down field); turned 180° while the menu is open. */
 val ChevronDownIcon: ImageVector by lazy { lineIcon("ChevronDown", 2f) { moveTo(6f, 9.5f); lineTo(12f, 15.5f); lineTo(18f, 9.5f) } }
 
+/** A calendar page with a cross: the date is cancelled (for me). */
+val CancelDateIcon: ImageVector by lazy {
+    lineIcon("CancelDate", 2f) {
+        roundRect(3.5f, 4.5f, 20.5f, 20f, 2f)
+        moveTo(8f, 3f); verticalLineTo(6f)
+        moveTo(16f, 3f); verticalLineTo(6f)
+        moveTo(9.5f, 11f); lineTo(14.5f, 16f)
+        moveTo(14.5f, 11f); lineTo(9.5f, 16f)
+    }
+}
+
+/** An eye, struck through: hide. */
+val HideIcon: ImageVector by lazy {
+    lineIcon("Hide", 2f) {
+        moveTo(2.5f, 12f)
+        curveTo(4.5f, 8f, 8f, 5.5f, 12f, 5.5f)
+        curveTo(16f, 5.5f, 19.5f, 8f, 21.5f, 12f)
+        curveTo(19.5f, 16f, 16f, 18.5f, 12f, 18.5f)
+        curveTo(8f, 18.5f, 4.5f, 16f, 2.5f, 12f); close()
+        moveTo(15f, 12f)
+        curveTo(15f, 13.7f, 13.7f, 15f, 12f, 15f)
+        curveTo(10.3f, 15f, 9f, 13.7f, 9f, 12f)
+        curveTo(9f, 10.3f, 10.3f, 9f, 12f, 9f)
+        curveTo(13.7f, 9f, 15f, 10.3f, 15f, 12f); close()
+        moveTo(4f, 4f); lineTo(20f, 20f)
+    }
+}
+
+/** Three dots in a row: more actions. */
+val MoreIcon: ImageVector by lazy {
+    lineIcon("More", 3f) {
+        moveTo(5.5f, 12f); lineTo(5.5f, 12f)
+        moveTo(12f, 12f); lineTo(12f, 12f)
+        moveTo(18.5f, 12f); lineTo(18.5f, 12f)
+    }
+}
+
 /** A sheet with a folded corner and two lines: an own note. */
 val NoteIcon: ImageVector by lazy {
     lineIcon("Note", 2f) {
