@@ -4,6 +4,7 @@ New:
 
 Changed:
 - The actions in an appointment's details sheet are now one row of icons with short labels: Changes, Skip, Hide and More. "Hide" offers the date, subject, type and group; "More" holds the rest, such as editing the subject, choosing dates, and editing, deleting or removing own and added courses
+- The "Hide" and "More" menus grow upward out of their button with a slightly springy motion, and the button stays visible; thin lines separate the entries
 
 Fixed:
 - The details sheet of an appointment wobbled up and down after a small drag down and release when its content nearly filled the screen height (as with the longer German labels); it now settles calmly. In landscape it also no longer keeps bouncing after scrolling all the way down

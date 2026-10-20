@@ -4,6 +4,7 @@ Neu:
 
 Geändert:
 - Die Aktionen im Detailfenster eines Termins stehen jetzt in einer Zeile mit Symbol und kurzer Beschriftung: Änderungen, Fällt aus, Ausblenden und Mehr. Unter „Ausblenden“ stehen Termin, Fach, Typ und Gruppe zur Wahl, unter „Mehr“ alles Weitere wie Fach bearbeiten, Termine auswählen sowie Bearbeiten, Löschen oder Entfernen eigener und hinzugefügter Kurse
+- Die Menüs „Ausblenden“ und „Mehr“ wachsen mit einer leicht federnden Bewegung aus ihrer Schaltfläche nach oben heraus, die dabei sichtbar bleibt; feine Linien trennen die Einträge
 
 Behoben:
 - Das Detailfenster eines Termins wackelte beim leichten Herunterziehen und Loslassen auf Deutsch auf und ab, wenn der Inhalt fast die ganze Bildschirmhöhe füllte; es setzt sich jetzt ruhig zurück. Auch im Querformat wippt es nach dem Scrollen bis ganz nach unten nicht mehr dauerhaft auf und ab
