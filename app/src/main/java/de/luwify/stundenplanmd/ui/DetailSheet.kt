@@ -6,6 +6,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -60,6 +65,9 @@ import de.luwify.stundenplanmd.ui.theme.planColors
 import de.luwify.stundenplanmd.ui.theme.withContrast
 import java.time.LocalDate
 
+/** Material's drag handle: 4 dp bar with 22 dp above and below. */
+private val DragHandleHeight = 48.dp
+
 /** Everything about one tapped occurrence or cancellation. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,9 +101,18 @@ fun DetailSheet(
     fun open(action: () -> Unit) {
         scope.launch { sheetState.hide() }.invokeOnCompletion { action() }
     }
+    // The room the sheet gives its content grows while it is dragged down: it slides out from under the status bar, up to
+    // the inset more. Content just taller than the room at rest (long German labels wrapping onto more lines) then flipped
+    // between "scrolls" and "fits" during a drag, which changed the sheet's height and anchors and pulled it back up, over
+    // and over. Pinning the scroll area to the room at rest (window - top inset - the 48 dp drag handle, less a hair) keeps
+    // the sheet's size independent of where it is.
+    val density = LocalDensity.current
+    val windowHeight = LocalWindowInfo.current.containerSize.height
+    val topInset = WindowInsets.systemBars.getTop(density)
+    val contentMax = with(density) { (windowHeight - topInset).toDp() } - DragHandleHeight - 1.dp
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).navigationBarsPadding(),
+            Modifier.fillMaxWidth().heightIn(max = contentMax).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
