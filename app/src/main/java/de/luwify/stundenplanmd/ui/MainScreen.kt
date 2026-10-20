@@ -27,6 +27,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -424,6 +425,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         // One page per person (drawer order); week and day stay where they are when switching.
                         val edge = remember(people, animate) { EdgeOnlyConnection(people, animate) }
                         LaunchedEffect(edge) { edge.keepSettled() }
+                        val userMoving = remember(people) { Moving(people) }
                         VerticalPager(
                             people, Modifier.fillMaxSize().edgeTouches(edge), beyondViewportPageCount = composedAround,
                             // Moved by touch only through EdgeOnlyConnection (its own drag raced the content's).
@@ -432,6 +434,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         ) { i ->
                             val page = pages[i]
                             val active = i == people.settledPage
+                            val personShown = remember(people, i) { { people.layoutInfo.visiblePagesInfo.any { it.index == i } } }
                             androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().edgeSwitching(edge)) {
                                 if (page.legacyShare) LegacyShareHint()
                                 // The visible page switches Week/Day at once, with a fade through. The others (out of sight) follow
@@ -455,10 +458,12 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                                     },
                                     label = "tab",
                                 ) { shown ->
-                                    when (shown) {
-                                        null -> EmptyState(onImport)
-                                        Tab.WEEK -> WeekScreen(page, now, week, active, fitLandscape, onWeek = { week = it }, onOpen = { selected = SheetKey.of(page, it) }, modifier = Modifier.fillMaxSize())
-                                        Tab.DAY -> DayScreen(page, now, day, active, onDay = { day = it }, onOpen = { selected = SheetKey.of(page, it) }, modifier = Modifier.fillMaxSize())
+                                    CompositionLocalProvider(LocalMoving provides userMoving, LocalPersonShown provides personShown) {
+                                        when (shown) {
+                                            null -> EmptyState(onImport)
+                                            Tab.WEEK -> WeekScreen(page, now, week, active, fitLandscape, onWeek = { week = it }, onOpen = { selected = SheetKey.of(page, it) }, modifier = Modifier.fillMaxSize())
+                                            Tab.DAY -> DayScreen(page, now, day, active, onDay = { day = it }, onOpen = { selected = SheetKey.of(page, it) }, modifier = Modifier.fillMaxSize())
+                                        }
                                     }
                                 }
                             }

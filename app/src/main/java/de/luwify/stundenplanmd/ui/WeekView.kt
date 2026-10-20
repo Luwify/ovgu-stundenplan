@@ -157,10 +157,13 @@ fun WeekScreen(
         }
         Column(modifier) {
             ChipStrip(labels, pager.currentPage, if (LocalCompactHeight.current) CompactWeekChipWidth else WeekChipWidth, stringResource(R.string.back_to_this_week), onSelect = goTo)
+            val personShown = LocalPersonShown.current
             HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = rememberBeyondPages(active)) { page ->
-                // A page composed before it is shown (the pager's neighbors) fills in column by column, not in one frame.
-                val eager = remember { page == pager.currentPage }
-                WeekPage(plan, weeks[page], now, openMonday, firstMonday, lastMonday, eager, fitLandscape, onOpen)
+                // A page composed before it is shown (the pager's neighbors, or a person out of sight following the week)
+                // fills in column by column, not in one frame, and only between gestures while it stays out of sight.
+                val eager = remember { active && page == pager.currentPage }
+                val shown = remember(pager, page) { { personShown() && pager.layoutInfo.visiblePagesInfo.any { it.index == page } } }
+                WeekPage(plan, weeks[page], now, openMonday, firstMonday, lastMonday, eager, shown, fitLandscape, onOpen)
             }
         }
     }
@@ -175,6 +178,7 @@ private fun WeekPage(
     firstMonday: LocalDate,
     lastMonday: LocalDate,
     eager: Boolean,
+    shown: () -> Boolean,
     fitLandscape: Boolean,
     onOpen: (Timed) -> Unit,
 ) {
@@ -260,7 +264,7 @@ private fun WeekPage(
                 week.days.forEachIndexed { index, day ->
                     DayColumn(
                         plan, day, hours.first, hourH, fit && hourH < MinHour,
-                        wait = if (eager) 0 else index + 1,
+                        wait = if (eager) 0 else index + 1, shown = shown,
                         isToday = day.date == today,
                         weekFree = week.free, strong = monday == openMonday, onOpen = onOpen,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -331,6 +335,8 @@ private fun DayColumn(
     fit: Boolean,
     /** Frames to wait before the blocks are composed (spreads a page that is built ahead over several frames). */
     wait: Int,
+    /** Whether the page is on screen; out of sight the blocks wait for a turn instead ([awaitTurn]). */
+    shown: () -> Boolean,
     isToday: Boolean,
     weekFree: Boolean,
     strong: Boolean,
@@ -340,8 +346,10 @@ private fun DayColumn(
     val colors = MaterialTheme.colorScheme
     var ready by remember { mutableStateOf(wait == 0) }
     if (!ready) {
+        val moving = LocalMoving.current
         LaunchedEffect(Unit) {
-            repeat(wait) { withFrameNanos { } }
+            // Out of sight: a turn between gestures. In sight (or once it comes into view): column by column.
+            if (!awaitTurn(moving, shown)) repeat(wait) { withFrameNanos { } }
             ready = true
         }
     }

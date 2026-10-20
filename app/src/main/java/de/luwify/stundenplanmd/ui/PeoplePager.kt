@@ -18,7 +18,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,6 +49,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import androidx.compose.runtime.withFrameNanos
 
 /**
  * Sits between a page's content and the vertical people [pager] and is the only thing that moves it by touch (the pager
@@ -198,8 +203,17 @@ fun Modifier.edgeSwitching(edge: EdgeOnlyConnection): Modifier = this
 @Composable
 fun FollowSharedPage(pager: PagerState, shared: Int?, active: Boolean, onSettled: (Int) -> Unit) {
     val report by rememberUpdatedState(onSettled)
+    val moving = LocalMoving.current
+    val shown = LocalPersonShown.current
+    if (active && moving != null) {
+        LaunchedEffect(pager) { snapshotFlow { pager.isScrollInProgress }.collect { moving.plan = it } }
+        DisposableEffect(pager) { onDispose { moving.plan = false } }
+    }
     LaunchedEffect(shared) {
-        if (shared != null && shared != pager.currentPage && !pager.isScrollInProgress) pager.scrollToPage(shared)
+        if (shared == null) return@LaunchedEffect
+        // A person out of sight follows between gestures, one at a time: each jump builds a new page.
+        if (!active) awaitTurn(moving, shown)
+        if (shared != pager.currentPage && !pager.isScrollInProgress) pager.scrollToPage(shared)
     }
     if (active) {
         LaunchedEffect(pager) {
@@ -254,4 +268,43 @@ fun rememberBeyondPages(active: Boolean, target: Int = 1): Int {
         count = target
     }
     return count
+}
+
+/**
+ * Whether the user moves something: the people pager or the shown person's week/day pager ([plan], set by
+ * [FollowSharedPage]). Work for pages out of sight waits while [now] and takes turns ([awaitTurn]), so a swipe's frames
+ * stay free and the work after it is spread over frames.
+ */
+class Moving(private val people: PagerState) {
+    var plan by mutableStateOf(false)
+    val now: Boolean get() = people.isScrollInProgress || plan
+    internal val turn = Mutex()
+}
+
+val LocalMoving = compositionLocalOf<Moving?> { null }
+
+/** Whether this person's page is on screen (provided per page of the people pager; true outside of it). */
+val LocalPersonShown = compositionLocalOf<() -> Boolean> { { true } }
+
+/**
+ * Suspends until a page out of sight may do a piece of work (follow the week, build a day column): once nothing moves,
+ * one piece per frame for all pages together. Returns at once with false while (or as soon as) the page is [shown]:
+ * then it is needed now. True = it had its turn.
+ */
+suspend fun awaitTurn(moving: Moving?, shown: () -> Boolean): Boolean {
+    if (moving == null) return false
+    while (!shown()) {
+        if (moving.turn.tryLock()) {
+            try {
+                snapshotFlow { shown() || !moving.now }.first { it }
+                if (shown()) return false
+                withFrameNanos { }
+                return true
+            } finally {
+                moving.turn.unlock()
+            }
+        }
+        withFrameNanos { }
+    }
+    return false
 }

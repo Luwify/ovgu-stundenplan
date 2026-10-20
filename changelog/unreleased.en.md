@@ -7,3 +7,4 @@ Changed:
 
 Fixed:
 - The details sheet of an appointment wobbled up and down after a small drag down and release when its content nearly filled the screen height (as with the longer German labels); it now settles calmly. In landscape it also no longer keeps bouncing after scrolling all the way down
+- Changing the week and then right away swiping up or down stuttered; friends' timetables now catch up with the new week between gestures
