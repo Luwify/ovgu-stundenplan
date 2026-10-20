@@ -23,6 +23,8 @@ class ThemeSettings(private val store: DataStore<Preferences>) {
     private val customGlowKey = booleanPreferencesKey("custom_theme_glow")
     private val customOverridesKey = stringPreferencesKey("custom_theme_overrides")
 
+    private val fitLandscapeKey = booleanPreferencesKey("fit_landscape")
+
     private val schemaKey = intPreferencesKey("schema_version")
 
     /**
@@ -71,6 +73,13 @@ class ThemeSettings(private val store: DataStore<Preferences>) {
             if (spec.overrides.isEmpty()) it.remove(customOverridesKey)
             else it[customOverridesKey] = CustomThemeSpec.encodeOverrides(spec.overrides)
         }
+    }
+
+    /** Landscape: the week grid is squashed to fit the screen without scrolling (default on). Added key, no step needed. */
+    val fitLandscape: Flow<Boolean> = store.data.map { it[fitLandscapeKey] ?: true }
+
+    suspend fun setFitLandscape(on: Boolean) {
+        store.edit { it[fitLandscapeKey] = on }
     }
 
     companion object {

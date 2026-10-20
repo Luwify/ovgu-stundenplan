@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.schedule.Cancellation
+import de.luwify.stundenplanmd.core.schedule.FreeGap
 import de.luwify.stundenplanmd.core.schedule.Navigation
 import de.luwify.stundenplanmd.core.schedule.Occurrence
 import de.luwify.stundenplanmd.core.schedule.Status
@@ -113,6 +114,7 @@ private fun DayPage(plan: PlanUi, date: LocalDate, now: LocalDateTime, onOpen: (
     // Cancellations are shown for the current and next week only, as before.
     val near = date.isBefore(today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).plusWeeks(2))
     val items = remember(day, near) { day.items(near) }
+    val rows = remember(items, day) { dayRows(items, day.gaps) }
     val heading = when (date) {
         today -> stringResource(R.string.today_heading, longDate(date, locale))
         today.plusDays(1) -> stringResource(R.string.tomorrow_heading, longDate(date, locale))
@@ -128,9 +130,53 @@ private fun DayPage(plan: PlanUi, date: LocalDate, now: LocalDateTime, onOpen: (
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Text(heading, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 4.dp)) }
         if (message != null) item { InfoCard(message) }
-        items(items, key = { "${it.event.uid}@${it.start}" }) { item ->
-            TodayRow(plan, item, now, onClick = { onOpen(item) })
+        items(rows, key = { it.key }) { row ->
+            when (row) {
+                is DayRow.Card -> TodayRow(plan, row.item, now, onClick = { onOpen(row.item) })
+                is DayRow.Free -> FreeRow(row.gap)
+            }
         }
+    }
+}
+
+/** A row of the day list: a course card, or a break between two courses. */
+private sealed interface DayRow {
+    val key: String
+    val start: LocalDateTime
+
+    class Card(val item: Timed) : DayRow {
+        override val key get() = "${item.event.uid}@${item.start}"
+        override val start get() = item.start
+    }
+
+    class Free(val gap: FreeGap) : DayRow {
+        override val key get() = "free@${gap.start}"
+        override val start get() = gap.start
+    }
+}
+
+/** Cards and breaks by time; a card that starts where a break starts (cancelled in it) comes first. */
+private fun dayRows(items: List<Timed>, gaps: List<FreeGap>): List<DayRow> =
+    (items.map { DayRow.Card(it) } + gaps.map { DayRow.Free(it) }).sortedWith(compareBy({ it.start }, { it is DayRow.Free }))
+
+/** A break between two courses: dashed outline, no fill, no tap. */
+@Composable
+private fun FreeRow(gap: FreeGap) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+    Row(
+        Modifier.fillMaxWidth().ownBorder(MaterialTheme.colorScheme.outlineVariant, 1.5.dp, 14.dp).padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            stringResource(R.string.free_gap, timeRange(gap.start, gap.end)),
+            Modifier.weight(1f, fill = false),
+            style = MaterialTheme.typography.bodyMedium,
+            color = muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(durationText(gap.minutes), style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, softWrap = false)
     }
 }
 

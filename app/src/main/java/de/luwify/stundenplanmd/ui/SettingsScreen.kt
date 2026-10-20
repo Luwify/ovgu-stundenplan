@@ -129,6 +129,11 @@ fun SettingsScreen(
                         )
                     }
 
+                    item(key = "fit-landscape") {
+                        val fit by vm.fitLandscape.collectAsStateWithLifecycle()
+                        SwitchRow(stringResource(R.string.fit_landscape), stringResource(R.string.fit_landscape_hint), fit, vm::setFitLandscape)
+                    }
+
                     item(key = "theme-title") { SectionHeading(stringResource(R.string.theme_title)) }
                     item(key = "theme-picker") {
                         val theme = LocalThemeMode.current

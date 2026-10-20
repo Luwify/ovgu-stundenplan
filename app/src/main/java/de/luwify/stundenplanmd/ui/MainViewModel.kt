@@ -225,6 +225,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         ThemeChoice(mode, draft ?: custom)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    val fitLandscape: StateFlow<Boolean> = container.theme.fitLandscape.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun setFitLandscape(on: Boolean) {
+        viewModelScope.launch { container.theme.setFitLandscape(on) }
+    }
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { container.theme.setThemeMode(mode) }
     }

@@ -91,6 +91,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     val selectedId by vm.selected.collectAsStateWithLifecycle()
     val myShare by vm.myShare.collectAsStateWithLifecycle()
     val now by vm.now.collectAsStateWithLifecycle()
+    val fitLandscape by vm.fitLandscape.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val res = LocalResources.current
     val context = LocalContext.current
@@ -440,7 +441,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                                 ) { shown ->
                                     when (shown) {
                                         null -> EmptyState(onImport)
-                                        Tab.WEEK -> WeekScreen(page, now, week, active, onWeek = { week = it }, onOpen = { selected = SheetKey.of(page, it) }, modifier = Modifier.fillMaxSize())
+                                        Tab.WEEK -> WeekScreen(page, now, week, active, fitLandscape, onWeek = { week = it }, onOpen = { selected = SheetKey.of(page, it) }, modifier = Modifier.fillMaxSize())
                                         Tab.DAY -> DayScreen(page, now, day, active, onDay = { day = it }, onOpen = { selected = SheetKey.of(page, it) }, modifier = Modifier.fillMaxSize())
                                     }
                                 }

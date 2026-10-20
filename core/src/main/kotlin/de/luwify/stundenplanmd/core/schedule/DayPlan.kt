@@ -16,6 +16,9 @@ data class DayPlan(val date: LocalDate, val occurrences: List<Occurrence>, val c
     fun items(withCancellations: Boolean = true): List<Timed> =
         (occurrences + if (withCancellations) cancellations else emptyList()).sortedWith(compareBy({ it.start }, { it.end }))
 
+    /** Breaks of at least [FreeGaps.MIN_MINUTES] between two courses that take place (cancelled ones leave a gap). */
+    val gaps: List<FreeGap> by lazy { FreeGaps.of(occurrences) }
+
     /** Every item placed in side-by-side lanes for the week grid (built once). */
     val placed: List<Placed<Timed>> by lazy { DayLayout.place(items()) }
 }

@@ -30,6 +30,13 @@ fun time(t: LocalDateTime): String = t.format(hm)
 fun timeRange(start: LocalDateTime, end: LocalDateTime): String =
     if (start.minute == 0 && end.minute == 0) "${start.hour}–${end.hour}" else "${time(start)}–${time(end)}"
 
+/** "45 min", "2 h", "1 h 45 min" (the same in German and English). */
+fun durationText(minutes: Int): String = when {
+    minutes < 60 -> "$minutes min"
+    minutes % 60 == 0 -> "${minutes / 60} h"
+    else -> "${minutes / 60} h ${minutes % 60} min"
+}
+
 fun dayShort(date: LocalDate, locale: Locale): String = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).trimEnd('.')
 
 /** "Mo 12.10." */

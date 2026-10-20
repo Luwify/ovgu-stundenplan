@@ -83,13 +83,23 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.ceil
 import kotlin.math.roundToInt
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
+import de.luwify.stundenplanmd.core.schedule.HourScale
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
 private val Gutter = 26.dp
 private val BlockTitleStyle = TextStyle(hyphens = Hyphens.Auto, lineBreak = LineBreak.Paragraph)
 private val MinHour = 40.dp
+
+/** Smallest hour height when the grid is squashed to the screen in landscape: a one-hour block still holds its title line. */
+private val MinFitHour = 18.dp
+
+/** Space kept free below a squashed grid. */
+private val FitMargin = 4.dp
 
 /** Space between the top of the first hour label and the top of the day bar. */
 private val BarGap = 3.dp
@@ -110,6 +120,7 @@ fun WeekScreen(
     now: LocalDateTime,
     week: LocalDate?,
     active: Boolean,
+    fitLandscape: Boolean,
     onWeek: (LocalDate) -> Unit,
     onOpen: (Timed) -> Unit,
     modifier: Modifier = Modifier,
@@ -146,7 +157,7 @@ fun WeekScreen(
             HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = rememberBeyondPages(active)) { page ->
                 // A page composed before it is shown (the pager's neighbors) fills in column by column, not in one frame.
                 val eager = remember { page == pager.currentPage }
-                WeekPage(plan, weeks[page], now, openMonday, firstMonday, lastMonday, eager, onOpen)
+                WeekPage(plan, weeks[page], now, openMonday, firstMonday, lastMonday, eager, fitLandscape, onOpen)
             }
         }
     }
@@ -161,8 +172,11 @@ private fun WeekPage(
     firstMonday: LocalDate,
     lastMonday: LocalDate,
     eager: Boolean,
+    fitLandscape: Boolean,
     onOpen: (Timed) -> Unit,
 ) {
+    // Landscape with "fit to screen": the whole plan's hour range is squashed into the height (scrolls only below the minimum).
+    val fit = fitLandscape && LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val week = remember(plan, monday) { plan.schedule.week(monday) }
     val hours = plan.schedule.hours
     val today = now.toLocalDate()
@@ -184,7 +198,10 @@ private fun WeekPage(
             }
             val lead = labelMiddle + BarGap
             val top = lead + 1.dp
-            val hourH = maxOf(MinHour, (maxHeight - top) / n)
+            val hourH = (if (fit) HourScale.height((maxHeight - top).value, n, MinFitHour.value, FitMargin.value)
+            else HourScale.height((maxHeight - top).value, n, MinHour.value)).dp
+            // Labels on every hour, or every second/third one when the lines are closer than a label is tall.
+            val labelEvery = if (fit) ceil((with(density) { labelStyle.lineHeight.toDp() } + 1.dp) / hourH).toInt().coerceAtLeast(1) else 1
             val lines = colors.outlineVariant
             // Now, across the whole week behind the events: only in the current week, on a day shown, inside the hour range.
             val nowLine = colors.primary.copy(alpha = NOW_LINE_ALPHA)
@@ -217,6 +234,7 @@ private fun WeekPage(
                     val started = DayProgress.started(monday, now, hours.first, todayShown)
                     DayProgressFill(fill, started, lead, Modifier.fillMaxSize().padding(horizontal = 3.dp))
                     for (h in hours.first until hours.last) {
+                        if ((h - hours.first) % labelEvery != 0) continue
                         // A label counts as covered once the fill passes its middle, which is on the hour's line (the
                         // first one as soon as the day has started: the lead above its line is passed then).
                         val covered = started && (h == hours.first || fill * n > (h - hours.first))
@@ -238,7 +256,7 @@ private fun WeekPage(
                 }
                 week.days.forEachIndexed { index, day ->
                     DayColumn(
-                        plan, day, hours.first, hourH,
+                        plan, day, hours.first, hourH, fit,
                         wait = if (eager) 0 else index + 1,
                         isToday = day.date == today,
                         weekFree = week.free, strong = monday == openMonday, onOpen = onOpen,
@@ -294,6 +312,7 @@ private fun DayColumn(
     day: DayPlan,
     firstHour: Int,
     hourH: Dp,
+    fit: Boolean,
     /** Frames to wait before the blocks are composed (spreads a page that is built ahead over several frames). */
     wait: Int,
     isToday: Boolean,
@@ -332,11 +351,12 @@ private fun DayColumn(
                 for (p in placed) {
                     EventBlock(
                         plan, p.item, strong, narrow = p.columns > 1, onClick = { onOpen(p.item) },
+                        squashed = fit, height = y(p.item.end) - y(p.item.start),
                         modifier = Modifier
                             .offset(x = width * p.column / p.columns, y = y(p.item.start))
                             .width(width / p.columns)
                             .height(y(p.item.end) - y(p.item.start))
-                            .padding(1.5.dp),
+                            .padding(if (fit) 1.dp else 1.5.dp),
                     )
                 }
             }
@@ -375,7 +395,7 @@ private fun DayProgressFill(fill: Float, started: Boolean, lead: Dp, modifier: M
 
 /** One block in the grid: occurrence (highlighted if changed/extra) or faint cancellation. */
 @Composable
-private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boolean, onClick: () -> Unit, modifier: Modifier) {
+private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boolean, squashed: Boolean, height: Dp, onClick: () -> Unit, modifier: Modifier) {
     val page = MaterialTheme.colorScheme.background
     val rgb = plan.colorOf(item)
     val c = remember(rgb, page) { SubjectColors.block(rgb, page) }
@@ -389,6 +409,17 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
     val personal = item.personal
     val shape = RoundedCornerShape(6.dp)
     val cancelledText = stringResource(R.string.cancelled)
+    // Squashed (landscape fit): drop what does not fit instead of clipping it, the type line first, then the room.
+    val density = LocalDensity.current
+    val pad = if (squashed) 1.dp else 3.dp
+    val inner = height - (if (squashed) 1.dp else 1.5.dp) * 2f - pad * 2f
+    val titleLine = with(density) { (if (narrow) 12.sp else 13.sp).toDp() }
+    val roomLine = with(density) { 12.sp.toDp() }
+    val typeLine = with(density) { 11.sp.toDp() } + 2.dp
+    val showType = !squashed || inner >= titleLine + roomLine + typeLine
+    val showRoom = !squashed || inner >= titleLine + roomLine
+    val titleLines = if (!squashed) Int.MAX_VALUE else
+        ((inner - (if (showRoom) roomLine else 0.dp) - (if (showType) typeLine else 0.dp)) / titleLine).toInt().coerceAtLeast(1)
     Box(
         modifier
             .alpha(if (cancelled) 0.5f else 1f)
@@ -409,19 +440,24 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
         // Own changes and notes: badges below it, same column (the bottom row is too narrow for more than type and s.t.).
         val note = personal?.note != null
         val manual = item.event.isManual
-        val badges = !narrow && (shared || note || ownChange || manual)
+        val badgeRows = listOf(manual, shared, ownChange, note).count { it }
+        // Squashed blocks show as many badges as fit their height.
+        val shownBadges = if (squashed) minOf(badgeRows, ((inner + 2.dp) / 17.dp).toInt()) else badgeRows
+        val badges = !narrow && shownBadges > 0
         if (badges) {
             Column(Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                if (manual) ManualBadge(15.dp)
-                if (shared) TogetherBadge(count, favorite, 15.dp)
-                if (ownChange) MarkerBadge(note = false, 15.dp)
-                if (note) MarkerBadge(note = true, 15.dp)
+                var left = shownBadges
+                if (manual && left-- > 0) ManualBadge(15.dp)
+                if (shared && left-- > 0) TogetherBadge(count, favorite, 15.dp)
+                if (ownChange && left-- > 0) MarkerBadge(note = false, 15.dp)
+                if (note && left-- > 0) MarkerBadge(note = true, 15.dp)
             }
         }
-        Column(Modifier.fillMaxSize().padding(start = 6.dp, end = if (badges) 17.dp else 3.dp, top = 3.dp, bottom = 3.dp)) {
+        Column(Modifier.fillMaxSize().padding(start = 6.dp, end = if (badges) 17.dp else 3.dp, top = pad, bottom = pad)) {
             Text(
                 blockName(subject, item),
                 Modifier.weight(1f, fill = false),
+                maxLines = titleLines,
                 color = c.content,
                 fontSize = if (narrow) 10.sp else 11.sp,
                 lineHeight = if (narrow) 12.sp else 13.sp,
@@ -431,7 +467,7 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
                 overflow = TextOverflow.Ellipsis,
                 textDecoration = if (cancelled) TextDecoration.LineThrough else null,
             )
-            Text(
+            if (showRoom) Text(
                 if (cancelled) cancelledText else item.room.orEmpty(),
                 color = c.content,
                 fontSize = 10.sp,
@@ -439,7 +475,7 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (showType) Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
                 TypeLabel(item.event.type.short, border = c.stripe, text = c.content)
                 if (shared && narrow) {
                     TogetherBadge(count, favorite, 13.dp)
