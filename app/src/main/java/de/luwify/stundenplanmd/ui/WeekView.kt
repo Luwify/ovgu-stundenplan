@@ -98,6 +98,9 @@ private val MinHour = 40.dp
 /** Smallest hour height when the grid is squashed to the screen in landscape: a one-hour block still holds its title line. */
 private val MinFitHour = 16.dp
 
+/** Below this hour height a one-hour block can't hold a normal title line: squashed blocks use smaller type. */
+private val TinyHour = 22.dp
+
 /** Space kept free below a squashed grid. */
 private val FitMargin = 4.dp
 
@@ -256,7 +259,7 @@ private fun WeekPage(
                 }
                 week.days.forEachIndexed { index, day ->
                     DayColumn(
-                        plan, day, hours.first, hourH, fit,
+                        plan, day, hours.first, hourH, fit && hourH < MinHour,
                         wait = if (eager) 0 else index + 1,
                         isToday = day.date == today,
                         weekFree = week.free, strong = monday == openMonday, onOpen = onOpen,
@@ -364,7 +367,7 @@ private fun DayColumn(
                 for (p in placed) {
                     EventBlock(
                         plan, p.item, strong, narrow = p.columns > 1, onClick = { onOpen(p.item) },
-                        squashed = fit, height = y(p.item.end) - y(p.item.start),
+                        squashed = fit, tiny = hourH < TinyHour, height = y(p.item.end) - y(p.item.start),
                         modifier = Modifier
                             .offset(x = width * p.column / p.columns, y = y(p.item.start))
                             .width(width / p.columns)
@@ -408,7 +411,7 @@ private fun DayProgressFill(fill: Float, started: Boolean, lead: Dp, modifier: M
 
 /** One block in the grid: occurrence (highlighted if changed/extra) or faint cancellation. */
 @Composable
-private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boolean, squashed: Boolean, height: Dp, onClick: () -> Unit, modifier: Modifier) {
+private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boolean, squashed: Boolean, tiny: Boolean, height: Dp, onClick: () -> Unit, modifier: Modifier) {
     val page = MaterialTheme.colorScheme.background
     val rgb = plan.colorOf(item)
     val c = remember(rgb, page) { SubjectColors.block(rgb, page) }
@@ -426,7 +429,7 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
     val density = LocalDensity.current
     val pad = if (squashed) 1.dp else 3.dp
     val inner = height - (if (squashed) 1.dp else 1.5.dp) * 2f - pad * 2f
-    val titleLine = with(density) { (if (squashed) 11.sp else if (narrow) 12.sp else 13.sp).toDp() }
+    val titleLine = with(density) { (if (narrow) 12.sp else if (tiny) 11.sp else 13.sp).toDp() }
     val roomLine = with(density) { 12.sp.toDp() }
     val typeLine = with(density) { 11.sp.toDp() } + 2.dp
     val showType = !squashed || inner >= titleLine + roomLine + typeLine
@@ -472,8 +475,8 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
                 Modifier.weight(1f, fill = false),
                 maxLines = titleLines,
                 color = c.content,
-                fontSize = if (narrow || squashed) 10.sp else 11.sp,
-                lineHeight = if (narrow || squashed) 11.sp else 13.sp,
+                fontSize = if (narrow || tiny) 10.sp else 11.sp,
+                lineHeight = if (narrow) 12.sp else if (tiny) 11.sp else 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 // Long German words in narrow columns: hyphenate instead of breaking anywhere.
                 style = BlockTitleStyle,
