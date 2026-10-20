@@ -16,6 +16,9 @@ import de.luwify.stundenplanmd.core.schedule.Occurrence
 import de.luwify.stundenplanmd.core.schedule.OccurrenceKey
 import de.luwify.stundenplanmd.core.schedule.Timed
 import de.luwify.stundenplanmd.core.schedule.Together
+import de.luwify.stundenplanmd.core.schedule.DayPlan
+import de.luwify.stundenplanmd.core.schedule.FreeGap
+import de.luwify.stundenplanmd.core.schedule.FreeGaps
 import de.luwify.stundenplanmd.core.schedule.OccurrenceRef
 import de.luwify.stundenplanmd.core.schedule.OccurrenceValues
 import de.luwify.stundenplanmd.core.schedule.Personal
@@ -101,6 +104,8 @@ data class PlanUi(
     val legacyShare: Boolean = false,
     /** What I hid in this plan. */
     val hidden: List<Hidden> = emptyList(),
+    /** Everyone else's schedule (in my plan: friends; in a friend's: me and the other friends), for free time together. */
+    val others: List<Pair<String, Schedule>> = emptyList(),
 ) {
     val isEmpty: Boolean get() = schedule.events.isEmpty()
     val isMe: Boolean get() = person.isMe
@@ -110,6 +115,10 @@ data class PlanUi(
 
     /** At least one favorite friend attends [item]: the together icon turns red. */
     fun withFavorite(item: Timed): Boolean = togetherWith(item).any { it in favorites }
+
+    /** Who is free together with me in each break of [day] ([FreeGaps.together]). */
+    fun freeTogether(day: DayPlan): Map<FreeGap, List<String>> =
+        if (day.gaps.isEmpty()) emptyMap() else FreeGaps.together(day.gaps, others.map { (id, s) -> id to s.day(day.date).gaps })
 
     companion object {
         /** Me and every friend, in drawer order (my plan first); each schedule is expanded once. */
@@ -145,6 +154,7 @@ data class PlanUi(
                 addedUids = if (person.isMe) data.addedUids else emptySet(),
                 legacyShare = !person.isMe && plan?.legacyShare == true,
                 hidden = data.hiddenOf(person.id),
+                others = others,
             )
         }
     }

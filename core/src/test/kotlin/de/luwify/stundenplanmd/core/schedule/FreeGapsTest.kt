@@ -96,6 +96,37 @@ class FreeGapsTest {
         assertTrue(d.gaps.single().minutes == 120)
         assertFalse(d.gaps.any { it.start.toLocalTime().hour < 9 })
     }
+
+    private fun gap(from: String, to: String) = FreeGap(at(from), at(to))
+
+    @Test
+    fun freeTogetherWhenAFriendsGapOverlapsByTheMinimum() {
+        val mine = gap("11:00", "13:00")
+        // Alex: same gap. Sam: 12:15-14:00, 45 min in common. Kim: 12:30-14:00, only 30 min.
+        val together = FreeGaps.together(
+            listOf(mine),
+            listOf("alex" to listOf(gap("11:00", "13:00")), "sam" to listOf(gap("12:15", "14:00")), "kim" to listOf(gap("12:30", "14:00"))),
+        )
+        assertEquals(mapOf(mine to listOf("alex", "sam")), together)
+    }
+
+    @Test
+    fun notFreeTogetherWithoutACommonGap() {
+        val mine = gap("11:00", "13:00")
+        // A course of theirs right in my break (their gaps lie around it), or no gap that day at all.
+        val together = FreeGaps.together(listOf(mine), listOf("alex" to listOf(gap("09:00", "11:00"), gap("13:00", "15:00")), "sam" to emptyList()))
+        assertTrue(together.isEmpty())
+    }
+
+    @Test
+    fun theFriendsGapComesFromTheirCoursesBeforeAndAfter() {
+        // Mine: 9-11, 13-15 -> free 11-13. Theirs: 9-11, 12-14 -> free 11-12 (60 min in common). Without courses after
+        // 11 they would have no gap at all (a day that ends is not a break).
+        val me = Schedule(listOf(event("1", "09:00", "11:00"), event("2", "13:00", "15:00"))).day(day).gaps
+        val friend = Schedule(listOf(event("3", "09:00", "11:00"), event("4", "12:00", "14:00"))).day(day).gaps
+        val done = Schedule(listOf(event("5", "09:00", "11:00"))).day(day).gaps
+        assertEquals(listOf("friend"), FreeGaps.together(me, listOf("friend" to friend, "done" to done)).values.single())
+    }
 }
 
 class HourScaleTest {
@@ -128,4 +159,5 @@ class HourScaleTest {
         assertEquals(7..19, hours)
         assertEquals(20f, HourScale.height(240f, hours.last - hours.first, 1f), 0.001f)
     }
+
 }

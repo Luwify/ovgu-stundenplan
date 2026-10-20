@@ -28,6 +28,22 @@ object FreeGaps {
         }
         return gaps
     }
+
+    /**
+     * Who is free together with me in each of my [gaps]: everyone in [others] (person id -> their gaps of the same day)
+     * with a gap that overlaps mine by at least [minMinutes]. Gaps lie between two courses, so both have courses before
+     * and after. Only gaps shared with someone are in the result.
+     */
+    fun together(gaps: List<FreeGap>, others: List<Pair<String, List<FreeGap>>>, minMinutes: Int = MIN_MINUTES): Map<FreeGap, List<String>> =
+        gaps.associateWith { mine -> others.filter { (_, theirs) -> theirs.any { overlap(mine, it) >= minMinutes } }.map { it.first } }
+            .filterValues { it.isNotEmpty() }
+
+    /** Minutes two gaps share (0 if none). */
+    fun overlap(a: FreeGap, b: FreeGap): Int {
+        val start = maxOf(a.start, b.start)
+        val end = minOf(a.end, b.end)
+        return if (end.isAfter(start)) Duration.between(start, end).toMinutes().toInt() else 0
+    }
 }
 
 /** The hour height of the week grid. */

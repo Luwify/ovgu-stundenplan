@@ -525,10 +525,11 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
 
 /**
  * "Attended together" marker: person (1 friend), group (2) or groups (3 or more) on a small round badge in the surface color, so it stays visible on
- * every subject color; red (the favorite color, 3:1 on surface) when a favorite friend is there.
+ * every subject color; red (the favorite color, 3:1 on surface) when a favorite friend is there. [description] replaces the
+ * spoken "with n friends" (a free break says who).
  */
 @Composable
-fun TogetherBadge(count: Int, favorite: Boolean, size: Dp, modifier: Modifier = Modifier) {
+fun TogetherBadge(count: Int, favorite: Boolean, size: Dp, modifier: Modifier = Modifier, description: String? = null) {
     val scheme = MaterialTheme.colorScheme
     Box(modifier.size(size).clip(CircleShape).background(scheme.surface), contentAlignment = Alignment.Center) {
         Icon(
@@ -539,7 +540,7 @@ fun TogetherBadge(count: Int, favorite: Boolean, size: Dp, modifier: Modifier = 
                     else -> R.drawable.ic_groups
                 },
             ),
-            contentDescription = pluralStringResource(if (favorite) R.plurals.together_marker_favorite else R.plurals.together_marker, count, count),
+            contentDescription = description ?: pluralStringResource(if (favorite) R.plurals.together_marker_favorite else R.plurals.together_marker, count, count),
             tint = if (favorite) planColors().favorite else scheme.onSurfaceVariant,
             modifier = Modifier.size(size * 0.74f),
         )

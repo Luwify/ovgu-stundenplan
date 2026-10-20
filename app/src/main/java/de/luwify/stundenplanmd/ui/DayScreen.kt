@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.schedule.Cancellation
 import de.luwify.stundenplanmd.core.schedule.FreeGap
+import de.luwify.stundenplanmd.data.StoredData
 import de.luwify.stundenplanmd.core.schedule.Navigation
 import de.luwify.stundenplanmd.core.schedule.Occurrence
 import de.luwify.stundenplanmd.core.schedule.Status
@@ -115,6 +116,7 @@ private fun DayPage(plan: PlanUi, date: LocalDate, now: LocalDateTime, onOpen: (
     val near = date.isBefore(today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).plusWeeks(2))
     val items = remember(day, near) { day.items(near) }
     val rows = remember(items, day) { dayRows(items, day.gaps) }
+    val freeWith = remember(plan, day) { plan.freeTogether(day) }
     val heading = when (date) {
         today -> stringResource(R.string.today_heading, longDate(date, locale))
         today.plusDays(1) -> stringResource(R.string.tomorrow_heading, longDate(date, locale))
@@ -133,7 +135,7 @@ private fun DayPage(plan: PlanUi, date: LocalDate, now: LocalDateTime, onOpen: (
         items(rows, key = { it.key }) { row ->
             when (row) {
                 is DayRow.Card -> TodayRow(plan, row.item, now, onClick = { onOpen(row.item) })
-                is DayRow.Free -> FreeRow(row.gap)
+                is DayRow.Free -> FreeRow(plan, row.gap, freeWith[row.gap].orEmpty())
             }
         }
     }
@@ -159,10 +161,16 @@ private sealed interface DayRow {
 private fun dayRows(items: List<Timed>, gaps: List<FreeGap>): List<DayRow> =
     (items.map { DayRow.Card(it) } + gaps.map { DayRow.Free(it) }).sortedWith(compareBy({ it.start }, { it is DayRow.Free }))
 
-/** A break between two courses: dashed outline, no fill, no tap. */
+/**
+ * A break between two courses: dashed outline, no fill, no tap. [with]: who has a break then too (person ids): the
+ * together badge as on the cards; the row can't be tapped, so TalkBack reads their names.
+ */
 @Composable
-private fun FreeRow(gap: FreeGap) {
+private fun FreeRow(plan: PlanUi, gap: FreeGap, with: List<String>) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+    val you = stringResource(R.string.together_you)
+    val names = with.sortedBy { it !in plan.favorites }.joinToString(", ") { if (it == StoredData.ME) you else plan.names[it] ?: "?" }
+    val withText = if (with.isEmpty()) null else stringResource(R.string.free_together, names)
     Row(
         Modifier.fillMaxWidth().ownBorder(MaterialTheme.colorScheme.outlineVariant, 1.5.dp, 14.dp).padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -177,6 +185,9 @@ private fun FreeRow(gap: FreeGap) {
             overflow = TextOverflow.Ellipsis,
         )
         Text(durationText(gap.minutes), style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, softWrap = false)
+        if (withText != null) {
+            TogetherBadge(with.size, with.any { it in plan.favorites }, 24.dp, description = withText)
+        }
     }
 }
 

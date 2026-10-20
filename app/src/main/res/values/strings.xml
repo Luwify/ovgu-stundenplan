@@ -310,6 +310,7 @@
     <string name="fit_landscape">Fit to screen in landscape</string>
     <string name="fit_landscape_hint">The week view squashes to show the whole day without scrolling.</string>
     <string name="free_gap">Free · %1$s</string>
+    <string name="free_together">Free together with %1$s</string>
     <string name="orphans_title">Own changes without a date</string>
     <string name="orphans_hint">These dates are no longer in your plan (after a new import). Delete what you no longer need.</string>
     <string name="orphan_series">from %1$s</string>
