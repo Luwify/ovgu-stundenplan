@@ -38,6 +38,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.ui.text.Placeholder
@@ -226,6 +228,15 @@ private fun StatusBox(item: Timed) {
 /** Who else attends: favorite friends first, each with a heart, then the others (and me in a friend's plan). */
 @Composable
 private fun TogetherField(plan: PlanUi, ids: List<String>) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(stringResource(R.string.detail_together), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TogetherNames(plan, ids, MaterialTheme.typography.bodyLarge)
+    }
+}
+
+/** The names of [ids] ([StoredData.ME] = "you"): favorites first, each with a heart, then the others. */
+@Composable
+fun TogetherNames(plan: PlanUi, ids: List<String>, style: TextStyle, color: Color = Color.Unspecified) {
     val you = stringResource(R.string.together_you)
     val heart = stringResource(R.string.favorite)
     val red = planColors().favorite
@@ -243,10 +254,7 @@ private fun TogetherField(plan: PlanUi, ids: List<String>) {
             Icon(painterResource(R.drawable.ic_favorite_filled), contentDescription = heart, tint = red, modifier = Modifier.fillMaxSize())
         },
     )
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(stringResource(R.string.detail_together), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text, inlineContent = inline, style = MaterialTheme.typography.bodyLarge)
-    }
+    Text(text, inlineContent = inline, style = style, color = color)
 }
 
 @Composable

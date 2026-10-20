@@ -1,5 +1,14 @@
 package de.luwify.stundenplanmd.ui
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.rememberTooltipState
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.RichTooltip
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -163,8 +172,9 @@ private fun dayRows(items: List<Timed>, gaps: List<FreeGap>): List<DayRow> =
 
 /**
  * A break between two courses: dashed outline, no fill, no tap. [with]: who has a break then too (person ids): the
- * together badge as on the cards; the row can't be tapped, so TalkBack reads their names.
+ * together badge as on the cards. The row has no details to open, so the badge itself shows who (a tooltip card).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FreeRow(plan: PlanUi, gap: FreeGap, with: List<String>) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
@@ -186,7 +196,31 @@ private fun FreeRow(plan: PlanUi, gap: FreeGap, with: List<String>) {
         )
         Text(durationText(gap.minutes), style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, softWrap = false)
         if (withText != null) {
-            TogetherBadge(with.size, with.any { it in plan.favorites }, 24.dp, description = withText)
+            val tip = rememberTooltipState(isPersistent = true)
+            val scope = rememberCoroutineScope()
+            TooltipBox(
+                positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+                tooltip = {
+                    // The tone of the detail sheet's menus, set off from the page.
+                    RichTooltip(
+                        title = { Text(stringResource(R.string.free_together_title)) },
+                        colors = TooltipDefaults.richTooltipColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
+                    ) {
+                        TogetherNames(plan, with, MaterialTheme.typography.bodyMedium)
+                    }
+                },
+                state = tip,
+                enableUserInput = false,
+            ) {
+                TogetherBadge(
+                    with.size, with.any { it in plan.favorites }, 24.dp,
+                    Modifier
+                        .minimumInteractiveComponentSize()
+                        .clip(CircleShape)
+                        .clickable(role = Role.Button, onClickLabel = stringResource(R.string.free_together_show)) { scope.launch { tip.show() } },
+                    description = withText,
+                )
+            }
         }
     }
 }

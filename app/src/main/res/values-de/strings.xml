@@ -305,6 +305,8 @@
     <string name="fit_landscape_hint">Die Wochenansicht wird gestaucht und zeigt den ganzen Tag ohne Scrollen.</string>
     <string name="free_gap">Frei · %1$s</string>
     <string name="free_together">Zusammen frei mit %1$s</string>
+    <string name="free_together_title">Zusammen frei</string>
+    <string name="free_together_show">zeigen, wer</string>
     <string name="orphans_title">Eigene Änderungen ohne Termin</string>
     <string name="orphans_hint">Diese Termine gibt es in deinem Plan nicht mehr (nach einem neuen Import). Lösche, was du nicht mehr brauchst.</string>
     <string name="orphan_series">ab %1$s</string>
