@@ -42,6 +42,12 @@ data class UpdatesBackup(
     val skippedCode: Int? = null,
 )
 
+/** Display settings in a backup (since version 4): the landscape fit of the week grid. */
+@Serializable
+data class DisplayBackup(
+    val fitLandscape: Boolean = true,
+)
+
 /**
  * What a backup file holds; [ics] is the raw import (null if there was none). [language] is the in-app language key
  * ("system", "de", "en"), null in backups from before version 2: restoring those keeps the current language.
@@ -54,6 +60,8 @@ data class Backup(
     val language: String? = null,
     /** Null in backups from before version 3: restoring those keeps the current update settings. */
     val updates: UpdatesBackup? = null,
+    /** Null in backups from before version 4: restoring those keeps the current display settings. */
+    val display: DisplayBackup? = null,
 )
 
 sealed interface BackupResult {
@@ -72,15 +80,16 @@ sealed interface BackupResult {
 object BackupCodec {
     const val FORMAT = "stundenplanmd-backup"
     /**
-     * 2: `language` (in-app language). 3: `updates` (automatic check, skipped version). Older files are read through
+     * 2: `language` (in-app language). 3: `updates` (automatic check, skipped version). 4: `display` (landscape fit). Older files are read through
      * [upgrade]: the missing parts stay missing, so a restore keeps the current values for them.
      */
-    const val VERSION = 3
+    const val VERSION = 4
 
     /** Version n -> n+1 of the backup envelope (the plan data inside has its own [Migrations]). */
     private val STEPS: Map<Int, (JsonObject) -> JsonObject> = mapOf(
         1 to { o -> o }, // no language yet: keep the current one
         2 to { o -> o }, // no update settings yet: keep the current ones
+        3 to { o -> o }, // no display settings yet: keep the current ones
     )
 
     /** Brings an older backup envelope to [VERSION], step by step. */
@@ -96,7 +105,7 @@ object BackupCodec {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = false }
 
-    fun encode(data: StoredData, ics: String?, theme: ThemeChoice, language: String, updates: UpdatesBackup, now: Instant = Instant.now()): String {
+    fun encode(data: StoredData, ics: String?, theme: ThemeChoice, language: String, updates: UpdatesBackup, display: DisplayBackup = DisplayBackup(), now: Instant = Instant.now()): String {
         val obj = JsonObject(
             buildMap {
                 put("format", JsonPrimitive(FORMAT))
@@ -107,6 +116,7 @@ object BackupCodec {
                 put("theme", json.encodeToJsonElement(ThemeBackup.serializer(), ThemeBackup.of(theme)))
                 put("language", JsonPrimitive(language))
                 put("updates", json.encodeToJsonElement(UpdatesBackup.serializer(), updates))
+                put("display", json.encodeToJsonElement(DisplayBackup.serializer(), display))
             },
         )
         return json.encodeToString(JsonObject.serializer(), obj)
@@ -128,6 +138,7 @@ object BackupCodec {
                     data, obj["ics"]?.jsonPrimitive?.content, theme, obj["exportedAt"]?.jsonPrimitive?.content,
                     language = obj["language"]?.jsonPrimitive?.content,
                     updates = obj["updates"]?.let { json.decodeFromJsonElement(UpdatesBackup.serializer(), it) },
+                    display = obj["display"]?.let { json.decodeFromJsonElement(DisplayBackup.serializer(), it) },
                 ),
             )
         }

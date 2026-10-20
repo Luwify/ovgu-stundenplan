@@ -21,7 +21,11 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -92,6 +96,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     val myShare by vm.myShare.collectAsStateWithLifecycle()
     val now by vm.now.collectAsStateWithLifecycle()
     val fitLandscape by vm.fitLandscape.collectAsStateWithLifecycle()
+    val compact = LocalCompactHeight.current
     val snackbar = remember { SnackbarHostState() }
     val res = LocalResources.current
     val context = LocalContext.current
@@ -330,6 +335,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
             Scaffold(
                 topBar = {
                     TopAppBar(
+                        expandedHeight = if (compact) 48.dp else TopAppBarDefaults.TopAppBarExpandedHeight,
                         navigationIcon = {
                             IconButton(onClick = { scope.launch { drawer.open() } }) {
                                 Icon(painterResource(R.drawable.ic_menu), stringResource(R.string.open_drawer))
@@ -384,7 +390,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                     )
                 },
                 bottomBar = {
-                    if (plan?.isEmpty == false) {
+                    if (plan?.isEmpty == false && !compact) {
                         NavigationBar {
                             NavigationBarItem(
                                 selected = tab == Tab.WEEK,
@@ -403,7 +409,17 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 },
             ) { padding ->
                 val p = plan
-                Box(Modifier.fillMaxSize().padding(padding)) {
+                androidx.compose.foundation.layout.Row(Modifier.fillMaxSize().padding(padding)) {
+                if (plan?.isEmpty == false && compact) {
+                    // A low screen: the tabs move to the left, so the plan keeps the height.
+                    NavigationRail {
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        NavigationRailItem(selected = tab == Tab.WEEK, onClick = { tab = Tab.WEEK }, icon = { Icon(WeekIcon, null) }, label = { Text(stringResource(R.string.tab_week)) })
+                        NavigationRailItem(selected = tab == Tab.DAY, onClick = { tab = Tab.DAY }, icon = { Icon(TodayIcon, null) }, label = { Text(stringResource(R.string.tab_day)) })
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                    }
+                }
+                Box(Modifier.weight(1f).fillMaxHeight()) {
                     if (pages.isNotEmpty()) {
                         // One page per person (drawer order); week and day stay where they are when switching.
                         val edge = remember(people, animate) { EdgeOnlyConnection(people, animate) }
@@ -493,6 +509,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             onDismiss = { pickDates = null },
                         )
                     }
+                }
                 }
             }
         }

@@ -51,6 +51,7 @@ import de.luwify.stundenplanmd.core.share.Forwarding
 import de.luwify.stundenplanmd.core.share.ShareCodec
 import de.luwify.stundenplanmd.core.share.ShareResult
 import de.luwify.stundenplanmd.core.share.SharedPlan
+import de.luwify.stundenplanmd.data.DisplayBackup
 import de.luwify.stundenplanmd.data.settings.CustomThemeSpec
 import de.luwify.stundenplanmd.data.settings.ThemeChoice
 import de.luwify.stundenplanmd.data.settings.ThemeMode
@@ -209,6 +210,7 @@ data class Snapshot(
     val theme: ThemeChoice,
     val language: AppLanguage? = null,
     val updates: de.luwify.stundenplanmd.data.UpdatesBackup? = null,
+    val display: de.luwify.stundenplanmd.data.DisplayBackup? = null,
 )
 
 /** A backup file read and waiting for the user's confirmation. */
@@ -301,7 +303,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val ok = runCatching {
                 val data = repo.data.value ?: error("not loaded")
                 val language = AppLanguage.key(AppLanguage.current(getApplication()))
-                val text = BackupCodec.encode(data, repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), language, updates.backupState())
+                val text = BackupCodec.encode(data, repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), language, updates.backupState(), DisplayBackup(fitLandscape.value))
                 withContext(Dispatchers.IO) {
                     getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.encodeToByteArray()) }
                 }
@@ -337,12 +339,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val app = getApplication<Application>()
             val before = Snapshot(
                 repo.data.value ?: StoredData(), repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), AppLanguage.current(app),
-                updates.backupState(),
+                updates.backupState(), DisplayBackup(fitLandscape.value),
             )
             runCatching {
                 repo.replaceAll(backup.data, backup.ics)
                 container.theme.restore(backup.theme.toChoice())
                 backup.updates?.let { updates.restore(it) }
+                backup.display?.let { container.theme.setFitLandscape(it.fitLandscape) }
             }.onSuccess {
                 _messages.send(UiMessage.BackupRestored(before))
                 // Last: a different language recreates the activity (the restored data is saved by then).
@@ -356,6 +359,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             repo.replaceAll(previous.data, previous.ics)
             container.theme.restore(previous.theme)
             previous.updates?.let { updates.restore(it) }
+            previous.display?.let { container.theme.setFitLandscape(it.fitLandscape) }
             previous.language?.let(::applyLanguage)
         }
     }

@@ -97,7 +97,7 @@ fun DayScreen(
             }
         }
         Column(modifier) {
-            ChipStrip(labels, pager.currentPage, DayChipWidth, stringResource(R.string.back_to_today), onSelect = goTo)
+            ChipStrip(labels, pager.currentPage, if (LocalCompactHeight.current) CompactDayChipWidth else DayChipWidth, stringResource(R.string.back_to_today), onSelect = goTo)
             HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = rememberBeyondPages(active)) { page ->
                 DayPage(plan, dateOf(page), now, onOpen)
             }

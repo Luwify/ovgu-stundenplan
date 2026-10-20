@@ -28,7 +28,7 @@ Release builds are signed with the maintainer's key; they need the Gradle proper
 release, point them at your own keystore. The version lives in `version.properties`.
 
 ```bash
-./gradlew installDebug                           # debug build "Plan Preview" (debug key, own package)
+./gradlew installDebug                           # debug build "Stundenplan Preview" (debug key, own package)
 ```
 
 Min SDK 26, target SDK 37. Modules: `:core` (pure Kotlin/JVM: iCal parser, model, occurrence expansion, change

@@ -26,6 +26,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -56,6 +57,19 @@ import androidx.compose.ui.unit.dp
 import de.luwify.stundenplanmd.ui.theme.planColors
 
 private val ChipHeight = 56.dp
+private val CompactChipHeight = 32.dp
+
+/**
+ * Landscape on a low screen (a phone) with "fit to screen": the chrome around the grid is slimmed (48 dp top bar, one-line
+ * chips and day headers, tabs in a rail on the left) so the whole day fits without scrolling. Provided by the activity.
+ */
+val LocalCompactHeight = androidx.compose.runtime.compositionLocalOf { false }
+
+@Composable
+fun compactHeight(fitLandscape: Boolean): Boolean {
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    return fitLandscape && config.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && config.screenHeightDp < 480
+}
 private val ChipGap = 8.dp
 private val StripPadding = 16.dp
 private const val FadeMillis = Motion.Short
@@ -87,6 +101,7 @@ fun ChipStrip(
     modifier: Modifier = Modifier,
 ) {
     val animate = animationsEnabled()
+    val compact = LocalCompactHeight.current
     val chipPx = with(LocalDensity.current) { chipWidth.roundToPx() }
     val state = rememberLazyListState(initialFirstVisibleItemIndex = (selected - 1).coerceAtLeast(0))
     suspend fun center(index: Int) {
@@ -120,7 +135,7 @@ fun ChipStrip(
         LazyRow(
             Modifier.fillMaxWidth(),
             state = state,
-            contentPadding = PaddingValues(horizontal = StripPadding, vertical = 8.dp),
+            contentPadding = PaddingValues(horizontal = StripPadding, vertical = if (compact) 2.dp else 8.dp),
             horizontalArrangement = Arrangement.spacedBy(ChipGap),
         ) {
             itemsIndexed(labels) { i, label ->
@@ -185,6 +200,23 @@ private fun StripChip(label: ChipLabel, selected: Boolean, animate: Boolean, onC
     )
     val outline by animateColorAsState(if (label.current && !selected) scheme.primary else Color.Transparent, spec, label = "chip outline")
     val shape = RoundedCornerShape(14.dp)
+    if (LocalCompactHeight.current) {
+        // One line ("KW 43  19.10. - 23.10."), as high as a text button.
+        Row(
+            modifier
+                .height(CompactChipHeight)
+                .clip(shape)
+                .background(container)
+                .border(1.5.dp, outline, shape)
+                .selectable(selected, role = Role.Tab, onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Text(label.top, color = content, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text("  " + label.bottom, color = content, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+        }
+        return
+    }
     Column(
         modifier
             .height(ChipHeight)
@@ -202,3 +234,7 @@ private fun StripChip(label: ChipLabel, selected: Boolean, animate: Boolean, onC
 
 val WeekChipWidth = 112.dp
 val DayChipWidth = 72.dp
+
+/** Chip widths for the one-line chips of [LocalCompactHeight]. */
+val CompactWeekChipWidth = 176.dp
+val CompactDayChipWidth = 96.dp

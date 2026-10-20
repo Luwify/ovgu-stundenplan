@@ -626,9 +626,19 @@ class PersistenceTest {
     )
 
     @Test
+    fun backupFromBeforeDisplaySettingsKeepsTheCurrentOnes() {
+        val v3 = BackupCodec.encode(data, null, theme, "de", UpdatesBackup(false, 7), DisplayBackup(false))
+            .replace("\"version\":${BackupCodec.VERSION}", "\"version\":3").replace(",\"display\":{\"fitLandscape\":false}", "")
+        assertTrue(v3.contains("\"version\":3") && !v3.contains("display"))
+        val ok = BackupCodec.decode(v3) as BackupResult.Ok
+        assertEquals(null, ok.backup.display)
+        assertEquals(UpdatesBackup(false, 7), ok.backup.updates)
+    }
+
+    @Test
     fun backupRoundTripsEverything() {
         val ics = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"
-        val text = BackupCodec.encode(data, ics, theme, "en", UpdatesBackup(autoCheck = false, skippedCode = 10002), Instant.parse("2026-10-12T10:00:00Z"))
+        val text = BackupCodec.encode(data, ics, theme, "en", UpdatesBackup(autoCheck = false, skippedCode = 10002), DisplayBackup(fitLandscape = false), Instant.parse("2026-10-12T10:00:00Z"))
         val ok = BackupCodec.decode(text) as BackupResult.Ok
         assertUserDataSurvived(ok.backup.data)
         assertEquals(ics, ok.backup.ics)
@@ -636,6 +646,7 @@ class PersistenceTest {
         assertEquals("2026-10-12T10:00:00Z", ok.backup.exportedAt)
         assertEquals("en", ok.backup.language)
         assertEquals(UpdatesBackup(autoCheck = false, skippedCode = 10002), ok.backup.updates)
+        assertEquals(DisplayBackup(fitLandscape = false), ok.backup.display)
         assertEquals(de.luwify.stundenplanmd.AppLanguage.ENGLISH, de.luwify.stundenplanmd.AppLanguage.fromKey(ok.backup.language))
     }
 

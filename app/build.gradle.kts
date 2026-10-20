@@ -81,7 +81,7 @@ android {
 
     sourceSets.getByName("perf") {
         kotlin.directories += "src/release/java" // the release update source (no debug override)
-        res.directories += "src/debug/res" // launcher label "Plan Preview"
+        res.directories += "src/debug/res" // launcher label "Stundenplan Preview"
     }
 
     compileOptions {

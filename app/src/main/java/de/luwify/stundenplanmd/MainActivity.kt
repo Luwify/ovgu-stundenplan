@@ -83,6 +83,10 @@ class MainActivity : ComponentActivity() {
             theme?.let {
               ThemeCrossfade(it.mode to systemDark, de.luwify.stundenplanmd.ui.animationsEnabled()) {
                 StundenplanTheme(it.mode, it.custom) {
+                    val fit by vm.fitLandscape.collectAsStateWithLifecycle()
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        de.luwify.stundenplanmd.ui.LocalCompactHeight provides de.luwify.stundenplanmd.ui.compactHeight(fit),
+                    ) {
                     MainScreen(
                         vm,
                         onImport = { picker.launch(PICKER_TYPES) },
@@ -92,6 +96,7 @@ class MainActivity : ComponentActivity() {
                         // The drawer's file: a share or an .ics (a friend's, or courses to add to mine).
                         onPickFriendFile = { friendFileLauncher.launch(PICKER_TYPES) },
                     )
+                    }
                 }
               }
             }

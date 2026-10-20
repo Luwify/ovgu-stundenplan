@@ -96,7 +96,7 @@ private val BlockTitleStyle = TextStyle(hyphens = Hyphens.Auto, lineBreak = Line
 private val MinHour = 40.dp
 
 /** Smallest hour height when the grid is squashed to the screen in landscape: a one-hour block still holds its title line. */
-private val MinFitHour = 18.dp
+private val MinFitHour = 16.dp
 
 /** Space kept free below a squashed grid. */
 private val FitMargin = 4.dp
@@ -153,7 +153,7 @@ fun WeekScreen(
             }
         }
         Column(modifier) {
-            ChipStrip(labels, pager.currentPage, WeekChipWidth, stringResource(R.string.back_to_this_week), onSelect = goTo)
+            ChipStrip(labels, pager.currentPage, if (LocalCompactHeight.current) CompactWeekChipWidth else WeekChipWidth, stringResource(R.string.back_to_this_week), onSelect = goTo)
             HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = rememberBeyondPages(active)) { page ->
                 // A page composed before it is shown (the pager's neighbors) fills in column by column, not in one frame.
                 val eager = remember { page == pager.currentPage }
@@ -183,7 +183,7 @@ private fun WeekPage(
     val locale = appLocale()
     val colors = MaterialTheme.colorScheme
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(start = Gutter, bottom = 4.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = Gutter, bottom = if (LocalCompactHeight.current) 2.dp else 4.dp)) {
             week.days.forEach { DayHeader(it.date, it.date == today, Modifier.weight(1f)) }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -291,6 +291,19 @@ private fun WeekPage(
 private fun DayHeader(date: LocalDate, isToday: Boolean, modifier: Modifier) {
     val locale = appLocale()
     val colors = MaterialTheme.colorScheme
+    if (LocalCompactHeight.current) {
+        // One line: weekday and the date circle side by side.
+        Row(modifier, horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Text(dayShort(date, locale), style = MaterialTheme.typography.labelMedium, color = if (isToday) colors.primary else colors.onSurfaceVariant)
+            Box(
+                Modifier.padding(start = 4.dp).size(22.dp).clip(CircleShape).background(if (isToday) colors.primary else Color.Transparent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("${date.dayOfMonth}", style = MaterialTheme.typography.labelMedium, color = if (isToday) colors.onPrimary else colors.onSurface)
+            }
+        }
+        return
+    }
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(dayShort(date, locale), style = MaterialTheme.typography.labelMedium, color = if (isToday) colors.primary else colors.onSurfaceVariant)
         Box(
@@ -413,7 +426,7 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
     val density = LocalDensity.current
     val pad = if (squashed) 1.dp else 3.dp
     val inner = height - (if (squashed) 1.dp else 1.5.dp) * 2f - pad * 2f
-    val titleLine = with(density) { (if (narrow) 12.sp else 13.sp).toDp() }
+    val titleLine = with(density) { (if (squashed) 11.sp else if (narrow) 12.sp else 13.sp).toDp() }
     val roomLine = with(density) { 12.sp.toDp() }
     val typeLine = with(density) { 11.sp.toDp() } + 2.dp
     val showType = !squashed || inner >= titleLine + roomLine + typeLine
@@ -459,8 +472,8 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
                 Modifier.weight(1f, fill = false),
                 maxLines = titleLines,
                 color = c.content,
-                fontSize = if (narrow) 10.sp else 11.sp,
-                lineHeight = if (narrow) 12.sp else 13.sp,
+                fontSize = if (narrow || squashed) 10.sp else 11.sp,
+                lineHeight = if (narrow || squashed) 11.sp else 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 // Long German words in narrow columns: hyphenate instead of breaking anywhere.
                 style = BlockTitleStyle,

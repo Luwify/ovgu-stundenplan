@@ -14,7 +14,7 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   no Android imports), `:app` (Android, UI, storage, import intents).
 - JDK 21 (Android Studio's JBR); a newer system JDK doesn't work with this Gradle/AGP.
 - `./gradlew testDebugUnitTest` also runs `:core:test`; `lint` also lints `:core`.
-- Device tests only on the debug build (package `de.luwify.stundenplanmd.preview`, launcher label "Plan Preview"),
+- Device tests only on the debug build (package `de.luwify.stundenplanmd.preview`, launcher label "Stundenplan Preview"),
   never on the real app `de.luwify.stundenplanmd` (see Rules).
 
 ## Architecture
@@ -32,7 +32,7 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
     while something of it is still to come), `weeks` = strip/pager range from 1 week before the first event, `days` /
     `dayPage` = the day pager's pages (the days each week shows), `dayToOpen`, `TodayView`), `DayLayout`, `NowStatus` (drawer now-line), `Together`
     (matching, `OccurrenceKey`), `Personal` (own changes resolved per occurrence, `PersonalChanges` editing + orphans),
-    `Hiding` (what a `Schedule` leaves out, `forSharing`).
+    `Hiding` (what a `Schedule` leaves out, `forSharing`), `FreeGaps`/`FreeGap` (`DayPlan.gaps`: breaks of >= 45 min between occurrences, cancelled/hidden leave a gap), `HourScale` (hour height of the week grid: fill the height, minimum, margin).
   - `share/`: `Base45` (RFC 9285), `ShareCodec` (`SharedPlan`, `ShareResult`, QR text / file, limits).
   - `update/`: `UpdateManifest`, `UpdatePolicy` (see "In-app updater").
 - `:app`: `data/PlanRepository` (one atomic JSON file `files/plans/data.json` + `me.ics`, `StoredData`
@@ -73,6 +73,13 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   surfaceContainerLow, page and card; custom role FAVORITE), `SubjectColors` (tint + stripe, contrast-nudged).
   `TogetherBadge` (WeekView): group icon on a round surface badge, onSurfaceVariant, or the favorite red when a
   favorite friend attends (`PlanUi.withFavorite`).
+- Day view free blocks: `DayScreen` merges `DayPlan.gaps` into the list as dashed, non-clickable `FreeRow`s ("Frei · 13–15  2 h").
+- Landscape fit (setting "Querformat an Bildschirm anpassen", `ThemeSettings.fitLandscape`, default on, in the backup as
+  `display` since version 4): `WeekPage` scales the hour height over the whole plan's `Schedule.hours` (`HourScale`, min
+  16 dp, 4 dp margin; scrolls below that); `EventBlock(squashed)` drops the type line, then the room, then title lines, and
+  shows only the badges that fit; hour labels thin out when lines are closer than a label. On a low screen (phone
+  landscape: `compactHeight`, `LocalCompactHeight`: height < 480 dp) the chrome is slimmed: 48 dp top bar, tabs in a
+  `NavigationRail` on the left, one-line chips and day headers, so 12 h fit without scrolling.
 - Performance: `MainScreen` keeps every person composed (`composedAround`, one more per idle moment after the start,
   max 8): otherwise the pager's prefetch composes the page beyond the next one at the start of a drag (a whole week
   grid, 80–150 ms). Build type `perf` (`assemblePerf`: R8 like release, not debuggable, debug-signed, `.preview` id)
@@ -165,8 +172,8 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   `STEPS[n]` = n -> n+1) and the old file is kept as `data.json.v<n>`.
 - **Any change to the stored format: raise `Migrations.CURRENT` (or `ThemeSettings.SCHEMA`), add the step, add a test
   in `PersistenceTest`.** Never drop or rename stored keys without a step.
-- Backup (settings page): one versioned JSON (`BackupCodec` version 3: plan data incl. course settings and friends, raw
-  .ics, theme, `language` (since 2: "system"/"de"/"en"), `updates` (since 3: autoCheck, skippedCode); `upgrade` steps
+- Backup (settings page): one versioned JSON (`BackupCodec` version 4: plan data incl. course settings and friends, raw
+  .ics, theme, `language` (since 2: "system"/"de"/"en"), `updates` (since 3: autoCheck, skippedCode), `display` (since 4: fitLandscape); `upgrade` steps
   the envelope, missing parts of older files keep the current values on restore; undo restores them too), export via
   CreateDocument, import via OpenDocument with a confirmation dialog and undo (`Snapshot`). `allowBackup` cloud backup
   stays excluded (data_extraction_rules).
@@ -375,7 +382,7 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 - **Never touch the data of the real app `de.luwify.stundenplanmd` on ANY connected device:** no `pm clear`, no
   uninstall, no `run-as` on it, no importing fixtures into it. It holds the user's real plan and subject settings.
   It updates itself from the releases; install over it only with `installRelease` when the user asks. Debug builds
-  have the applicationIdSuffix `.preview` (`de.luwify.stundenplanmd.preview`, launcher label "Plan Preview"): all
+  have the applicationIdSuffix `.preview` (`de.luwify.stundenplanmd.preview`, launcher label "Stundenplan Preview"): all
   fake-data tests go there; only that copy may be cleared or uninstalled.
 - Never run sudo or install system/SDK packages: tell the user the command.
 - Stay inside this directory (reading the Mensa MD repo is allowed, never modify it).
