@@ -104,11 +104,15 @@ fun DetailSheet(
     // between "scrolls" and "fits" during a drag, which changed the sheet's height and anchors and pulled it back up, over
     // and over. Pinning the scroll area to the room at rest (window - top inset - the 48 dp drag handle, less a hair) keeps
     // the sheet's size independent of where it is.
+    // Material's own content insets do the same with the status bar: as much top padding as the sheet is under it. Pushed
+    // past its rest position (a fling at the end of the scroll area, in landscape), the sheet grew, its anchor moved up
+    // with it, and it chased itself forever. The cap already keeps it below the status bar and the scroll area pads for the
+    // navigation bar, so the sheet gets no insets of its own.
     val density = LocalDensity.current
     val windowHeight = LocalWindowInfo.current.containerSize.height
     val topInset = WindowInsets.systemBars.getTop(density)
     val contentMax = with(density) { (windowHeight - topInset).toDp() } - DragHandleHeight - 1.dp
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets(0) }) {
         Column(
             Modifier.fillMaxWidth().heightIn(max = contentMax).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp),
