@@ -722,6 +722,35 @@ class PersistenceTest {
         assertEquals(3, Migrations.versionOf(JsonObject(mapOf("version" to JsonPrimitive(3)))))
         assertNotNull(Migrations.migrate(JsonObject(emptyMap())))
     }
+
+    /** The shared name stays stored apart from my rename: kept by an update (the new shared name replaces it), and in the backup. */
+    @Test
+    fun originalFriendNameIsStoredUpdatedAndBackedUp() = runBlocking {
+        val repo = PlanRepository(dir())
+        repo.load()
+        val events = listOf(event("900066000001", "Numerik N4 (VL)"))
+        fun shared(name: String) = SharedPlan("0123456789abcdef", name, LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 11), events, emptyMap(), complete = true)
+        val added = (repo.importFriend(shared("Max Müller")) as FriendImport.Imported).person
+        assertEquals("Max Müller", added.name)
+        assertFalse(added.renamed)
+        repo.renameFriend(added.id, "Maxi")
+        assertTrue(repo.data.value!!.person(added.id)!!.renamed)
+        // Update: my name stays, the original follows what they share now.
+        repo.importFriend(shared("Maximilian Müller"))
+        val updated = repo.data.value!!.person(added.id)!!
+        assertEquals("Maximilian Müller", updated.name)
+        assertEquals("Maxi", updated.localName)
+        val restored = (BackupCodec.decode(BackupCodec.encode(repo.data.value!!, null, theme, "de", UpdatesBackup())) as BackupResult.Ok).backup.data
+        assertEquals(updated, restored.person(added.id))
+        // An .ics friend: the name given at import is the original; an update keeps it and my rename.
+        val ics = repo.importIcsFriend(events, null, "Lena", null, LocalDate.of(2026, 10, 14)).person
+        repo.renameFriend(ics.id, "Lenchen")
+        repo.importIcsFriend(events, null, "Anders", ics.id, LocalDate.of(2026, 10, 15))
+        assertEquals("Lena", repo.data.value!!.person(ics.id)!!.name)
+        assertEquals("Lenchen", repo.data.value!!.person(ics.id)!!.localName)
+        // Stored data from before (no extra field was ever needed): a friend never renamed needs no choice.
+        assertFalse(Person("0123456789abcdef", "Max", isMe = false).renamed)
+    }
 }
 
 private object FakeStore : androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> {

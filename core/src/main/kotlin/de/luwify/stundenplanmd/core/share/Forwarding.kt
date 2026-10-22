@@ -15,16 +15,17 @@ object Forwarding {
     private val hexId = Regex("^[0-9a-f]{16}$")
 
     /**
+     * [name] is the name that goes into the share: the shared (original) name unless I chose my own.
      * Null for me, an unknown id format or an empty plan. An .ics friend has no share id: the 16 hex digits of the
      * local id stand in, so passing them on twice updates the same friend on the other phone.
      */
-    fun of(person: Person, plan: Plan, today: LocalDate, zone: ZoneId): SharedPlan? {
+    fun of(person: Person, plan: Plan, today: LocalDate, zone: ZoneId, name: String = person.name): SharedPlan? {
         if (person.isMe || plan.personId != person.id || plan.events.isEmpty()) return null
         val id = person.id.removePrefix(Person.ICS_ID_PREFIX).takeIf { hexId.matches(it) } ?: return null
         val planDate = plan.planDate ?: plan.importedAt.atZone(zone).toLocalDate()
         return SharedPlan(
             personId = id,
-            name = person.name,
+            name = name,
             exportedOn = plan.exportedOn ?: planDate,
             planDate = planDate,
             events = plan.events,

@@ -589,18 +589,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** A friend's plan passed on as they shared it ([Forwarding]); null for me or without events. */
-    fun friendSharedPlan(id: String): SharedPlan? {
+    fun friendSharedPlan(id: String, name: String? = null): SharedPlan? {
         val data = repo.data.value ?: return null
         val person = data.person(id) ?: return null
         val plan = data.planOf(id) ?: return null
-        return Forwarding.of(person, plan, LocalDate.now(PlanZone), PlanZone)
+        return Forwarding.of(person, plan, LocalDate.now(PlanZone), PlanZone, name ?: person.name)
     }
 
     /** My plan as QR text, and whether the QR leaves out details the file has. */
     suspend fun myQr(): MyQr? = mySharedPlan()?.let { qr(it) }
 
     /** A friend's plan as QR text ([friendSharedPlan]). */
-    suspend fun friendQr(id: String): MyQr? = friendSharedPlan(id)?.let { qr(it) }
+    suspend fun friendQr(id: String, name: String? = null): MyQr? = friendSharedPlan(id, name)?.let { qr(it) }
 
     private suspend fun qr(plan: SharedPlan) = withContext(Dispatchers.Default) { MyQr(ShareCodec.qrText(plan), ShareCodec.qrOmitsDetails(plan)) }
 
@@ -608,7 +608,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun writeShareFile(): File? = mySharedPlan()?.let { writeShareFile(it) }
 
     /** Writes a friend's plan as a share file ([friendSharedPlan]); null on failure. */
-    suspend fun writeFriendShareFile(id: String): File? = friendSharedPlan(id)?.let { writeShareFile(it) }
+    suspend fun writeFriendShareFile(id: String, name: String? = null): File? = friendSharedPlan(id, name)?.let { writeShareFile(it) }
 
     private suspend fun writeShareFile(plan: SharedPlan): File? {
         return withContext(Dispatchers.IO) {

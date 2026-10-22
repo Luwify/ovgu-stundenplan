@@ -117,6 +117,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     var scanning by rememberSaveable { mutableStateOf(false) }
     var qr by remember { mutableStateOf<QrShown?>(null) }
     var friendShareMenu by remember { mutableStateOf(false) }
+    var nameChoice by rememberSaveable { mutableStateOf<Pair<String, ShareAction>?>(null) }
     var askName by rememberSaveable { mutableStateOf<ShareAction?>(null) }
     var editShareName by rememberSaveable { mutableStateOf(false) }
     var friendDetails by rememberSaveable { mutableStateOf(false) }
@@ -209,12 +210,17 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     }
 
     /** A friend's plan passed on as they shared it (file or QR). */
-    fun shareFriend(friend: Person, planDate: LocalDate?, action: ShareAction) {
+    fun shareFriend(friend: Person, planDate: LocalDate?, action: ShareAction, name: String? = null) {
+        if (name == null && friend.renamed) {
+            nameChoice = friend.id to action
+            return
+        }
+        val shareName = name ?: friend.name
         scope.launch {
             when (action) {
-                ShareAction.FILE -> vm.writeFriendShareFile(friend.id)?.let { openShareSheet(context, it) }
+                ShareAction.FILE -> vm.writeFriendShareFile(friend.id, shareName)?.let { openShareSheet(context, it) }
                     ?: snackbar.showSnackbar(res.getString(R.string.share_failed))
-                ShareAction.QR -> qr = vm.friendQr(friend.id)?.let { QrShown(it, friend.id, friend.displayName, planDate) }
+                ShareAction.QR -> qr = vm.friendQr(friend.id, shareName)?.let { QrShown(it, friend.id, shareName, planDate) }
                     ?: run { snackbar.showSnackbar(res.getString(R.string.share_failed)); null }
             }
         }
@@ -552,7 +558,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 onShareFile = {
                     qr = null
                     val friend = shown.friendId?.let { id -> friends.firstOrNull { it.person.id == id } }
-                    if (friend != null) shareFriend(friend.person, shown.planDate, ShareAction.FILE) else share(ShareAction.FILE)
+                    if (friend != null) shareFriend(friend.person, shown.planDate, ShareAction.FILE, shown.name) else share(ShareAction.FILE)
                 },
                 onClose = { qr = null },
             )
@@ -581,6 +587,19 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
             onPickFile = { addChoice = false; onPickFriendFile() },
             onDismiss = { addChoice = false },
         )
+    }
+    nameChoice?.let { (id, action) ->
+        val friend = friends.firstOrNull { it.person.id == id }
+        if (friend == null) {
+            nameChoice = null
+        } else {
+            ShareNameChoiceDialog(
+                original = friend.person.name,
+                local = friend.person.displayName,
+                onChoose = { name -> nameChoice = null; shareFriend(friend.person, friend.planDate, action, name) },
+                onDismiss = { nameChoice = null },
+            )
+        }
     }
     askName?.let { action ->
         ShareNameDialog(null, onSave = { name ->

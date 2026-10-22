@@ -7,6 +7,7 @@ import de.luwify.stundenplanmd.core.model.PersonalChange
 import de.luwify.stundenplanmd.core.model.Plan
 import de.luwify.stundenplanmd.core.schedule.Schedule
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -82,5 +83,26 @@ class ForwardingTest {
         val friend = Person("0123456789abcdef", "Max", isMe = false)
         assertNull(Forwarding.of(friend, plan.copy(personId = friend.id, events = emptyList()), today, zone))
         assertNull(Forwarding.of(friend, plan, today, zone))
+    }
+
+    @Test
+    fun theChosenNameEndsUpInTheShare() {
+        val shared = SharedPlan("0123456789abcdef", "Max Müller", LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 11), Fixture.events, emptyMap(), complete = true)
+        val person = Person(shared.personId, shared.name, isMe = false, localName = "Maxi")
+        val plan = stored(shared)
+        // Default and "original": the shared name; "mine": the local one, through file and QR alike.
+        assertEquals("Max Müller", Forwarding.of(person, plan, today, zone)!!.name)
+        val mine = Forwarding.of(person, plan, today, zone, person.displayName)!!
+        assertEquals("Maxi", ok(ShareCodec.parse(ShareCodec.file(mine))).name)
+        assertEquals("Maxi", ok(ShareCodec.parse(ShareCodec.qrText(mine))).name)
+    }
+
+    @Test
+    fun aChoiceIsNeededOnlyWhenTheNamesDiffer() {
+        assertFalse(Person("0123456789abcdef", "Max", isMe = false).renamed)
+        assertFalse(Person("0123456789abcdef", "Max", isMe = false, localName = " ").renamed)
+        assertFalse(Person("0123456789abcdef", "Max", isMe = false, localName = "Max ").renamed)
+        assertTrue(Person("0123456789abcdef", "Max", isMe = false, localName = "Maxi").renamed)
+        assertFalse(Person("me", "Ich", isMe = true, localName = "x").renamed)
     }
 }

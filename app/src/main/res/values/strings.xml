@@ -157,12 +157,12 @@
     <string name="close">Close</string>
     <string name="qr_title">Share by QR code</string>
     <string name="qr_too_large">This timetable is too large for a QR code that scans reliably. Share it as a file instead.</string>
-    <string name="qr_how_to">On the other phone: open Stundenplan MD, tap the menu, then + and \"Scan QR code\".</string>
+    <string name="qr_how_to">On the other device: open Stundenplan MD, tap the menu, then + and \"Scan QR code\".</string>
     <string name="share_as_file">Share as file</string>
     <string name="scan_title">Scan QR code</string>
     <string name="scan_hint">Point the camera at the QR code of a shared timetable.</string>
     <string name="scan_other_code">This QR code is not a shared timetable.</string>
-    <string name="scan_no_permission">Scanning needs the camera. The picture stays on this phone and is not saved.</string>
+    <string name="scan_no_permission">Scanning needs the camera. The picture stays on this device and is not saved.</string>
     <string name="scan_allow">Allow camera</string>
     <string name="scan_app_settings">Open app settings</string>
     <string name="share_failed">The timetable could not be shared.</string>
@@ -182,7 +182,11 @@
     <string name="share_name_title">Your name</string>
     <string name="share_name_hint">Friends see this name with your timetable. Nothing is uploaded: you choose whom you share it with.</string>
     <string name="share_name_label">Name</string>
-    <string name="friend_name_label">Name on this phone</string>
+    <string name="friend_name_label">Name on this device</string>
+    <string name="share_as_title">Share under which name?</string>
+    <string name="share_as_hint">This plan has a different name on this device than the one it was shared with.</string>
+    <string name="share_as_original">Original: %1$s</string>
+    <string name="share_as_local">My name: %1$s</string>
     <string name="friend_shared_name">Shared as \"%1$s\"</string>
     <string name="friend_update_hint">To update, add their newest QR code or file again: their plan is replaced, your name and colors for them stay.</string>
     <string name="friend_delete">Remove friend</string>

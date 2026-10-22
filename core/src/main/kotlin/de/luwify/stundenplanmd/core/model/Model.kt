@@ -22,6 +22,9 @@ val PlanZone: ZoneId = ZoneId.of("Europe/Berlin")
 data class Person(val id: String, val name: String, val isMe: Boolean, val localName: String? = null, val favorite: Boolean = false) {
     val displayName: String get() = localName?.takeIf { it.isNotBlank() } ?: name
 
+    /** My rename differs from the name they shared (or the .ics friend's first name): sharing them on needs a choice. */
+    val renamed: Boolean get() = !isMe && localName?.isNotBlank() == true && localName.trim() != name.trim()
+
     /** A friend whose plan I imported from an .ics myself: a local id ([ICS_ID_PREFIX]), no share identity. */
     val fromIcs: Boolean get() = !isMe && id.startsWith(ICS_ID_PREFIX)
 

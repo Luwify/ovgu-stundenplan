@@ -151,12 +151,12 @@
     <string name="close">Schließen</string>
     <string name="qr_title">Per QR-Code teilen</string>
     <string name="qr_too_large">Dieser Stundenplan ist zu groß für einen QR-Code, der zuverlässig gescannt werden kann. Teile ihn stattdessen als Datei.</string>
-    <string name="qr_how_to">Auf dem anderen Handy: Stundenplan MD öffnen, Menü antippen, dann + und „QR-Code scannen“.</string>
+    <string name="qr_how_to">Auf dem anderen Gerät: Stundenplan MD öffnen, Menü antippen, dann + und „QR-Code scannen“.</string>
     <string name="share_as_file">Als Datei teilen</string>
     <string name="scan_title">QR-Code scannen</string>
     <string name="scan_hint">Richte die Kamera auf den QR-Code eines geteilten Stundenplans.</string>
     <string name="scan_other_code">Dieser QR-Code ist kein geteilter Stundenplan.</string>
-    <string name="scan_no_permission">Zum Scannen wird die Kamera gebraucht. Das Bild bleibt auf diesem Handy und wird nicht gespeichert.</string>
+    <string name="scan_no_permission">Zum Scannen wird die Kamera gebraucht. Das Bild bleibt auf diesem Gerät und wird nicht gespeichert.</string>
     <string name="scan_allow">Kamera erlauben</string>
     <string name="scan_app_settings">App-Einstellungen öffnen</string>
     <string name="share_failed">Der Stundenplan konnte nicht geteilt werden.</string>
@@ -176,7 +176,11 @@
     <string name="share_name_title">Dein Name</string>
     <string name="share_name_hint">Freunde sehen diesen Namen bei deinem Stundenplan. Es wird nichts hochgeladen: Du entscheidest, mit wem du teilst.</string>
     <string name="share_name_label">Name</string>
-    <string name="friend_name_label">Name auf diesem Handy</string>
+    <string name="friend_name_label">Name auf diesem Gerät</string>
+    <string name="share_as_title">Unter welchem Namen teilen?</string>
+    <string name="share_as_hint">Dieser Plan hat auf diesem Gerät einen anderen Namen als beim Teilen.</string>
+    <string name="share_as_original">Original: %1$s</string>
+    <string name="share_as_local">Mein Name: %1$s</string>
     <string name="friend_shared_name">Geteilt als „%1$s“</string>
     <string name="friend_update_hint">Zum Aktualisieren den neuesten QR-Code oder die neueste Datei erneut hinzufügen: Der Plan wird ersetzt, dein Name und deine Farben dafür bleiben.</string>
     <string name="friend_delete">Freund entfernen</string>
