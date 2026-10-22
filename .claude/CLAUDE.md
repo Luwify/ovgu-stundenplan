@@ -289,7 +289,7 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 - **Storage:** friends' plans as `Plan`s (`exportedOn`, `planDate`, `sharedSettings`), `Person.localName` (my
   rename), `friendSettings`, `share` (`MyShare`: id, name), `Event.notesShortened`. Friend's `Person.id` = their share
   id. Friends are in the backup via `StoredData`.
-- **Privacy:** no server; INTERNET only for the updater (manifest + APKs of the GitHub releases, nothing else, no
+- **Privacy:** no server; INTERNET only for the updater (manifest + APKs of the GitHub releases, and the same for the Mensa MD banner, nothing else, no
   identifiers, User-Agent `StundenplanMD/<version>`; check the merged release manifest); camera frames only in
   memory; imported data is untrusted; cloud backup stays excluded.
 - **Icons:** Material Symbols Outlined 24px (Apache 2.0) as single vector drawables, each listed in NOTICE:
@@ -337,6 +337,15 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   the system's per-app language (`LocaleManager`, in sync with the system setting; the system recreates the
   activity). Before 13: SharedPreferences `language` + `attachBaseContext` wrap + `recreate()`. State survives the
   recreate (saveable / ViewModel). LSF content stays German.
+
+## Mensa MD banner (settings, bottom)
+- `core` `update/Companion.kt`: `CompanionApp.MENSA` (package `de.luwify.mensamd`, manifest of `Luwify/ovgu-mensa`, release page,
+  pinned certificate = `release/signing-cert.sha256`, checked by `CompanionTest`), `CompanionPolicy` (`banner` state, `release`,
+  `problems`: signer must be exactly the pin, not this app's own, so debug builds work). App: `data/update/CompanionInstaller`
+  (installed check via `<queries>`, download with the updater's `UpdateHttp`, `ApkInstaller` with the `companion` extra so
+  `InstallResultReceiver` routes the result, same "unknown apps" flow via `UnknownSourcesDialog`), `ui/MensaBanner`.
+  Hide flag: `ThemeSettings.mensaBannerHidden`, in the backup's `display` part (`mensaBannerHidden`, null = keep current),
+  switch "Hinweis auf Mensa MD anzeigen" in the "Version" section.
 
 ## In-app updater
 - `:core` `update/UpdatePolicy.kt`: `UpdateSource` (manifest URL, APK prefix `.../releases/download/`, redirect
