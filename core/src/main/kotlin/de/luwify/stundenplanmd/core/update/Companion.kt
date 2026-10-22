@@ -33,6 +33,12 @@ enum class BannerState { HIDDEN, OPEN, DOWNLOAD, BUSY, FAILED }
 enum class CompanionPhase { IDLE, DOWNLOADING, VERIFYING, INSTALLING, FAILED }
 
 object CompanionPolicy {
+    /**
+     * Whether the banner is wanted: what the user chose in the settings ([chosenHidden], null = never chosen), else only
+     * while the app isn't installed yet.
+     */
+    fun wanted(chosenHidden: Boolean?, installed: Boolean): Boolean = chosenHidden?.not() ?: !installed
+
     /** The banner: hidden by the user, "Open" once installed, else the download button, its progress or its failure. */
     fun banner(hidden: Boolean, installed: Boolean, phase: CompanionPhase): BannerState = when {
         hidden && phase == CompanionPhase.IDLE -> BannerState.HIDDEN

@@ -239,11 +239,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val fitLandscape: StateFlow<Boolean> = container.theme.fitLandscape.stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
-    val mensaBannerHidden: StateFlow<Boolean> = container.theme.mensaBannerHidden.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    /** The user's choice for the Mensa MD banner; null = none yet. */
+    val mensaBannerHidden: StateFlow<Boolean?> = container.theme.mensaBannerHidden.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val companion get() = container.companion
 
-    fun setMensaBannerHidden(hidden: Boolean) {
+    fun setMensaBannerHidden(hidden: Boolean?) {
         viewModelScope.launch { container.theme.setMensaBannerHidden(hidden) }
     }
 
@@ -377,7 +378,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             repo.replaceAll(previous.data, previous.ics)
             container.theme.restore(previous.theme)
             previous.updates?.let { updates.restore(it) }
-            previous.display?.let { setDisplay(it) }
+            previous.display?.let {
+                setDisplay(it)
+                // A snapshot is made from the current state: no value there means "never chosen".
+                container.theme.setMensaBannerHidden(it.mensaBannerHidden)
+            }
             previous.language?.let(::applyLanguage)
         }
     }

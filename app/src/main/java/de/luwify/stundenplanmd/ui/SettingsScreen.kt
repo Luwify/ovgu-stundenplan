@@ -53,6 +53,7 @@ import de.luwify.stundenplanmd.AppLanguage
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.model.PlanZone
 import de.luwify.stundenplanmd.core.model.Subject
+import de.luwify.stundenplanmd.core.update.CompanionPolicy
 import de.luwify.stundenplanmd.data.settings.ThemeMode
 import de.luwify.stundenplanmd.ui.theme.LocalThemeMode
 import de.luwify.stundenplanmd.ui.theme.SubjectColors
@@ -106,6 +107,12 @@ fun SettingsScreen(
                     Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottom + 24.dp),
                 ) {
+                    item(key = "mensa-banner") {
+                        val chosen by vm.mensaBannerHidden.collectAsStateWithLifecycle()
+                        val installed by vm.companion.installed.collectAsStateWithLifecycle()
+                        MensaBanner(vm.companion, hidden = !CompanionPolicy.wanted(chosen, installed), onHide = { vm.setMensaBannerHidden(true) }, modifier = Modifier.padding(top = 8.dp))
+                    }
+
                     item(key = "language-title") { SectionHeading(stringResource(R.string.language_title)) }
                     item(key = "language-picker") {
                         val context = LocalContext.current
@@ -273,12 +280,11 @@ fun SettingsScreen(
                         onAutoCheck = updates::setAutoCheck,
                     )
                     item(key = "mensa-banner-setting") {
-                        val hiddenBanner by vm.mensaBannerHidden.collectAsStateWithLifecycle()
-                        SwitchRow(stringResource(R.string.mensa_setting), stringResource(R.string.mensa_setting_hint), !hiddenBanner) { vm.setMensaBannerHidden(!it) }
-                    }
-                    item(key = "mensa-banner") {
-                        val hiddenBanner by vm.mensaBannerHidden.collectAsStateWithLifecycle()
-                        MensaBanner(vm.companion, hiddenBanner, onHide = { vm.setMensaBannerHidden(true) }, modifier = Modifier.padding(top = 24.dp))
+                        val chosen by vm.mensaBannerHidden.collectAsStateWithLifecycle()
+                        val installed by vm.companion.installed.collectAsStateWithLifecycle()
+                        SwitchRow(stringResource(R.string.mensa_setting), stringResource(R.string.mensa_setting_hint), CompanionPolicy.wanted(chosen, installed)) {
+                            vm.setMensaBannerHidden(!it)
+                        }
                     }
                 }
             }

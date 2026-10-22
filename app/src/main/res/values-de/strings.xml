@@ -265,7 +265,7 @@
     <string name="mensa_github">Auf GitHub öffnen</string>
     <string name="mensa_retry">Erneut versuchen</string>
     <string name="mensa_setting">Hinweis auf Mensa MD anzeigen</string>
-    <string name="mensa_setting_hint">Eine Karte am Ende der Einstellungen, die Mensa MD öffnet oder installiert</string>
+    <string name="mensa_setting_hint">Eine Karte am Anfang der Einstellungen, die Mensa MD öffnet oder installiert. Ohne eigene Wahl erscheint sie nur, solange Mensa MD nicht installiert ist</string>
     <string name="companion_unavailable">Für dieses Gerät gibt es keine Version der App.</string>
     <string name="unknown_sources_open">Einstellung öffnen</string>
     <string name="app_share_qr_hint">Zum ersten Installieren: den Code mit der Kamera scannen und den Link öffnen. Er lädt Version %1$s herunter; Android fragt dann, ob der Browser Apps installieren darf.</string>

@@ -83,11 +83,15 @@ class ThemeSettings(private val store: DataStore<Preferences>) {
         store.edit { it[fitLandscapeKey] = on }
     }
 
-    /** The Mensa MD banner at the bottom of the settings is hidden (default: shown). Added key, no step needed. */
-    val mensaBannerHidden: Flow<Boolean> = store.data.map { it[mensaBannerHiddenKey] ?: false }
+    /**
+     * The Mensa MD banner at the top of the settings: hidden or shown as the user chose, null = never chosen (then it
+     * shows only while Mensa MD isn't installed, see CompanionPolicy.wanted). Added key, no step needed.
+     */
+    val mensaBannerHidden: Flow<Boolean?> = store.data.map { it[mensaBannerHiddenKey] }
 
-    suspend fun setMensaBannerHidden(hidden: Boolean) {
-        store.edit { it[mensaBannerHiddenKey] = hidden }
+    /** [hidden] null = back to "never chosen". */
+    suspend fun setMensaBannerHidden(hidden: Boolean?) {
+        store.edit { if (hidden == null) it.remove(mensaBannerHiddenKey) else it[mensaBannerHiddenKey] = hidden }
     }
 
     companion object {

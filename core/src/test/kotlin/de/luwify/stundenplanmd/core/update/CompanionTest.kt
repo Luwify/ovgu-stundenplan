@@ -47,6 +47,18 @@ class CompanionTest {
     }
 
     @Test
+    fun theBannerIsWantedWhenChosenOrElseOnlyWhileNotInstalled() {
+        val wanted = CompanionPolicy::wanted
+        assertEquals(true, wanted(null, false))
+        assertEquals(false, wanted(null, true))
+        // An explicit choice wins either way.
+        assertEquals(true, wanted(false, true))
+        assertEquals(false, wanted(true, false))
+        assertEquals(false, wanted(true, true))
+        assertEquals(true, wanted(false, false))
+    }
+
+    @Test
     fun theMensaSourceIsTheGithubReleaseRepo() {
         assertNotNull(source)
         assertEquals("https://github.com/Luwify/ovgu-mensa/releases/download/", source.downloadPrefix)
