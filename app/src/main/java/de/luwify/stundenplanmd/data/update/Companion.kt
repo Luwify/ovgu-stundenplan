@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.net.toUri
 import de.luwify.stundenplanmd.core.update.CompanionApp
 import de.luwify.stundenplanmd.core.update.CompanionPhase
 import de.luwify.stundenplanmd.core.update.CompanionPolicy
@@ -181,7 +182,7 @@ class CompanionInstaller(
 
     /** Where the failure dialog's "Auf GitHub öffnen" goes: the release page in the browser. */
     fun openReleasePage(context: Context) {
-        val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(companion.releasesPage)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = Intent(Intent.ACTION_VIEW, companion.releasesPage.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { context.startActivity(intent) }
     }
 }

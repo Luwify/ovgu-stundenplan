@@ -56,6 +56,9 @@ class CompanionTest {
         assertEquals(false, wanted(true, false))
         assertEquals(false, wanted(true, true))
         assertEquals(true, wanted(false, false))
+        // Installed through the banner: hidden without a choice once the install is done, but not while it runs.
+        assertEquals(BannerState.HIDDEN, CompanionPolicy.banner(!wanted(null, true), installed = true, phase = CompanionPhase.IDLE))
+        assertEquals(BannerState.BUSY, CompanionPolicy.banner(!wanted(null, false), installed = false, phase = CompanionPhase.INSTALLING))
     }
 
     @Test
