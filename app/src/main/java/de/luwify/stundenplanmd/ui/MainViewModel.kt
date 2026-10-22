@@ -239,6 +239,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val fitLandscape: StateFlow<Boolean> = container.theme.fitLandscape.stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
+    val mensaBannerHidden: StateFlow<Boolean> = container.theme.mensaBannerHidden.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val companion get() = container.companion
+
+    fun setMensaBannerHidden(hidden: Boolean) {
+        viewModelScope.launch { container.theme.setMensaBannerHidden(hidden) }
+    }
+
     fun setFitLandscape(on: Boolean) {
         viewModelScope.launch { container.theme.setFitLandscape(on) }
     }
@@ -313,7 +321,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val ok = runCatching {
                 val data = repo.data.value ?: error("not loaded")
                 val language = AppLanguage.key(AppLanguage.current(getApplication()))
-                val text = BackupCodec.encode(data, repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), language, updates.backupState(), DisplayBackup(fitLandscape.value))
+                val text = BackupCodec.encode(data, repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), language, updates.backupState(), DisplayBackup(fitLandscape.value, mensaBannerHidden.value))
                 withContext(Dispatchers.IO) {
                     getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.encodeToByteArray()) }
                 }
@@ -349,13 +357,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val app = getApplication<Application>()
             val before = Snapshot(
                 repo.data.value ?: StoredData(), repo.readIcs(), theme.value ?: ThemeChoice(ThemeMode.SYSTEM), AppLanguage.current(app),
-                updates.backupState(), DisplayBackup(fitLandscape.value),
+                updates.backupState(), DisplayBackup(fitLandscape.value, mensaBannerHidden.value),
             )
             runCatching {
                 repo.replaceAll(backup.data, backup.ics)
                 container.theme.restore(backup.theme.toChoice())
                 backup.updates?.let { updates.restore(it) }
-                backup.display?.let { container.theme.setFitLandscape(it.fitLandscape) }
+                backup.display?.let { setDisplay(it) }
             }.onSuccess {
                 _messages.send(UiMessage.BackupRestored(before))
                 // Last: a different language recreates the activity (the restored data is saved by then).
@@ -369,9 +377,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             repo.replaceAll(previous.data, previous.ics)
             container.theme.restore(previous.theme)
             previous.updates?.let { updates.restore(it) }
-            previous.display?.let { container.theme.setFitLandscape(it.fitLandscape) }
+            previous.display?.let { setDisplay(it) }
             previous.language?.let(::applyLanguage)
         }
+    }
+
+    private suspend fun setDisplay(display: DisplayBackup) {
+        container.theme.setFitLandscape(display.fitLandscape)
+        display.mensaBannerHidden?.let { container.theme.setMensaBannerHidden(it) }
     }
 
     /** Sets the app language if it differs; before Android 13 the screen recreates the activity (see [recreate]). */

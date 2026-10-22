@@ -24,6 +24,7 @@ class ThemeSettings(private val store: DataStore<Preferences>) {
     private val customOverridesKey = stringPreferencesKey("custom_theme_overrides")
 
     private val fitLandscapeKey = booleanPreferencesKey("fit_landscape")
+    private val mensaBannerHiddenKey = booleanPreferencesKey("mensa_banner_hidden")
 
     private val schemaKey = intPreferencesKey("schema_version")
 
@@ -80,6 +81,13 @@ class ThemeSettings(private val store: DataStore<Preferences>) {
 
     suspend fun setFitLandscape(on: Boolean) {
         store.edit { it[fitLandscapeKey] = on }
+    }
+
+    /** The Mensa MD banner at the bottom of the settings is hidden (default: shown). Added key, no step needed. */
+    val mensaBannerHidden: Flow<Boolean> = store.data.map { it[mensaBannerHiddenKey] ?: false }
+
+    suspend fun setMensaBannerHidden(hidden: Boolean) {
+        store.edit { it[mensaBannerHiddenKey] = hidden }
     }
 
     companion object {

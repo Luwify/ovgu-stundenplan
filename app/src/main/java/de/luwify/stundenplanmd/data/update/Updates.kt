@@ -50,6 +50,8 @@ sealed interface Failure {
     data object Network : Failure
     data class Check(val problems: List<ApkProblem>) : Failure
     data class Install(val message: String?) : Failure
+    /** Companion install only: the release repo offers nothing this device can install. */
+    data object Unavailable : Failure
 }
 
 sealed interface DownloadState {

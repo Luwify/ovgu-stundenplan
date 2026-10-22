@@ -42,10 +42,14 @@ data class UpdatesBackup(
     val skippedCode: Int? = null,
 )
 
-/** Display settings in a backup (since version 4): the landscape fit of the week grid. */
+/**
+ * Display settings in a backup (since version 4): the landscape fit of the week grid, and whether the Mensa MD banner in
+ * the settings is hidden (added later without a new backup version: null = not in the file, restoring keeps the current one).
+ */
 @Serializable
 data class DisplayBackup(
     val fitLandscape: Boolean = true,
+    val mensaBannerHidden: Boolean? = null,
 )
 
 /**

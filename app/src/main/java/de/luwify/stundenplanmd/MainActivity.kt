@@ -107,6 +107,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Back from "install unknown apps": go on with the update if it was allowed.
         (application as StundenplanApp).container.updates.onResume()
+        // Same for Mensa MD, and look again whether it is installed (the settings banner).
+        (application as StundenplanApp).container.companion.onResume()
     }
 
     override fun onNewIntent(intent: Intent) {

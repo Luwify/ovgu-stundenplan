@@ -102,7 +102,7 @@ private fun checkedAt(millis: Long, locale: Locale): String =
     Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(locale))
 
-private fun percent(bytes: Long, size: Long): Int = (bytes * 100 / size.coerceAtLeast(1)).toInt().coerceIn(0, 100)
+internal fun percent(bytes: Long, size: Long): Int = (bytes * 100 / size.coerceAtLeast(1)).toInt().coerceIn(0, 100)
 
 /** Settings section "Version": installed version, version overview, update row, manual check, automatic check. */
 fun LazyListScope.versionSection(
@@ -404,26 +404,7 @@ fun UpdateDialog(installed: String, release: Release, onInstall: () -> Unit, onS
 fun UpdateDialogs(updates: Updates, download: DownloadState) {
     val context = LocalContext.current
     val permission by updates.permission.collectAsStateWithLifecycle()
-    permission?.let { ask ->
-        if (ask.explain) {
-            AlertDialog(
-                onDismissRequest = updates::permissionDeclined,
-                title = { Text(stringResource(R.string.unknown_sources_title)) },
-                text = { Text(stringResource(R.string.unknown_sources_text)) },
-                confirmButton = {
-                    TextButton(onClick = { updates.permissionHandled(explained = true); openUnknownSources(context) }) {
-                        Text(stringResource(R.string.unknown_sources_open))
-                    }
-                },
-                dismissButton = { TextButton(onClick = updates::permissionDeclined) { Text(stringResource(R.string.cancel)) } },
-            )
-        } else {
-            LaunchedEffect(ask) {
-                updates.permissionHandled(explained = false)
-                openUnknownSources(context)
-            }
-        }
-    }
+    UnknownSourcesDialog(permission?.explain, onHandled = updates::permissionHandled, onDeclined = updates::permissionDeclined)
 
     var minimizedFor by rememberSaveable { mutableStateOf<Int?>(null) }
     LaunchedEffect(download) {
@@ -484,8 +465,34 @@ fun UpdateDialogs(updates: Updates, download: DownloadState) {
     }
 }
 
+/**
+ * "Install unknown apps" isn't granted: [explain] null = nothing to ask, true = explain first, false = straight to the
+ * system setting. [onHandled] reports whether the explanation was shown.
+ */
 @Composable
-private fun failureText(failure: Failure): String = when (failure) {
+fun UnknownSourcesDialog(explain: Boolean?, onHandled: (explained: Boolean) -> Unit, onDeclined: () -> Unit) {
+    val context = LocalContext.current
+    when (explain) {
+        null -> {}
+        true -> AlertDialog(
+            onDismissRequest = onDeclined,
+            title = { Text(stringResource(R.string.unknown_sources_title)) },
+            text = { Text(stringResource(R.string.unknown_sources_text)) },
+            confirmButton = {
+                TextButton(onClick = { onHandled(true); openUnknownSources(context) }) { Text(stringResource(R.string.unknown_sources_open)) }
+            },
+            dismissButton = { TextButton(onClick = onDeclined) { Text(stringResource(R.string.cancel)) } },
+        )
+        false -> LaunchedEffect(Unit) {
+            onHandled(false)
+            openUnknownSources(context)
+        }
+    }
+}
+
+@Composable
+internal fun failureText(failure: Failure): String = when (failure) {
+    Failure.Unavailable -> stringResource(R.string.companion_unavailable)
     Failure.Network -> stringResource(R.string.update_failed_network)
     is Failure.Install -> listOfNotNull(stringResource(R.string.update_failed_install), failure.message).joinToString("\n\n")
     is Failure.Check -> (listOf(stringResource(R.string.update_failed_check)) + failure.problems.map {

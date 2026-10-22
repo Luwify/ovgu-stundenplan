@@ -628,11 +628,24 @@ class PersistenceTest {
     @Test
     fun backupFromBeforeDisplaySettingsKeepsTheCurrentOnes() {
         val v3 = BackupCodec.encode(data, null, theme, "de", UpdatesBackup(false, 7), DisplayBackup(false))
-            .replace("\"version\":${BackupCodec.VERSION}", "\"version\":3").replace(",\"display\":{\"fitLandscape\":false}", "")
+            .replace("\"version\":${BackupCodec.VERSION}", "\"version\":3").replace(",\"display\":{\"fitLandscape\":false,\"mensaBannerHidden\":null}", "")
         assertTrue(v3.contains("\"version\":3") && !v3.contains("display"))
         val ok = BackupCodec.decode(v3) as BackupResult.Ok
         assertEquals(null, ok.backup.display)
         assertEquals(UpdatesBackup(false, 7), ok.backup.updates)
+    }
+
+    /** The Mensa MD banner setting is in the backup's display part; a file without it (made before) keeps the current one. */
+    @Test
+    fun mensaBannerSettingIsInTheBackupAndOlderFilesKeepTheCurrentOne() {
+        val hidden = BackupCodec.encode(data, null, theme, "de", UpdatesBackup(), DisplayBackup(fitLandscape = true, mensaBannerHidden = true))
+        assertEquals(DisplayBackup(true, mensaBannerHidden = true), (BackupCodec.decode(hidden) as BackupResult.Ok).backup.display)
+        val shown = BackupCodec.encode(data, null, theme, "de", UpdatesBackup(), DisplayBackup(fitLandscape = true, mensaBannerHidden = false))
+        assertEquals(false, (BackupCodec.decode(shown) as BackupResult.Ok).backup.display?.mensaBannerHidden)
+        // A version 4 file from before the setting: the display part has no such key.
+        val before = hidden.replace(",\"mensaBannerHidden\":true", "")
+        assertTrue(!before.contains("mensaBannerHidden"))
+        assertEquals(DisplayBackup(true, null), (BackupCodec.decode(before) as BackupResult.Ok).backup.display)
     }
 
     @Test

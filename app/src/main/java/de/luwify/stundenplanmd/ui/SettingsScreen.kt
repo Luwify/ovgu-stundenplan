@@ -272,6 +272,14 @@ fun SettingsScreen(
                         onCheck = updates::checkNow,
                         onAutoCheck = updates::setAutoCheck,
                     )
+                    item(key = "mensa-banner-setting") {
+                        val hiddenBanner by vm.mensaBannerHidden.collectAsStateWithLifecycle()
+                        SwitchRow(stringResource(R.string.mensa_setting), stringResource(R.string.mensa_setting_hint), !hiddenBanner) { vm.setMensaBannerHidden(!it) }
+                    }
+                    item(key = "mensa-banner") {
+                        val hiddenBanner by vm.mensaBannerHidden.collectAsStateWithLifecycle()
+                        MensaBanner(vm.companion, hiddenBanner, onHide = { vm.setMensaBannerHidden(true) }, modifier = Modifier.padding(top = 24.dp))
+                    }
                 }
             }
         }
@@ -281,6 +289,7 @@ fun SettingsScreen(
             VersionDetailScreen(release, updates, onShare = { shareApp = true }, onBack = { openVersion = null })
         }
         Overlay(shareApp) { AppShareScreen(updates, onClose = { shareApp = false }) }
+        MensaDialogs(vm.companion)
         val spec = choice?.custom
         Overlay(spec.takeIf { showColors }) { shown ->
             ColorEditorScreen(shown, onChange = { vm.setCustomTheme(it) }, onBack = { showColors = false })
