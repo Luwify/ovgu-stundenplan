@@ -25,6 +25,7 @@ class ThemeSettings(private val store: DataStore<Preferences>) {
 
     private val fitLandscapeKey = booleanPreferencesKey("fit_landscape")
     private val mensaBannerHiddenKey = booleanPreferencesKey("mensa_banner_hidden")
+    private val qrModeKey = stringPreferencesKey("qr_mode")
 
     private val schemaKey = intPreferencesKey("schema_version")
 
@@ -92,6 +93,13 @@ class ThemeSettings(private val store: DataStore<Preferences>) {
     /** [hidden] null = back to "never chosen". */
     suspend fun setMensaBannerHidden(hidden: Boolean?) {
         store.edit { if (hidden == null) it.remove(mensaBannerHiddenKey) else it[mensaBannerHiddenKey] = hidden }
+    }
+
+    /** Share screen: "single" or "animated" as last chosen, null = automatic (by size). Added key, no step needed. */
+    val qrMode: Flow<String?> = store.data.map { it[qrModeKey] }
+
+    suspend fun setQrMode(key: String?) {
+        store.edit { if (key == null) it.remove(qrModeKey) else it[qrModeKey] = key }
     }
 
     companion object {

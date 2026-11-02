@@ -56,8 +56,8 @@ class ForwardingTest {
         assertEquals("Max Müller", back.name)
         assertEquals(LocalDate.of(2026, 10, 12), back.exportedOn)
         assertEquals(Schedule(received.events, received.changes).occurrences, Schedule(back.events, back.changes).occurrences)
-        // A QR still fits.
-        assertTrue(ShareCodec.qrText(forwarded).length < ShareCodec.QR_MAX_CHARS)
+        // The QR (version 4) holds the same.
+        assertEquals(received.copy(complete = true), ok(ShareCodec.parse(ShareCodec.qrText(forwarded))).copy(complete = true))
     }
 
     @Test

@@ -150,7 +150,6 @@
     <string name="share_broken">Das ist kein lesbarer geteilter Stundenplan.</string>
     <string name="close">Schließen</string>
     <string name="qr_title">Per QR-Code teilen</string>
-    <string name="qr_too_large">Dieser Stundenplan ist zu groß für einen QR-Code, der zuverlässig gescannt werden kann. Teile ihn stattdessen als Datei.</string>
     <string name="qr_how_to">Auf dem anderen Gerät: Stundenplan MD öffnen, Menü antippen, dann + und „QR-Code scannen“.</string>
     <string name="share_as_file">Als Datei teilen</string>
     <string name="scan_title">QR-Code scannen</string>
@@ -203,8 +202,6 @@
     </plurals>
     <string name="detail_together">Zusammen mit</string>
     <string name="together_you">dir</string>
-    <string name="qr_incomplete">Der QR-Code enthält nicht alle Details (z. B. Notizen). Für alles: als Datei teilen.</string>
-    <string name="qr_incomplete_icon">Hinweis: nicht vollständig</string>
     <!-- Updater -->
     <string name="settings_version">Version</string>
     <string name="app_version">App-Version</string>
@@ -441,4 +438,8 @@
     <string name="pick_dates_hide">Ausblenden</string>
     <string name="pick_dates_hidden_now">ausgeblendet</string>
     <string name="course_options">Optionen</string>
+    <string name="qr_mode_single">Als ein Code</string>
+    <string name="qr_mode_animated">Animiert</string>
+    <string name="qr_animated_hint" formatted="false">Animierter Code: Die Kamera ruhig darauf halten, bis der Fortschritt 100 % erreicht. Die Reihenfolge ist egal.</string>
+    <string name="scan_progress">Animierter Code: %1$d %%</string>
 </resources>

@@ -67,13 +67,13 @@ class ShareCodecTest {
         val text = ShareCodec.qrText(plan())
         assertTrue(text.startsWith("SPMD:"))
         assertTrue(text.all { it in Base45.ALPHABET })
-        assertTrue("QR text ${text.length} chars", text.length < ShareCodec.QR_MAX_CHARS)
         val back = ok(ShareCodec.parse(text))
         assertEquals("0123456789abcdef", back.personId)
         assertEquals("Max Müller", back.name)
         assertEquals(LocalDate.of(2026, 10, 12), back.exportedOn)
         assertEquals(LocalDate.of(2026, 10, 11), back.planDate)
-        assertFalse(back.complete)
+        // Version 4: the whole plan, as in the file.
+        assertTrue(back.complete)
         // A saved QR text (a file starting with "SPMD:", which begins like the binary magic) reads the same.
         assertEquals(back, ok(ShareCodec.parse(text.toByteArray())))
         assertEquals(back, ok(ShareCodec.parse("\uFEFF$text\r\n".toByteArray())))
@@ -88,13 +88,14 @@ class ShareCodecTest {
         assertEquals(first.title, s[first.courseKey]?.title)
     }
 
+    /** QR codes of apps before 1.5 (versions 1 to 3) stay readable, shortened notes flagged. */
     @Test
-    fun qrShortensNotesAndFlagsThem() {
+    fun oldQrShortensNotesAndFlagsThem() {
         val long = "Zwischentest Wiederholung. " + "Bitte Studierendenausweis mitbringen. ".repeat(5)
         val single = Event(uid = "222222000001", summary = "Test", title = "Test", notes = long, start = LocalDateTime.parse("2026-10-14T13:00"), end = LocalDateTime.parse("2026-10-14T15:00"))
         val short = single.copy(uid = "222222000002", notes = "Raumänderung", start = single.start.plusDays(1), end = single.end.plusDays(1))
         val series = Fixture.events.first { it.recurrence != null }.copy(notes = "Lange Notiz")
-        val back = ok(ShareCodec.parse(ShareCodec.qrText(plan(listOf(single, short, series))))).events.associateBy { it.uid }
+        val back = ok(ShareCodec.parse(ShareCodec.legacyQrText(plan(listOf(single, short, series))))).events.associateBy { it.uid }
 
         val cut = back.getValue(single.uid)
         assertTrue(cut.notesShortened)
@@ -227,22 +228,6 @@ class ShareCodecTest {
             val buf = ByteArray(4096); while (!d.finished()) write(buf, 0, d.deflate(buf)); d.end()
         }.toByteArray()
         assertTrue(ShareCodec.decode(bomb) is ShareResult.Broken)
-    }
-
-    @Test
-    fun qrSaysWhenItLeavesSomethingOut() {
-        val base = Event(
-            uid = "222222000001", summary = "Test (Meier, Schulz)", title = "Test", lecturers = listOf("Meier", "Schulz"),
-            start = LocalDateTime.parse("2026-10-14T13:00"), end = LocalDateTime.parse("2026-10-14T15:00"),
-        )
-        assertFalse(ShareCodec.qrOmitsDetails(plan(listOf(base, base.copy(uid = "222222000002", notes = "Raum ändert sich")))))
-        assertFalse(ShareCodec.qrOmitsDetails(plan(listOf(base.copy(summary = "Test  (Meier,Schulz)")))))
-        // A long note of a single event, any note of a series, a SUMMARY with more than title and lecturers.
-        assertTrue(ShareCodec.qrOmitsDetails(plan(listOf(base.copy(notes = "x".repeat(ShareCodec.QR_NOTE_CHARS + 1))))))
-        assertTrue(ShareCodec.qrOmitsDetails(plan(listOf(base.copy(notes = "kurz", recurrence = Recurrence(until = Instant.parse("2026-11-30T22:59:00Z")))))))
-        assertTrue(ShareCodec.qrOmitsDetails(plan(listOf(base.copy(summary = "Test (Meier, Schulz) Gruppe B")))))
-        // The real-shaped fixture has series notes: the hint is shown.
-        assertTrue(ShareCodec.qrOmitsDetails(plan()))
     }
 
     @Test

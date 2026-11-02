@@ -48,3 +48,10 @@ tasks.register<JavaExec>("manifest") {
     mainClass.set("de.luwify.stundenplanmd.core.ManifestToolKt")
     workingDir = rootDir
 }
+
+// Dev tool, see ShareRead.kt.
+tasks.register<JavaExec>("shareRead") {
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("de.luwify.stundenplanmd.core.ShareReadKt")
+    workingDir = rootDir
+}

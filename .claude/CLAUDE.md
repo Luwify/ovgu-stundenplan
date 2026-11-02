@@ -112,6 +112,8 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   - `./gradlew :core:planCompare --args="private/a.ics private/b.ics 4"` compares two exports: shared course ids,
     same-UID field diffs, same subject with other ids, same-time near misses, and the "together" occurrences (with
     the rule that fired, via `Together.matches`).
+  - `./gradlew :core:shareRead --args="<texts.txt>"`: QR texts (one per line, e.g. read by ZXing from device
+    screenshots) through the app's decoding (single code or frames); prints counts and sizes only.
   - `./gradlew :core:shareFile --args="<ics> <out> <name> <16 hex id>"` writes a friend share (`<out>` binary file,
     `<out>.txt` QR text) for preview-app tests; open it with
     `am start -a VIEW -t application/octet-stream -d file:///data/user/0/<pkg>/cache/...`.
@@ -280,13 +282,22 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   the old last one, cancelled slots kept by date, `manual-` ones stay 14-day) and, where a series changed (it crossed
   a week 53, so LSF's EXDATEs after it were dropped), sets `SharedPlan.legacy` -> `Plan.legacyShare` -> a hint banner
   in that friend's plan only ("neu teilen lassen"). Tests write old shares with the internal `payload(..., legacy)`.
-  QR profile: lecturers, notes only of single events, capped at 80 chars ("…"); series notes dropped; both are
-  flagged (`Event.notesShortened`) and the detail sheet says so (`Event.noteHint`; `NoteHintTest` covers
-  .ics/file/QR). SUMMARY = title (raw one not sent). File profile: all notes and the raw SUMMARY. A file holding the
-  QR text (`SPMD:`) is accepted too (checked before the binary magic `SPMD`, which it also starts with).
-  A real semester plan with name and styles: QR ~1,600 chars -> version 24-L (113 modules); file ~1.9 KB. Above
-  version 30 the QR is refused ("share as a file"). Test: decode(encode(plan)) gives the identical Schedule.
+  **Format 4 (the QR since 1.5, `ShareCodec.qrPayload`):** the file profile's full body (all sections, every note,
+  raw SUMMARY; the privacy rules stay: no notes of own changes or manual courses, fully hidden courses left out),
+  then version byte 4 + CRC32 of the body + raw deflate 9 with the preset dictionary `ShareDictionary` (generic LSF
+  wording; **frozen: part of the format, `QrFormat4Test` pins size and CRC**; another dictionary = new version). Still
+  `SPMD:` + Base45 in alphanumeric mode (not byte mode) so older apps read the version byte and say "newer version".
+  Files stay at the lowest version 1–3 (complete already, readable by older apps). Old QR codes (1–3, apps before
+  1.5: "QR profile" = notes only of single events, capped at 80 chars, series notes dropped, SUMMARY = title) stay
+  readable with their `Event.notesShortened` flags (`Event.noteHint`, `NoteHintTest`); tests write them with the
+  internal `ShareCodec.legacyQrText`. A file holding the QR text (`SPMD:`) is accepted too (checked before the binary
+  magic `SPMD`, which it also starts with). Real plan: format 4 ~2,630 chars (v4 payload ~1.75 KB), file ~1.9 KB.
   Decoder rejects newer versions and caps sizes (256 KB inflated, event and string limits).
+- **Animated QR** (`share/ShareFrames`): random linear fountain code over GF(2) on the format-4 payload: frame
+  `seq < K` = block seq, later ones the XOR of a pseudo-random half (seed: payload CRC + seq); decoder = incremental
+  Gaussian elimination, done at rank K (~K + 2 random frames), CRC check, a foreign payload's frame starts over.
+  Frame text `SPMD:` + Base45 of tag 5 (`ShareCodec.FRAME_TAG`, older apps: "newer version"), varint seq, K, length,
+  payload CRC32, block of `BLOCK` = 330 B (version 12-L). Experiment branch `experiment/qr` measured the options.
 - **Identity:** person id from SecureRandom, made at my first share; display name asked at the first share,
   editable in settings. My own id is rejected on import.
 - **Import:** one content dispatcher for VIEW/SEND of the own MIME and `application/octet-stream` (VCALENDAR
@@ -295,11 +306,16 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 - **QR:** scan with CameraX 1.6.2 (core, camera2, lifecycle, compose `CameraXViewfinder`) + ZXing core 3.5.4 (both
   Apache 2.0; no ML Kit, no Play Services), 1080p analysis frames, QR only. CAMERA permission requested only when
   scanning; `uses-feature camera required=false`. Show: ZXing writer, dark on white whatever the theme, quiet zone,
-  max brightness, screen kept on. Code size = the smaller of available width and height (portrait keeps ~230 dp
+  max brightness, screen kept on. Code size = the smaller of available width and height (portrait keeps ~260 dp
   for the texts below), quiet zone inside, never larger than the screen; landscape: code left, name/Stand/hints
-  right. If `ShareCodec.qrOmitsDetails` (shortened/dropped notes, or a SUMMARY that is more than "title (lecturers)"):
-  info line "Der QR-Code enthält nicht alle Details (z. B. Notizen). Für alles: als Datei teilen." + file share
-  button; neither when nothing is left out. Share file via FileProvider (`${applicationId}.files`, cache/share only).
+  right. `ui/ShareQr`: one code up to version 20 (`MAX_SINGLE_VERSION`), else the animation (version 12 at 6 fps);
+  toggle "Als ein Code" / "Animiert" below, remembered in `ThemeSettings.qrMode` (key `qr_mode`, null = by size; not
+  in the backup); one code only when it fits at all (v40). Before showing one code `ShareQr.readable` renders it and
+  reads it back with ZXing's camera detector, switching the mask if needed (some masks fail even on perfect
+  images). `QrCode` draws on whole pixels (a half-pixel origin left seams that broke ZXing's hybrid binarizer).
+  Scanner: frames go to a `ShareFrames.Decoder` (progress "Animierter Code: 62 %"), the finished payload into the
+  normal import as `SPMD:` + Base45; the analyzer reports each new text once and keeps going for frames.
+  Share file via FileProvider (`${applicationId}.files`, cache/share only).
 - **Storage:** friends' plans as `Plan`s (`exportedOn`, `planDate`, `sharedSettings`), `Person.localName` (my
   rename), `friendSettings`, `share` (`MyShare`: id, name), `Event.notesShortened`. Friend's `Person.id` = their share
   id. Friends are in the backup via `StoredData`.

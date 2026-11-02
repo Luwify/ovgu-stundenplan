@@ -50,6 +50,7 @@ import java.io.File
 import java.time.LocalDate
 import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.model.Plan
+import de.luwify.stundenplanmd.core.share.Base45
 import de.luwify.stundenplanmd.core.share.Forwarding
 import de.luwify.stundenplanmd.core.share.ShareCodec
 import de.luwify.stundenplanmd.core.share.ShareResult
@@ -161,7 +162,8 @@ data class PlanUi(
 }
 
 /** My QR code's text; [omitsDetails]: the file share has more (notes, ...). */
-data class MyQr(val text: String, val omitsDetails: Boolean)
+/** A plan's QR content (share format 4): [text] for one code, [payload] for the animated frames. */
+class MyQr(val text: String, val payload: ByteArray)
 
 /** A friend in the drawer: name, "Stand" and their schedule for the now-line. */
 data class FriendEntry(val person: Person, val planDate: LocalDate?, val schedule: Schedule)
@@ -238,6 +240,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val fitLandscape: StateFlow<Boolean> = container.theme.fitLandscape.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    /** Share screen: one code or animated, as last chosen; null = by size ([ShareQr.autoMode]). */
+    val qrMode: StateFlow<QrMode?> = container.theme.qrMode.map { QrMode.fromKey(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun setQrMode(mode: QrMode) {
+        viewModelScope.launch { container.theme.setQrMode(mode.key) }
+    }
 
     /** The user's choice for the Mensa MD banner; null = none yet. */
     val mensaBannerHidden: StateFlow<Boolean?> = container.theme.mensaBannerHidden.stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -620,7 +629,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** A friend's plan as QR text ([friendSharedPlan]). */
     suspend fun friendQr(id: String, name: String? = null): MyQr? = friendSharedPlan(id, name)?.let { qr(it) }
 
-    private suspend fun qr(plan: SharedPlan) = withContext(Dispatchers.Default) { MyQr(ShareCodec.qrText(plan), ShareCodec.qrOmitsDetails(plan)) }
+    private suspend fun qr(plan: SharedPlan) = withContext(Dispatchers.Default) {
+        val payload = ShareCodec.qrPayload(plan)
+        MyQr(ShareCodec.QR_PREFIX + Base45.encode(payload), payload)
+    }
 
     /** Writes my plan as a share file into cache/share (for the share sheet); null on failure. */
     suspend fun writeShareFile(): File? = mySharedPlan()?.let { writeShareFile(it) }

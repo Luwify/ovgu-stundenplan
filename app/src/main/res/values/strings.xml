@@ -156,7 +156,6 @@
     <string name="share_broken">This is not a readable shared timetable.</string>
     <string name="close">Close</string>
     <string name="qr_title">Share by QR code</string>
-    <string name="qr_too_large">This timetable is too large for a QR code that scans reliably. Share it as a file instead.</string>
     <string name="qr_how_to">On the other device: open Stundenplan MD, tap the menu, then + and \"Scan QR code\".</string>
     <string name="share_as_file">Share as file</string>
     <string name="scan_title">Scan QR code</string>
@@ -209,8 +208,6 @@
     </plurals>
     <string name="detail_together">Together with</string>
     <string name="together_you">you</string>
-    <string name="qr_incomplete">The QR code doesn\'t contain every detail (e.g. notes). For everything: share as a file.</string>
-    <string name="qr_incomplete_icon">Note: not complete</string>
     <!-- Updater -->
     <string name="settings_version">Version</string>
     <string name="app_version">App version</string>
@@ -447,4 +444,8 @@
     <string name="pick_dates_hide">Hide</string>
     <string name="pick_dates_hidden_now">hidden</string>
     <string name="course_options">Options</string>
+    <string name="qr_mode_single">As one code</string>
+    <string name="qr_mode_animated">Animated</string>
+    <string name="qr_animated_hint" formatted="false">Animated code: hold the camera steady on it until the progress reaches 100 %. The order doesn\'t matter.</string>
+    <string name="scan_progress">Animated code: %1$d %%</string>
 </resources>

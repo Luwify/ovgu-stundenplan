@@ -528,16 +528,13 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
             ScanScreen(onScanned = { text -> scanning = false; vm.importScanned(text) }, onClose = { scanning = false })
         }
         Overlay(qr) { shown ->
+            val qrMode by vm.qrMode.collectAsStateWithLifecycle()
             QrShowScreen(
-                text = shown.code.text,
-                omitsDetails = shown.code.omitsDetails,
+                qr = shown.code,
                 name = shown.name,
                 stand = standText(shown.planDate),
-                onShareFile = {
-                    qr = null
-                    val friend = shown.friendId?.let { id -> friends.firstOrNull { it.person.id == id } }
-                    if (friend != null) shareFriend(friend.person, shown.planDate, ShareAction.FILE, shown.name) else share(ShareAction.FILE)
-                },
+                chosen = qrMode,
+                onMode = vm::setQrMode,
                 onClose = { qr = null },
             )
         }

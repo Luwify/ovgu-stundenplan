@@ -17,6 +17,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
+import java.util.zip.CRC32
 import java.util.zip.DataFormatException
 import java.util.zip.Deflater
 import java.util.zip.Inflater
@@ -59,8 +60,11 @@ sealed interface ShareResult {
  * plain LSF series is stored as slot count + interval + a bitmask of cancelled slots, which keeps the expanded
  * schedule identical (EXDATEs off the rhythm are dropped: they never had an effect).
  *
- * QR: `SPMD:` + Base45(payload), alphanumeric mode. File: `SPMD` + payload. The QR profile leaves out the raw SUMMARY
- * and notes of series, and caps notes of single events; such events are flagged [Event.notesShortened].
+ * QR: `SPMD:` + Base45(payload), alphanumeric mode (older apps read the version byte and ask for an update). Since 1.5
+ * the QR carries version 4 ([qrPayload]: everything, nothing shortened, CRC32, preset dictionary), as one code or as
+ * animated frames ([ShareFrames]). File: `SPMD` + payload in the lowest version 1 to 3 that holds the plan (complete,
+ * so older apps still read files). Versions 1 to 3 in a QR (apps before 1.5) leave out the raw SUMMARY and notes of
+ * series and cap notes of single events; such events are flagged [Event.notesShortened], which reading keeps.
  */
 object ShareCodec {
     /**
@@ -68,14 +72,16 @@ object ShareCodec {
      * 3: hidden dates and the type parts of short names ([CourseSetting.typeShortName]) appended after those.
      * A plan is written in the lowest version that holds everything it has (none of them: 1, which every app reads).
      */
-    const val VERSION = 3
+    const val VERSION = 4
+
+    /** First byte of an animated frame ([ShareFrames]); older apps read it as a version and ask for an update. */
+    const val FRAME_TAG = 5
     const val QR_PREFIX = "SPMD:"
     val FILE_MAGIC = "SPMD".toByteArray()
     const val FILE_EXTENSION = "stundenplan"
     const val MIME = "application/vnd.luwify.stundenplan"
 
     /** Alphanumeric capacity of QR version 30 at ECC L; longer plans are shared as a file. */
-    const val QR_MAX_CHARS = 2520
     const val QR_NOTE_CHARS = 80
 
     private const val MAX_INFLATED = 256 * 1024
@@ -92,21 +98,24 @@ object ShareCodec {
      */
     private const val FLAG_PARITY = 4
 
-    fun qrText(plan: SharedPlan): String = QR_PREFIX + Base45.encode(payload(plan, complete = false))
+    /** QR text of [qrPayload]: one code, or the message of an animated sequence ([ShareFrames]). */
+    fun qrText(plan: SharedPlan): String = QR_PREFIX + Base45.encode(qrPayload(plan))
+
+    /** A QR text as apps before 1.5 wrote it (version 1 to 3, shortened profile); for tests of reading old shares. */
+    internal fun legacyQrText(plan: SharedPlan): String = QR_PREFIX + Base45.encode(payload(plan, complete = false, legacy = false))
 
     /**
-     * True when the QR code leaves out something the file has: a shortened or dropped note, or a raw SUMMARY that is
-     * more than "title (lecturers)" (the QR rebuilds neither).
+     * Version 4 (the QR path since 1.5): everything the file holds, nothing shortened. Version byte, CRC32 of the body,
+     * raw deflate 9 of the body with the preset dictionary [ShareDictionary].
      */
-    fun qrOmitsDetails(plan: SharedPlan): Boolean = plan.events.any { e ->
-        Body.note(e, complete = false).second || !summaryCovered(e)
-    }
-
-    private fun summaryCovered(e: Event): Boolean {
-        val summary = LsfText.normalizeSpaces(e.summary)
-        val title = LsfText.normalizeSpaces(e.title)
-        return summary == title || summary == "$title (${e.lecturers.joinToString(", ")})" ||
-            summary == LsfText.normalizeSpaces("$title (${e.lecturers.joinToString(",")})")
+    fun qrPayload(plan: SharedPlan): ByteArray {
+        val body = Body.write(plan, complete = true, legacy = false, layout = 4)
+        val crc = CRC32().apply { update(body) }.value
+        val out = ByteArrayOutputStream()
+        out.write(4)
+        for (shift in 24 downTo 0 step 8) out.write((crc shr shift).toInt() and 0xff)
+        out.write(deflate(body, ShareDictionary.bytes))
+        return out.toByteArray()
     }
 
     fun file(plan: SharedPlan): ByteArray = FILE_MAGIC + payload(plan, complete = true)
@@ -138,14 +147,19 @@ object ShareCodec {
 
     fun payload(plan: SharedPlan, complete: Boolean): ByteArray = payload(plan, complete, legacy = false)
 
-    /** [legacy]: written as apps before 1.2.2 did (biweekly series counted every 14 days, no parity flag); for tests. */
-    internal fun payload(plan: SharedPlan, complete: Boolean, legacy: Boolean): ByteArray {
-        val body = Body.write(plan, complete, legacy)
+    /**
+     * Versions 1 to 3 (the file, and the QR before 1.5; `complete = false` is the old shortened QR profile, kept for
+     * tests). [legacy]: written as apps before 1.2.2 did (biweekly series counted every 14 days, no parity flag).
+     */
+    internal fun payload(plan: SharedPlan, complete: Boolean, legacy: Boolean): ByteArray =
+        byteArrayOf(version(plan).toByte()) + deflate(Body.write(plan, complete, legacy, version(plan)), null)
+
+    private fun deflate(data: ByteArray, dictionary: ByteArray?): ByteArray {
         val d = Deflater(9, true)
         try {
-            d.setInput(body); d.finish()
+            dictionary?.let { d.setDictionary(it) }
+            d.setInput(data); d.finish()
             val out = ByteArrayOutputStream()
-            out.write(version(plan))
             val buf = ByteArray(4096)
             while (!d.finished()) out.write(buf, 0, d.deflate(buf))
             return out.toByteArray()
@@ -154,7 +168,7 @@ object ShareCodec {
         }
     }
 
-    /** The lowest version that holds everything in [plan] (older apps say a newer version is needed for a higher one). */
+    /** The lowest version 1 to 3 that holds everything in [plan] (older apps say a newer version is needed for a higher one). */
     fun version(plan: SharedPlan): Int = when {
         plan.hidden.isNotEmpty() || plan.settings.values.any { !it.typeShortName.isNullOrBlank() } -> 3
         plan.changes.any { it.forSharing() != null } || plan.events.any { it.isManual || it.st } -> 2
@@ -166,7 +180,16 @@ object ShareCodec {
         val version = payload[0].toInt() and 0xff
         if (version > VERSION) return ShareResult.TooNew
         if (version < 1) return ShareResult.Broken("version $version")
-        val body = inflate(payload, 1) ?: return ShareResult.Broken("bad or too large data")
+        val body = if (version >= 4) {
+            if (payload.size < 6) return ShareResult.Broken("truncated")
+            var crc = 0L
+            for (i in 1..4) crc = (crc shl 8) or (payload[i].toLong() and 0xff)
+            val b = inflate(payload, 5, ShareDictionary.bytes) ?: return ShareResult.Broken("bad or too large data")
+            if (CRC32().apply { update(b) }.value != crc) return ShareResult.Broken("checksum")
+            b
+        } else {
+            inflate(payload, 1, null) ?: return ShareResult.Broken("bad or too large data")
+        }
         return try {
             ShareResult.Ok(Body.read(body, version))
         } catch (e: IndexOutOfBoundsException) {
@@ -180,9 +203,10 @@ object ShareCodec {
         }
     }
 
-    private fun inflate(bytes: ByteArray, offset: Int): ByteArray? {
+    private fun inflate(bytes: ByteArray, offset: Int, dictionary: ByteArray?): ByteArray? {
         val inf = Inflater(true)
         try {
+            dictionary?.let { inf.setDictionary(it) }
             inf.setInput(bytes, offset, bytes.size - offset)
             val out = ByteArrayOutputStream()
             val buf = ByteArray(4096)
@@ -216,7 +240,8 @@ object ShareCodec {
     private object Body {
         private val lsfUid = Regex("^(\\d{6})(\\d{6})$")
 
-        fun write(plan: SharedPlan, complete: Boolean, legacy: Boolean): ByteArray {
+        /** [layout]: the version whose sections are written (2: own changes, s.t.; 3: hidden dates, type short names). */
+        fun write(plan: SharedPlan, complete: Boolean, legacy: Boolean, layout: Int): ByteArray {
             // A rhythm set by hand is sent as the dates it gives (the format has no rhythm field).
             val events = plan.events.map(Expansion::portable)
                 .map { e -> if (legacy && e.recurrence?.biweekly == true) e.copy(recurrence = e.recurrence.copy(rhythm = WeekRhythm.EVERY_14_DAYS)) else e }
@@ -303,12 +328,12 @@ object ShareCodec {
             out.bytes(settings.toByteArray())
             out.varint(events.size)
             cols.forEach { out.bytes(it.toByteArray()) }
-            if (version(plan) >= 2) {
+            if (layout >= 2) {
                 out.varint(shared.size); out.bytes(changes.toByteArray())
                 val st = events.withIndex().filter { it.value.st }.map { it.index }
                 out.varint(st.size); var last = 0; st.forEach { out.varint(it - last); last = it }
             }
-            if (version(plan) >= 3) {
+            if (layout >= 3) {
                 out.varint(plan.hidden.size); out.bytes(hidden.toByteArray())
                 out.varint(typed.size); out.bytes(types.toByteArray())
             }

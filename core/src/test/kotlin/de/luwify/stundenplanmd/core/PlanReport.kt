@@ -27,7 +27,8 @@ fun main(args: Array<String>) {
     result.warnings.forEach { println("WARNING $it") }
     val shared = SharedPlan("0000000000000000", "Name", java.time.LocalDate.now(), java.time.LocalDate.now(), result.events, emptyMap(), complete = false)
     val qr = ShareCodec.qrText(shared)
-    println("share: QR ${qr.length} chars (max ${ShareCodec.QR_MAX_CHARS}), file ${ShareCodec.file(shared).size} B")
+    val frames = de.luwify.stundenplanmd.core.share.ShareFrames.Encoder(ShareCodec.qrPayload(shared))
+    println("share: QR ${qr.length} chars (version 4, ${frames.k} animated frames), old QR ${ShareCodec.legacyQrText(shared).length} chars, file ${ShareCodec.file(shared).size} B")
 
     val from = schedule.firstDate?.let { Schedule.monday(it.atStartOfDay()) } ?: return
     println("\n== Occurrences, $weeks weeks from $from ==")
