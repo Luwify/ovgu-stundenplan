@@ -4,3 +4,5 @@ Neu:
 Behoben:
 - In der Wochenansicht nahmen die Symbole oben rechts (zusammen, geändert, Notiz, eigener Kurs) über die ganze Höhe Platz weg, sodass lange Raumnamen abgeschnitten wurden. Jetzt sind nur die Zeilen neben den Symbolen schmaler
 - Bei Hinweisen über zwei Zeilen steht „Rückgängig“ jetzt mittig neben dem Text statt auf Höhe der unteren Zeile
+- Hinweise erscheinen jetzt auch über einem geöffneten Termin, statt verdeckt darunter zu liegen
+- Kommt durch Hinzufügen oder Entfernen eines Kurses ein Fach dazu oder fällt weg, behalten die übrigen Fächer ihre Farben

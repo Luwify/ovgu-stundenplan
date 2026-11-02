@@ -38,6 +38,7 @@ import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -107,6 +108,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     var tab by rememberSaveable { mutableStateOf(Tab.WEEK) }
     // The appointment whose detail sheet is open; looked up again in the plan shown, so it shows every change at once.
     var selected by remember { mutableStateOf<SheetKey?>(null) }
+    /** The detail sheet is shown (it then hosts the snackbars, see [DetailSheet]). */
+    var sheetOpen by remember { mutableStateOf(false) }
     var personalEdit by remember { mutableStateOf<Timed?>(null) }
     var pickDates by remember { mutableStateOf<Timed?>(null) }
     var manualEdit by remember { mutableStateOf<ManualTarget?>(null) }
@@ -482,6 +485,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                     // An action opened from the sheet (editor, dialog) hides it while open; closing it in any way
                     // (save, cancel, back, outside) brings the sheet back.
                     val subOpen = personalEdit != null || pickDates != null || editing != null || manualEdit != null
+                    val shownSheet = p != null && item != null && !subOpen
+                    SideEffect { sheetOpen = shownSheet }
                     if (p != null && item != null && !subOpen) {
                         DetailSheet(
                             p, item,
@@ -497,6 +502,7 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             mine = remember(p, item) { vm.friendCourseState(p.person.id, item) },
                             onAddToMine = { vm.addFromFriend(p.person.id, item, p.colorOf(item)) },
                             onRemoveFromMine = { vm.removeFriendGroup(p.person.id, item) },
+                            snackbar = snackbar,
                         )
                     }
                     personalEdit?.let { edit ->
@@ -549,7 +555,8 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         }
         // Above the pages that cover the plan (settings), so an undo from there is seen: over the bottom bar on the plan.
         val overPlan = !showSettings && !scanning && qr == null && plan?.isEmpty == false
-        AppSnackbarHost(
+        // While the detail sheet is open its window covers this host: the sheet shows the snackbars itself.
+        if (!sheetOpen) AppSnackbarHost(
             snackbar,
             Modifier.align(Alignment.BottomCenter)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))

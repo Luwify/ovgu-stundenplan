@@ -25,6 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -88,6 +89,8 @@ fun DetailSheet(
     mine: FriendCourses.State? = null,
     onAddToMine: () -> Unit = {},
     onRemoveFromMine: () -> Unit = {},
+    /** The screen's snackbars: shown in the sheet while it is open (its window covers the screen's host). */
+    snackbar: SnackbarHostState? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val locale = appLocale()
@@ -120,6 +123,7 @@ fun DetailSheet(
     val topInset = WindowInsets.systemBars.getTop(density)
     val contentMax = with(density) { (windowHeight - topInset).toDp() } - DragHandleHeight - 1.dp
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets(0) }) {
+        Box {
         Column(
             Modifier.fillMaxWidth().heightIn(max = contentMax).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -201,6 +205,8 @@ fun DetailSheet(
                 SheetActionRow(primary = listOfNotNull(editSubject, hide, toMine), more = emptyList())
             }
             Spacer(Modifier.height(4.dp))
+        }
+        if (snackbar != null) AppSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         }
     }
 }

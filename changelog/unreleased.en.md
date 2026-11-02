@@ -4,3 +4,5 @@ New:
 Fixed:
 - In the week view the icons at the top right (together, changed, note, own course) took space over the whole height, so long room names were cut off. Now only the lines next to the icons are narrower
 - In messages over two lines, "Undo" now sits centered next to the text instead of level with the bottom line
+- Messages now also show above an open appointment instead of hidden beneath it
+- When adding or removing a course brings a new subject or removes one, the other subjects keep their colors
