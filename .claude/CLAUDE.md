@@ -74,9 +74,15 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   `TogetherBadge` (WeekView): group icon on a round surface badge, onSurfaceVariant, or the favorite red when a
   favorite friend attends (`PlanUi.withFavorite`).
 - Snackbars: one implementation for the whole app, `ui/Snackbars.kt`: `AppSnackbarHost` (M3 `Snackbar`: inverseSurface /
-  inverseOnSurface / inversePrimary action, theme shape, 12 dp margin, max 600 dp centered, message max 2 lines except
-  sticky ones) and `SnackbarHostState.notify(message, actionLabel, sticky, onAction)` (`snackbarDuration`: action = Long
-  10 s, plain = Short, sticky = Indefinite with the close X; `onAction` only on a tap of the action). Swipe left/right
+  inverseOnSurface / inversePrimary action, theme shape, 12 dp margin, max 600 dp centered; own row layout, action
+  and close X bottom-aligned so they stay in place when the text grows) and `SnackbarHostState.notify(message,
+  actionLabel, sticky, onAction)` (`snackbarDuration`: action = Long 10 s, plain = Short, sticky = Indefinite with the
+  close X; `onAction` only on a tap of the action). The host always gets Indefinite (`AppSnackbarVisuals.timeout` holds
+  the real one): `SnackbarTimer` counts itself, paused while touched or expanded (expanded: until 5 s without touch),
+  at least 4 s left after a pause, accessibility-recommended times. `SnackbarFold`: 2 lines + "…" + chevron when cut
+  (`hasVisualOverflow`), a tap expands/collapses (animateContentSize, snap without animations); sticky ones in full.
+  Texts checked against 2 lines on the phone at 1.0×/1.3× (Roboto, 328 dp, less with "Rückgängig"); those with course
+  titles or names rely on expanding. Swipe left/right
   dismisses like a time-out (`SnackbarSwipe`: 40 % of the width or a 1000 dp/s fling in the drag's direction; fades out;
   snap back otherwise; no animation with "remove animations"); touches beside the snackbar reach the pagers.
   `withReadableSnackbar` (Theme.kt) nudges inversePrimary to 4.5:1 on inverseSurface in every theme. Host in

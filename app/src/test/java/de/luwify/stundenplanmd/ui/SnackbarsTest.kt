@@ -24,8 +24,11 @@ class SnackbarsTest {
         val host = SnackbarHostState()
         launch { host.notify("Ausgeblendet", "Rückgängig") }
         runCurrent()
-        val v = host.currentSnackbarData!!.visuals
-        assertEquals(SnackbarDuration.Long, v.duration)
+        val v = host.currentSnackbarData!!.visuals as AppSnackbarVisuals
+        assertEquals(SnackbarDuration.Long, v.timeout)
+        assertEquals(10_000L, v.timeout.millis())
+        // The host's own timer is off: the snackbar counts itself (and can pause).
+        assertEquals(SnackbarDuration.Indefinite, v.duration)
         assertFalse(v.withDismissAction)
         host.currentSnackbarData!!.dismiss()
         launch { host.notify("Kaputt", sticky = true) }
@@ -78,6 +81,61 @@ class SnackbarsTest {
     @Test fun flingBackSnapsBack() {
         assertEquals(0, SnackbarSwipe.settle(500f, -3000f, width, density))
         assertEquals(0, SnackbarSwipe.settle(-500f, 3000f, width, density))
+    }
+
+    @Test fun durationMillis() {
+        assertEquals(4_000L, SnackbarDuration.Short.millis())
+        assertEquals(null, SnackbarDuration.Indefinite.millis())
+    }
+
+    /** Runs [timer] in 100 ms steps; [paused] says per step (time in ms since start) whether it is paused. */
+    private fun runOut(timer: SnackbarTimer, paused: (Long) -> Boolean): Long {
+        var t = 0L
+        while (!timer.advance(100, paused(t))) { t += 100; assertTrue(t < 120_000) }
+        return t + 100
+    }
+
+    @Test fun timerRunsOutUnpaused() {
+        assertEquals(10_000L, runOut(SnackbarTimer(10_000)) { false })
+    }
+
+    @Test fun touchPausesAndLeavesTimeToReact() {
+        // Touched from 9.0 s to 12.0 s: paused there, then at least 4 s more.
+        val end = runOut(SnackbarTimer(10_000)) { it in 9_000 until 12_000 }
+        assertEquals(16_000L, end)
+        // Touched early: the rest of the time stays (more than 4 s left), nothing extra.
+        assertEquals(13_000L, runOut(SnackbarTimer(10_000)) { it in 1_000 until 4_000 })
+    }
+
+    @Test fun expandedPausesUntilLeftAlone() {
+        val idle = SnackbarTimer.EXPANDED_IDLE
+        assertTrue(SnackbarTimer.paused(touching = false, expanded = true, sinceTouch = 0))
+        assertTrue(SnackbarTimer.paused(touching = false, expanded = true, sinceTouch = idle - 1))
+        // Expanded but nobody touched it for a few seconds: the clock runs again (it can still be swiped away).
+        assertFalse(SnackbarTimer.paused(touching = false, expanded = true, sinceTouch = idle))
+        assertFalse(SnackbarTimer.paused(touching = false, expanded = false, sinceTouch = 0))
+        assertTrue(SnackbarTimer.paused(touching = true, expanded = false, sinceTouch = 99_999))
+        // Expanded by a tap at 2 s, left alone: runs again from 7 s with the 8 s that were left.
+        val end = runOut(SnackbarTimer(10_000)) { t -> t >= 2_000 && SnackbarTimer.paused(false, true, t - 2_000) }
+        assertEquals(15_000L, end)
+    }
+
+    @Test fun foldOnlyWhenTheTextIsCut() {
+        var f = SnackbarFold()
+        // Fits in two lines: no hint, a tap does nothing.
+        f = f.laidOut(overflow = false)
+        assertFalse(f.truncated)
+        assertEquals(f, f.toggled())
+        // Cut: hint, a tap expands; the expanded layout (no overflow) keeps it expandable, a second tap collapses.
+        f = f.laidOut(overflow = true)
+        assertTrue(f.truncated && !f.expanded)
+        f = f.toggled()
+        assertTrue(f.expanded)
+        f = f.laidOut(overflow = false)
+        assertTrue(f.truncated && f.expanded)
+        f = f.toggled()
+        assertTrue(f.truncated && !f.expanded)
+        assertEquals(2, SnackbarFold.COLLAPSED_LINES)
     }
 
     @Test fun fadesOutOnTheWay() {

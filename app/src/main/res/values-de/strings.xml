@@ -122,7 +122,7 @@
     <string name="backup_exported">Sicherung gespeichert.</string>
     <string name="backup_failed">Die Sicherung konnte nicht gespeichert oder gelesen werden.</string>
     <string name="backup_not_a_backup">Das ist keine Sicherung von Stundenplan MD.</string>
-    <string name="backup_too_new">Diese Sicherung stammt von einer neueren App-Version. Bitte zuerst die App aktualisieren.</string>
+    <string name="backup_too_new">Sicherung einer neueren App-Version. Bitte zuerst die App aktualisieren.</string>
     <string name="backup_restored">Sicherung importiert.</string>
     <string name="backup_confirm_title">Sicherung importieren?</string>
     <string name="backup_confirm_body">Das ersetzt\n• deinen Stundenplan: %1$s\n  durch den der Sicherung: %2$s\n• deine Fächer-Einstellungen (%3$d Fächer) durch die der Sicherung (%4$d Kurse mit Einstellungen)\n• dein Design\n\nDu kannst das direkt danach rückgängig machen.</string>
@@ -146,7 +146,7 @@
     <string name="friend_added">Stundenplan von %1$s hinzugefügt.</string>
     <string name="friend_updated">Stundenplan von %1$s aktualisiert.</string>
     <string name="share_own">Das ist dein eigener Stundenplan.</string>
-    <string name="share_too_new">Dieser Stundenplan wurde mit einer neueren App-Version geteilt. Bitte zuerst die App aktualisieren.</string>
+    <string name="share_too_new">Mit einer neueren App-Version geteilt. Bitte zuerst die App aktualisieren.</string>
     <string name="share_broken">Das ist kein lesbarer geteilter Stundenplan.</string>
     <string name="close">Schließen</string>
     <string name="qr_title">Per QR-Code teilen</string>
@@ -299,7 +299,7 @@
     <string name="action_more">Mehr</string>
     <string name="action_more_long">Weitere Aktionen</string>
     <string name="cancelled_for_me">%1$s am %2$s fällt für dich aus</string>
-    <string name="uncancelled_for_me">%1$s am %2$s findet für dich wieder statt</string>
+    <string name="uncancelled_for_me">%1$s am %2$s findet wieder statt</string>
     <string name="editor_scope_one">Nur dieser Termin (%1$s)</string>
     <string name="editor_scope_series">Alle kommenden Termine (%1$s) ab %2$s</string>
     <string name="editor_note">Notiz</string>
@@ -389,8 +389,8 @@
     <string name="from_ics_name">Aus einer .ics-Datei importiert als „%1$s“</string>
     <string name="friend_update_hint_ics">Zum Aktualisieren eine neuere .ics-Datei über „+“ im Menü hinzufügen und diesen Freund auswählen: Der Plan wird ersetzt, dein Name und deine Farben dafür bleiben.</string>
     <plurals name="added_dropped">
-        <item quantity="one">%1$d hinzugefügter Termin ist jetzt im Plan selbst enthalten und wurde entfernt.</item>
-        <item quantity="other">%1$d hinzugefügte Termine sind jetzt im Plan selbst enthalten und wurden entfernt.</item>
+        <item quantity="one">%1$d hinzugefügter Termin steht jetzt im Plan selbst und wurde entfernt.</item>
+        <item quantity="other">%1$d hinzugefügte Termine stehen jetzt im Plan selbst und wurden entfernt.</item>
     </plurals>
     <plurals name="courses_added">
         <item quantity="one">%1$d Termin hinzugefügt.</item>
@@ -442,4 +442,6 @@
     <string name="qr_mode_animated">Animiert</string>
     <string name="qr_animated_hint" formatted="false">Animierter Code: Die Kamera ruhig darauf halten, bis der Fortschritt 100 % erreicht. Die Reihenfolge ist egal.</string>
     <string name="scan_progress">Animierter Code: %1$d %%</string>
+    <string name="snackbar_expand">Ganzen Text zeigen</string>
+    <string name="snackbar_collapse">Weniger zeigen</string>
 </resources>

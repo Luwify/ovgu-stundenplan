@@ -128,7 +128,7 @@
     <string name="backup_exported">Backup saved.</string>
     <string name="backup_failed">The backup could not be saved or read.</string>
     <string name="backup_not_a_backup">This is not a Stundenplan MD backup.</string>
-    <string name="backup_too_new">This backup was made by a newer version of the app. Update the app first.</string>
+    <string name="backup_too_new">Backup from a newer version of the app. Please update the app first.</string>
     <string name="backup_restored">Backup imported.</string>
     <string name="backup_confirm_title">Import backup?</string>
     <string name="backup_confirm_body">This replaces\n• your timetable: %1$s\n  with the backup\'s: %2$s\n• your subject settings (%3$d subjects) with the backup\'s (%4$d courses with settings)\n• your theme\n\nYou can undo this right after.</string>
@@ -152,7 +152,7 @@
     <string name="friend_added">Added %1$s\'s timetable.</string>
     <string name="friend_updated">Updated %1$s\'s timetable.</string>
     <string name="share_own">This is your own timetable.</string>
-    <string name="share_too_new">This timetable was shared by a newer version of the app. Update the app first.</string>
+    <string name="share_too_new">Shared by a newer version of the app. Please update the app first.</string>
     <string name="share_broken">This is not a readable shared timetable.</string>
     <string name="close">Close</string>
     <string name="qr_title">Share by QR code</string>
@@ -305,7 +305,7 @@
     <string name="action_more">More</string>
     <string name="action_more_long">More actions</string>
     <string name="cancelled_for_me">%1$s on %2$s cancelled for you</string>
-    <string name="uncancelled_for_me">%1$s on %2$s takes place for you again</string>
+    <string name="uncancelled_for_me">%1$s on %2$s takes place again</string>
     <string name="editor_scope_one">Only this date (%1$s)</string>
     <string name="editor_scope_series">All upcoming dates (%1$s) from %2$s</string>
     <string name="editor_note">Note</string>
@@ -448,4 +448,6 @@
     <string name="qr_mode_animated">Animated</string>
     <string name="qr_animated_hint" formatted="false">Animated code: hold the camera steady on it until the progress reaches 100 %. The order doesn\'t matter.</string>
     <string name="scan_progress">Animated code: %1$d %%</string>
+    <string name="snackbar_expand">Show the whole text</string>
+    <string name="snackbar_collapse">Show less</string>
 </resources>

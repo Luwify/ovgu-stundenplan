@@ -10,3 +10,6 @@ Changed:
 - The messages now have clear contrast in every color scheme, show at most two lines and are centered and narrower on wide screens. Messages with "Undo" stay for 10 seconds, plain info ones shorter
 - Choice menus in the settings (language, color scheme) and the subject picker for an own course now open like a classic Android spinner: the current value sits exactly on the field, the other values above and below it. Near the screen edges the menu moves only as far as needed. It grows out of the field with a slight spring and closes at once
 - The note "The QR code doesn't contain all details" is gone, since nothing is shortened any more. QR codes of older versions can still be scanned
+
+Fixed:
+- Long messages at the bottom were cut off after two lines. An arrow now shows when text is missing; a tap expands the whole text and collapses it again. While a message is expanded or touched, it stays; "Undo" keeps its place. Some messages are also worded more briefly

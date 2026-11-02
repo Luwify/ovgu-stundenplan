@@ -10,3 +10,6 @@ Geändert:
 - Die Hinweise haben jetzt in jedem Farbschema einen deutlichen Kontrast, zeigen höchstens zwei Zeilen und sind auf breiten Bildschirmen mittig und schmaler. Hinweise mit „Rückgängig“ bleiben 10 Sekunden stehen, reine Infos kürzer
 - Auswahlmenüs in den Einstellungen (Sprache, Farbschema) und die Fachauswahl beim eigenen Kurs öffnen sich jetzt wie ein klassisches Android-Auswahlfeld: Der aktuelle Wert liegt genau auf dem Feld, die anderen Werte stehen darüber und darunter. Am Bildschirmrand rückt das Menü nur so weit wie nötig. Das Menü wächst mit einer leichten Federbewegung aus dem Feld heraus und schließt sofort
 - Der Hinweis „Der QR-Code enthält nicht alle Details“ entfällt, weil nichts mehr gekürzt wird. QR-Codes älterer Versionen lassen sich weiterhin scannen
+
+Behoben:
+- Lange Hinweise am unteren Rand waren nach zwei Zeilen abgeschnitten. Ein Pfeil zeigt jetzt, wenn Text fehlt; Antippen klappt den ganzen Text auf und wieder zu. Solange ein Hinweis aufgeklappt ist oder berührt wird, bleibt er stehen; „Rückgängig“ bleibt an seinem Platz. Einige Hinweise sind zudem kürzer formuliert
