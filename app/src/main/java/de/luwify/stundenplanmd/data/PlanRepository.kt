@@ -9,6 +9,7 @@ import de.luwify.stundenplanmd.core.model.ManualCourse
 import de.luwify.stundenplanmd.core.schedule.ManualCourses
 import de.luwify.stundenplanmd.core.schedule.Expansion
 import de.luwify.stundenplanmd.core.schedule.AddedCourses
+import de.luwify.stundenplanmd.core.schedule.FriendCourses
 import de.luwify.stundenplanmd.core.ical.ImportResult
 import java.time.LocalDate
 import de.luwify.stundenplanmd.core.model.WeekRhythm
@@ -196,6 +197,30 @@ class PlanRepository(dir: File) {
             write(current.copy(addedEvents = r.events, courseSettings = Subjects.carryOver(current.courseSettings, current.myPlan?.events.orEmpty() + r.events)))
         }
         AddOutcome(r.added, r.updated, r.duplicates, current)
+    }
+
+    /**
+     * "Zu meinem Plan": a friend's [group] ([FriendCourses.group]) copied into my plan: an LSF group into the added
+     * courses, a manual course as one of mine. A new subject gets the friend's [color]. Null when nothing changed, else
+     * the previous state for undo.
+     */
+    suspend fun addFromFriend(group: List<Event>, color: Int?): StoredData? = mutex.withLock {
+        val current = _data.value ?: return@withLock null
+        val lsf = current.myPlan?.events.orEmpty()
+        if (group.isEmpty() || FriendCourses.state(group, lsf, current.addedEvents, current.manualCourses) != FriendCourses.State.ADDABLE) return@withLock null
+        val next = if (group.first().isManual) {
+            val course = FriendCourses.manualCourse(group.first())
+            current.copy(
+                manualCourses = current.manualCourses + course,
+                courseSettings = FriendCourses.settings(current.courseSettings, current.myEvents, listOf(ManualCourses.event(course)), color),
+            )
+        } else {
+            val added = AddedCourses.add(lsf, current.addedEvents, group).events
+            val settings = Subjects.carryOver(current.courseSettings, lsf + added)
+            current.copy(addedEvents = added, courseSettings = FriendCourses.settings(settings, current.myEvents, group, color))
+        }
+        write(next)
+        current
     }
 
     /**

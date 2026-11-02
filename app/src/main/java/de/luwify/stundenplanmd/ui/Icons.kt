@@ -107,6 +107,37 @@ val CancelDateIcon: ImageVector by lazy {
     }
 }
 
+/** A calendar page with a plus: add to my plan. */
+val AddDateIcon: ImageVector by lazy {
+    lineIcon("AddDate", 2f) {
+        roundRect(3.5f, 4.5f, 20.5f, 20f, 2f)
+        moveTo(8f, 3f); verticalLineTo(6f)
+        moveTo(16f, 3f); verticalLineTo(6f)
+        moveTo(12f, 10.5f); verticalLineTo(16.5f)
+        moveTo(9f, 13.5f); horizontalLineTo(15f)
+    }
+}
+
+/** A calendar page with a check mark: already in my plan. */
+val CheckDateIcon: ImageVector by lazy {
+    lineIcon("CheckDate", 2f) {
+        roundRect(3.5f, 4.5f, 20.5f, 20f, 2f)
+        moveTo(8f, 3f); verticalLineTo(6f)
+        moveTo(16f, 3f); verticalLineTo(6f)
+        moveTo(8.5f, 13.5f); lineTo(11f, 16f); lineTo(15.5f, 11f)
+    }
+}
+
+/** A calendar page with a minus: remove from my plan. */
+val RemoveDateIcon: ImageVector by lazy {
+    lineIcon("RemoveDate", 2f) {
+        roundRect(3.5f, 4.5f, 20.5f, 20f, 2f)
+        moveTo(8f, 3f); verticalLineTo(6f)
+        moveTo(16f, 3f); verticalLineTo(6f)
+        moveTo(9f, 13.5f); horizontalLineTo(15f)
+    }
+}
+
 /** An eye, struck through: hide. */
 val HideIcon: ImageVector by lazy {
     lineIcon("Hide", 2f) {

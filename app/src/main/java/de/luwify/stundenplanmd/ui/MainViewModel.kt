@@ -40,6 +40,7 @@ import de.luwify.stundenplanmd.data.IcsRoute
 import de.luwify.stundenplanmd.data.ImportRouting
 import de.luwify.stundenplanmd.data.parseIcs
 import de.luwify.stundenplanmd.core.schedule.AddedCourses
+import de.luwify.stundenplanmd.core.schedule.FriendCourses
 import de.luwify.stundenplanmd.core.schedule.Groups
 import de.luwify.stundenplanmd.data.StoredData
 import de.luwify.stundenplanmd.data.FriendImport
@@ -175,6 +176,7 @@ sealed interface UiMessage {
     /** Appointments of an .ics added to my plan; [duplicates]: the ones my plan already has (named in the notice). */
     data class CoursesAdded(val added: Int, val updated: Int, val duplicates: List<de.luwify.stundenplanmd.core.model.Event>, val previous: StoredData) : UiMessage
     data class AddedRemoved(val title: String, val previous: StoredData) : UiMessage
+    data class AddedFromFriend(val title: String, val previous: StoredData) : UiMessage
     data object ImportFailed : UiMessage
     data object NotACalendar : UiMessage
     data object NoEvents : UiMessage
@@ -521,6 +523,35 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val previous = repo.removeAdded(Groups.of(schedule, item)) ?: return@launch
             _messages.send(UiMessage.AddedRemoved(title, previous))
+        }
+    }
+
+    /** "Zu meinem Plan" in a friend's sheet: whether [item]'s group is in my plan already; null in my plan. */
+    fun friendCourseState(personId: String, item: Timed): FriendCourses.State? {
+        val data = repo.data.value ?: return null
+        if (personId == StoredData.ME) return null
+        val group = FriendCourses.group(data.planOf(personId)?.events.orEmpty(), item)
+        return FriendCourses.state(group, data.myPlan?.events.orEmpty(), data.addedEvents, data.manualCourses)
+    }
+
+    /** Copies the group of the friend's [item] into my plan ([FriendCourses]); [color] = as shown in their plan (undo in the snackbar). */
+    fun addFromFriend(personId: String, item: Timed, color: Int) {
+        viewModelScope.launch {
+            val data = repo.data.value ?: return@launch
+            val group = FriendCourses.group(data.planOf(personId)?.events.orEmpty(), item)
+            val previous = repo.addFromFriend(group, color) ?: return@launch
+            _messages.send(UiMessage.AddedFromFriend(item.event.title, previous))
+        }
+    }
+
+    /** Removes the group of the friend's [item] from my added courses again (undo in the snackbar). */
+    fun removeFriendGroup(personId: String, item: Timed) {
+        viewModelScope.launch {
+            val data = repo.data.value ?: return@launch
+            val group = FriendCourses.group(data.planOf(personId)?.events.orEmpty(), item).mapTo(HashSet()) { it.uid }
+            val mine = myPlan.value?.schedule?.let { Groups.of(it, item) }.orEmpty()
+            val previous = repo.removeAdded(group + mine) ?: return@launch
+            _messages.send(UiMessage.AddedRemoved(item.event.title, previous))
         }
     }
 

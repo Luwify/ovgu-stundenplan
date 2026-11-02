@@ -56,6 +56,7 @@ import de.luwify.stundenplanmd.core.model.Subject
 import de.luwify.stundenplanmd.core.model.WeekRhythm
 import de.luwify.stundenplanmd.core.schedule.Expansion
 import de.luwify.stundenplanmd.core.schedule.Groups
+import de.luwify.stundenplanmd.core.schedule.FriendCourses
 import de.luwify.stundenplanmd.core.schedule.Cancellation
 import de.luwify.stundenplanmd.core.schedule.Occurrence
 import de.luwify.stundenplanmd.core.schedule.Status
@@ -83,6 +84,10 @@ fun DetailSheet(
     onRemoveAdded: () -> Unit,
     onHide: (de.luwify.stundenplanmd.core.model.Hidden) -> Unit,
     onDismiss: () -> Unit,
+    /** A friend's plan: whether this group is in my plan ([FriendCourses]); null hides "Zu meinem Plan". */
+    mine: FriendCourses.State? = null,
+    onAddToMine: () -> Unit = {},
+    onRemoveFromMine: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     val locale = appLocale()
@@ -184,7 +189,16 @@ fun DetailSheet(
                     ),
                 )
             } else {
-                SheetActionRow(primary = listOfNotNull(editSubject, hide), more = emptyList())
+                val toMine = when (mine) {
+                    FriendCourses.State.ADDABLE ->
+                        SheetAction(AddDateIcon, stringResource(R.string.add_to_plan_short), stringResource(R.string.add_to_plan), onClick = onAddToMine)
+                    FriendCourses.State.ADDED ->
+                        SheetAction(RemoveDateIcon, stringResource(R.string.remove_short), stringResource(R.string.added_remove), onClick = onRemoveFromMine)
+                    FriendCourses.State.IN_PLAN ->
+                        SheetAction(CheckDateIcon, stringResource(R.string.in_your_plan), stringResource(R.string.in_your_plan), enabled = false)
+                    null -> null
+                }
+                SheetActionRow(primary = listOfNotNull(editSubject, hide, toMine), more = emptyList())
             }
             Spacer(Modifier.height(4.dp))
         }

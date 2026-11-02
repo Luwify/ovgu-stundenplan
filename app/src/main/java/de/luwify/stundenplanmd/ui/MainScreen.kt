@@ -296,6 +296,12 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         snackbar.notify(parts.joinToString(" "), res.getString(R.string.undo)) { vm.undoImport(msg.previous) }
                     }
                 }
+                is UiMessage.AddedFromFriend -> {
+                    snackbar.notify(
+                        res.getString(R.string.added_from_friend, msg.title),
+                        res.getString(R.string.undo),
+                    ) { vm.undoImport(msg.previous) }
+                }
                 is UiMessage.AddedRemoved -> {
                     snackbar.notify(
                         res.getString(R.string.added_removed, msg.title),
@@ -488,6 +494,9 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                             onRemoveAdded = { selected = null; vm.removeAdded(item, item.event.title) },
                             onHide = { h -> selected = null; vm.hide(h, hiddenName(res, h)) },
                             onDismiss = { selected = null },
+                            mine = remember(p, item) { vm.friendCourseState(p.person.id, item) },
+                            onAddToMine = { vm.addFromFriend(p.person.id, item, p.colorOf(item)) },
+                            onRemoveFromMine = { vm.removeFriendGroup(p.person.id, item) },
                         )
                     }
                     personalEdit?.let { edit ->

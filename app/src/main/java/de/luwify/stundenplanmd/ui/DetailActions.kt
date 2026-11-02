@@ -76,7 +76,7 @@ class MenuEntry(val label: String, val onClick: () -> Unit)
 /**
  * One slot of the detail sheet's action row: icon + one short [label]; [description] is the full name (TalkBack, and
  * the menu entry when the action ends up under "Mehr"). With [menu] the slot opens that menu instead of [onClick].
- * [selected]: a toggle that is on (the icon sits on a filled pill).
+ * [selected]: a toggle that is on (the icon sits on a filled pill). [enabled] false: shown faded, does nothing (a state).
  */
 class SheetAction(
     val icon: ImageVector,
@@ -84,6 +84,7 @@ class SheetAction(
     val description: String,
     val selected: Boolean = false,
     val menu: List<MenuEntry>? = null,
+    val enabled: Boolean = true,
     val onClick: () -> Unit = {},
 )
 
@@ -123,7 +124,7 @@ private fun ActionSlot(a: SheetAction, style: TextStyle, modifier: Modifier) {
             Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(12.dp))
-                .clickable(role = Role.Button) { if (a.menu != null) open = true else a.onClick() }
+                .clickable(enabled = a.enabled, role = Role.Button) { if (a.menu != null) open = true else a.onClick() }
                 .semantics { contentDescription = a.description }
                 .padding(start = 2.dp, top = PillTop, end = 2.dp, bottom = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -139,14 +140,14 @@ private fun ActionSlot(a: SheetAction, style: TextStyle, modifier: Modifier) {
                     .background(if (lit) scheme.secondaryContainer else scheme.surfaceContainerHigh),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(a.icon, null, Modifier.size(22.dp), tint = if (lit) scheme.onSecondaryContainer else scheme.onSurfaceVariant)
+                Icon(a.icon, null, Modifier.size(22.dp), tint = (if (lit) scheme.onSecondaryContainer else scheme.onSurfaceVariant).copy(alpha = if (a.enabled) 1f else 0.38f))
             }
             Spacer(Modifier.height(4.dp))
             Text(
                 a.label,
                 Modifier.fillMaxWidth().clearAndSetSemantics {},
                 style = style,
-                color = scheme.onSurface,
+                color = scheme.onSurface.copy(alpha = if (a.enabled) 1f else 0.38f),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 softWrap = false,
