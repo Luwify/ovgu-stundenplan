@@ -265,7 +265,8 @@ private fun SnackbarContent(data: SnackbarData, fold: SnackbarFold, animate: Boo
     ) {
         Row(
             Modifier.heightIn(min = 48.dp).padding(start = 16.dp, end = if (visuals.actionLabel != null || visuals.withDismissAction) 8.dp else 16.dp),
-            verticalAlignment = Alignment.Bottom,
+            // Action and close X centered beside the text (on two lines too); an expanding text carries them along.
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // A sticky error is shown in full; the rest two lines, a tap opens the whole text.
             val collapsible = !sticky
