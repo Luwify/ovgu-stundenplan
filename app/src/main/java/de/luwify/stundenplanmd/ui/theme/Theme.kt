@@ -51,6 +51,12 @@ internal fun ColorScheme.withCardContrast(dark: Boolean): ColorScheme {
     return copy(background = page, surface = page)
 }
 
+/**
+ * The snackbar's action (inversePrimary) nudged to 4.5:1 on its container (inverseSurface): in dark themes the light
+ * accent of the scheme is often too pale on the light snackbar. Applied to every theme in [StundenplanTheme].
+ */
+fun ColorScheme.withReadableSnackbar(): ColorScheme = copy(inversePrimary = inversePrimary.withContrast(4.5, listOf(inverseSurface)))
+
 /** Fraction of the wallpaper's color kept in accent roles / in surface roles of the System theme. */
 private const val ACCENT_KEPT = 0.7f
 private const val SURFACE_KEPT = 0.5f
@@ -119,6 +125,6 @@ fun StundenplanTheme(
         }
     }
     CompositionLocalProvider(LocalPlanColors provides plan, LocalThemeMode provides mode) {
-        MaterialTheme(colorScheme = colorScheme, shapes = shapes, content = content)
+        MaterialTheme(colorScheme = remember(colorScheme) { colorScheme.withReadableSnackbar() }, shapes = shapes, content = content)
     }
 }

@@ -1,6 +1,11 @@
 package de.luwify.stundenplanmd.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.background
@@ -16,10 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material3.TopAppBar
@@ -44,7 +46,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import java.time.LocalDate
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
@@ -176,12 +177,10 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
     LaunchedEffect(vm) {
         vm.updates.announcement.filterNotNull().collect { release ->
             vm.updates.announcement.value = null
-            val r = snackbar.showSnackbar(
+            snackbar.notify(
                 res.getString(R.string.update_snackbar, release.versionName),
-                actionLabel = res.getString(R.string.update_show),
-                duration = SnackbarDuration.Long,
-            )
-            if (r == SnackbarResult.ActionPerformed) updateDialog = release.versionCode
+                res.getString(R.string.update_show),
+            ) { updateDialog = release.versionCode }
         }
     }
 
@@ -199,12 +198,12 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         scope.launch {
             drawer.close()
             when {
-                myPlan?.isEmpty != false -> snackbar.showSnackbar(res.getString(R.string.no_plan_to_share))
+                myPlan?.isEmpty != false -> snackbar.notify(res.getString(R.string.no_plan_to_share))
                 myShare.name == null -> askName = action
                 action == ShareAction.FILE -> vm.writeShareFile()?.let { openShareSheet(context, it) }
-                    ?: snackbar.showSnackbar(res.getString(R.string.share_failed))
+                    ?: snackbar.notify(res.getString(R.string.share_failed))
                 else -> qr = vm.myQr()?.let { QrShown(it, null, myShare.name.orEmpty(), myPlan?.planDate) }
-                    ?: run { snackbar.showSnackbar(res.getString(R.string.share_failed)); null }
+                    ?: run { snackbar.notify(res.getString(R.string.share_failed)); null }
             }
         }
     }
@@ -219,9 +218,9 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         scope.launch {
             when (action) {
                 ShareAction.FILE -> vm.writeFriendShareFile(friend.id, shareName)?.let { openShareSheet(context, it) }
-                    ?: snackbar.showSnackbar(res.getString(R.string.share_failed))
+                    ?: snackbar.notify(res.getString(R.string.share_failed))
                 ShareAction.QR -> qr = vm.friendQr(friend.id, shareName)?.let { QrShown(it, friend.id, shareName, planDate) }
-                    ?: run { snackbar.showSnackbar(res.getString(R.string.share_failed)); null }
+                    ?: run { snackbar.notify(res.getString(R.string.share_failed)); null }
             }
         }
     }
@@ -232,76 +231,58 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 is UiMessage.Imported -> {
                     val text = res.getQuantityString(R.plurals.imported, msg.events, msg.events) +
                         if (msg.droppedAdded > 0) " " + res.getQuantityString(R.plurals.added_dropped, msg.droppedAdded, msg.droppedAdded) else ""
-                    val r = snackbar.showSnackbar(
+                    snackbar.notify(
                         text,
-                        actionLabel = res.getString(R.string.undo),
-                        duration = SnackbarDuration.Long,
-                    )
-                    if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                        res.getString(R.string.undo),
+                    ) { vm.undoImport(msg.previous) }
                 }
-                is UiMessage.DataUnreadable -> snackbar.showSnackbar(
-                    res.getString(R.string.data_unreadable, msg.keptAs ?: "data.json"),
-                    duration = SnackbarDuration.Indefinite,
-                    withDismissAction = true,
-                )
-                UiMessage.BackupExported -> snackbar.showSnackbar(res.getString(R.string.backup_exported))
-                UiMessage.BackupFailed -> snackbar.showSnackbar(res.getString(R.string.backup_failed))
-                UiMessage.BackupNotABackup -> snackbar.showSnackbar(res.getString(R.string.backup_not_a_backup))
-                UiMessage.BackupTooNew -> snackbar.showSnackbar(res.getString(R.string.backup_too_new))
+                is UiMessage.DataUnreadable -> snackbar.notify(res.getString(R.string.data_unreadable, msg.keptAs ?: "data.json"), sticky = true)
+                UiMessage.BackupExported -> snackbar.notify(res.getString(R.string.backup_exported))
+                UiMessage.BackupFailed -> snackbar.notify(res.getString(R.string.backup_failed))
+                UiMessage.BackupNotABackup -> snackbar.notify(res.getString(R.string.backup_not_a_backup))
+                UiMessage.BackupTooNew -> snackbar.notify(res.getString(R.string.backup_too_new))
                 is UiMessage.BackupRestored -> {
-                    val r = snackbar.showSnackbar(
+                    snackbar.notify(
                         res.getString(R.string.backup_restored),
-                        actionLabel = res.getString(R.string.undo),
-                        duration = SnackbarDuration.Long,
-                    )
-                    if (r == SnackbarResult.ActionPerformed) vm.undoBackup(msg.previous)
+                        res.getString(R.string.undo),
+                    ) { vm.undoBackup(msg.previous) }
                 }
-                UiMessage.ImportFailed -> snackbar.showSnackbar(res.getString(R.string.import_failed))
-                UiMessage.NotACalendar -> snackbar.showSnackbar(res.getString(R.string.import_not_calendar))
-                UiMessage.NoEvents -> snackbar.showSnackbar(res.getString(R.string.import_no_events))
+                UiMessage.ImportFailed -> snackbar.notify(res.getString(R.string.import_failed))
+                UiMessage.NotACalendar -> snackbar.notify(res.getString(R.string.import_not_calendar))
+                UiMessage.NoEvents -> snackbar.notify(res.getString(R.string.import_no_events))
                 is UiMessage.FriendImported -> {
-                    val r = snackbar.showSnackbar(
+                    snackbar.notify(
                         res.getString(if (msg.replaced) R.string.friend_updated else R.string.friend_added, msg.name),
-                        actionLabel = res.getString(R.string.undo),
-                        duration = SnackbarDuration.Long,
-                    )
-                    if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                        res.getString(R.string.undo),
+                    ) { vm.undoImport(msg.previous) }
                 }
-                UiMessage.ShareOwn -> snackbar.showSnackbar(res.getString(R.string.share_own))
-                UiMessage.ShareTooNew -> snackbar.showSnackbar(res.getString(R.string.share_too_new))
-                UiMessage.ShareBroken -> snackbar.showSnackbar(res.getString(R.string.share_broken))
+                UiMessage.ShareOwn -> snackbar.notify(res.getString(R.string.share_own))
+                UiMessage.ShareTooNew -> snackbar.notify(res.getString(R.string.share_too_new))
+                UiMessage.ShareBroken -> snackbar.notify(res.getString(R.string.share_broken))
                 is UiMessage.FriendDeleted -> {
-                    val r = snackbar.showSnackbar(
+                    snackbar.notify(
                         res.getString(R.string.friend_deleted, msg.name),
-                        actionLabel = res.getString(R.string.undo),
-                        duration = SnackbarDuration.Long,
-                    )
-                    if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                        res.getString(R.string.undo),
+                    ) { vm.undoImport(msg.previous) }
                 }
                 is UiMessage.ManualDeleted -> {
-                    val r = snackbar.showSnackbar(
+                    snackbar.notify(
                         res.getString(R.string.manual_deleted, msg.title),
-                        actionLabel = res.getString(R.string.undo),
-                        duration = SnackbarDuration.Long,
-                    )
-                    if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                        res.getString(R.string.undo),
+                    ) { vm.undoImport(msg.previous) }
                 }
                 is UiMessage.Hid -> {
-                    val r = snackbar.showSnackbar(
+                    snackbar.notify(
                         res.getString(R.string.hidden_snackbar, msg.what),
-                        actionLabel = res.getString(R.string.undo),
-                        duration = SnackbarDuration.Long,
-                    )
-                    if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                        res.getString(R.string.undo),
+                    ) { vm.undoImport(msg.previous) }
                 }
                 is UiMessage.CancelledForMe -> {
                     val date = dayAndDate(msg.date, appLocaleOf(res))
-                    val r = snackbar.showSnackbar(
+                    snackbar.notify(
                         res.getString(if (msg.cancelled) R.string.cancelled_for_me else R.string.uncancelled_for_me, msg.title, date),
-                        actionLabel = res.getString(R.string.undo),
-                        duration = SnackbarDuration.Long,
-                    )
-                    if (r == SnackbarResult.ActionPerformed) vm.restorePersonal(msg.previous)
+                        res.getString(R.string.undo),
+                    ) { vm.restorePersonal(msg.previous) }
                 }
                 is UiMessage.CoursesAdded -> {
                     val parts = listOfNotNull(
@@ -310,22 +291,19 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                         duplicateText(res, msg.duplicates).takeIf { msg.duplicates.isNotEmpty() },
                     )
                     if (msg.added + msg.updated == 0) {
-                        snackbar.showSnackbar(parts.joinToString(" "))
+                        snackbar.notify(parts.joinToString(" "))
                     } else {
-                        val r = snackbar.showSnackbar(parts.joinToString(" "), actionLabel = res.getString(R.string.undo), duration = SnackbarDuration.Long)
-                        if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                        snackbar.notify(parts.joinToString(" "), res.getString(R.string.undo)) { vm.undoImport(msg.previous) }
                     }
                 }
                 is UiMessage.AddedRemoved -> {
-                    val r = snackbar.showSnackbar(
+                    snackbar.notify(
                         res.getString(R.string.added_removed, msg.title),
-                        actionLabel = res.getString(R.string.undo),
-                        duration = SnackbarDuration.Long,
-                    )
-                    if (r == SnackbarResult.ActionPerformed) vm.undoImport(msg.previous)
+                        res.getString(R.string.undo),
+                    ) { vm.undoImport(msg.previous) }
                 }
-                UiMessage.NoPlanToShare -> snackbar.showSnackbar(res.getString(R.string.no_plan_to_share))
-                UiMessage.ShareFailed -> snackbar.showSnackbar(res.getString(R.string.share_failed))
+                UiMessage.NoPlanToShare -> snackbar.notify(res.getString(R.string.no_plan_to_share))
+                UiMessage.ShareFailed -> snackbar.notify(res.getString(R.string.share_failed))
             }
         }
     }
@@ -565,9 +543,11 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
         }
         // Above the pages that cover the plan (settings), so an undo from there is seen: over the bottom bar on the plan.
         val overPlan = !showSettings && !scanning && qr == null && plan?.isEmpty == false
-        SnackbarHost(
+        AppSnackbarHost(
             snackbar,
-            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (overPlan) 80.dp else 0.dp),
+            Modifier.align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
+                .padding(bottom = if (overPlan && !compact) 80.dp else 0.dp),
         )
     }
 

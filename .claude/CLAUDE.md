@@ -73,6 +73,15 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   surfaceContainerLow, page and card; custom role FAVORITE), `SubjectColors` (tint + stripe, contrast-nudged).
   `TogetherBadge` (WeekView): group icon on a round surface badge, onSurfaceVariant, or the favorite red when a
   favorite friend attends (`PlanUi.withFavorite`).
+- Snackbars: one implementation for the whole app, `ui/Snackbars.kt`: `AppSnackbarHost` (M3 `Snackbar`: inverseSurface /
+  inverseOnSurface / inversePrimary action, theme shape, 12 dp margin, max 600 dp centered, message max 2 lines except
+  sticky ones) and `SnackbarHostState.notify(message, actionLabel, sticky, onAction)` (`snackbarDuration`: action = Long
+  10 s, plain = Short, sticky = Indefinite with the close X; `onAction` only on a tap of the action). Swipe left/right
+  dismisses like a time-out (`SnackbarSwipe`: 40 % of the width or a 1000 dp/s fling in the drag's direction; fades out;
+  snap back otherwise; no animation with "remove animations"); touches beside the snackbar reach the pagers.
+  `withReadableSnackbar` (Theme.kt) nudges inversePrimary to 4.5:1 on inverseSurface in every theme. Host in
+  `MainScreen` above the overlays: safeDrawing insets, + 80 dp over the bottom bar (not with the rail).
+  **Mensa MD should get the same snackbar later** (it still uses the plain `SnackbarHost`), to keep the two apps in sync.
 - Day view free blocks: `DayScreen` merges `DayPlan.gaps` into the list as dashed, non-clickable `FreeRow`s ("Frei · 13–15  2 h").
 - Landscape fit (setting "Querformat an Bildschirm anpassen", `ThemeSettings.fitLandscape`, default on, in the backup as
   `display` since version 4): `WeekPage` scales the hour height over the whole plan's `Schedule.hours` (`HourScale`, min
