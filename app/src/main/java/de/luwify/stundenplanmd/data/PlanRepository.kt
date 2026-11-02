@@ -118,6 +118,16 @@ data class StoredData(
     }
 }
 
+/**
+ * This state with the colors my subjects showed in [previous] kept ([Subjects.keepColors]): for changes that add or
+ * remove my courses, so the automatic colors of the other subjects don't move.
+ */
+private fun StoredData.keepingColors(previous: StoredData): StoredData = copy(
+    courseSettings = Subjects.keepColors(
+        previous.myEvents, previous.courseSettings, myEvents, courseSettings, de.luwify.stundenplanmd.ui.theme.SubjectColors::defaultColor,
+    ),
+)
+
 sealed interface FriendImport {
     /** [replaced]: a plan of this person was there before. [previous] allows undo. */
     data class Imported(val person: Person, val replaced: Boolean, val previous: StoredData) : FriendImport
@@ -194,7 +204,7 @@ class PlanRepository(dir: File) {
         val current = _data.value ?: StoredData()
         val r = AddedCourses.add(current.myPlan?.events.orEmpty(), current.addedEvents, events)
         if (r.events != current.addedEvents) {
-            write(current.copy(addedEvents = r.events, courseSettings = Subjects.carryOver(current.courseSettings, current.myPlan?.events.orEmpty() + r.events)))
+            write(current.copy(addedEvents = r.events, courseSettings = Subjects.carryOver(current.courseSettings, current.myPlan?.events.orEmpty() + r.events)).keepingColors(current))
         }
         AddOutcome(r.added, r.updated, r.duplicates, current)
     }
@@ -219,7 +229,7 @@ class PlanRepository(dir: File) {
             val settings = Subjects.carryOver(current.courseSettings, lsf + added)
             current.copy(addedEvents = added, courseSettings = FriendCourses.settings(settings, current.myEvents, group, color))
         }
-        write(next)
+        write(next.keepingColors(current))
         current
     }
 
@@ -237,7 +247,7 @@ class PlanRepository(dir: File) {
                 addedEvents = AddedCourses.remove(current.addedEvents, uids),
                 personalChanges = current.personalChanges.filterNot { it.uid in uids },
                 rhythms = if (mine.isEmpty()) current.rhythms - StoredData.ME else current.rhythms + (StoredData.ME to mine),
-            ),
+            ).keepingColors(current),
         )
         current
     }
@@ -370,7 +380,7 @@ class PlanRepository(dir: File) {
             current.manualCourses + course
         }
         val settings = if (setting == null) current.courseSettings - course.courseKey else current.courseSettings + (course.courseKey to setting)
-        write(current.copy(manualCourses = courses, courseSettings = settings))
+        write(current.copy(manualCourses = courses, courseSettings = settings).keepingColors(current))
     }
 
     /** Removes a manual course with its settings and my changes to it; returns the previous state for undo. */
@@ -378,7 +388,7 @@ class PlanRepository(dir: File) {
         val current = _data.value ?: return@withLock null
         val course = current.manualCourses.firstOrNull { it.id == id } ?: return@withLock null
         val (courses, changes) = ManualCourses.remove(current.manualCourses, current.personalChanges, id)
-        write(current.copy(manualCourses = courses, personalChanges = changes, courseSettings = current.courseSettings - course.courseKey))
+        write(current.copy(manualCourses = courses, personalChanges = changes, courseSettings = current.courseSettings - course.courseKey).keepingColors(current))
         current
     }
 

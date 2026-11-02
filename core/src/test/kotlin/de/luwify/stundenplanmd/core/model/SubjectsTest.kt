@@ -146,4 +146,25 @@ class SubjectsTest {
         val moved = Subjects.move(Subjects.setStyle(settings, target, "WuF", null), vl, target.key, Subjects.build(events, Subjects.setStyle(settings, target, "WuF", null)))
         assertEquals("WuF VL", Subjects.build(events, moved).single { it.key == target.key }.displayNameOf("lsf:900066"))
     }
+
+    @Test
+    fun addingOrRemovingASubjectKeepsTheOtherColors() {
+        val auto = { i: Int -> 0x100000 + i }
+        fun shown(ev: List<Event>, settings: Map<String, CourseSetting>) =
+            Subjects.build(ev, settings).withIndex().associate { (i, s) -> s.key to (s.color ?: auto(i)) }
+        val before = shown(events, emptyMap())
+        // "Aaa" sorts first: every automatic color after it would move by one.
+        val first = events.first().copy(uid = "123456000001", summary = "Aaa Einführung", title = "Aaa Einführung")
+        val added = Subjects.keepColors(events, emptyMap(), events + first, emptyMap(), auto)
+        val after = shown(events + first, added)
+        assertEquals(before, after - Subjects.autoKey(first.title))
+        // The new subject keeps an automatic color, so it is not stored.
+        assertEquals(null, added[first.courseKey])
+        // Removing it again: the colors stay as they were shown, nothing else changes.
+        val removed = Subjects.keepColors(events + first, added, events, added, auto)
+        assertEquals(before, shown(events, removed))
+        // A subject sorting last moves nothing: nothing is stored.
+        val last = first.copy(uid = "123456000002", summary = "Zzz Ausblick", title = "Zzz Ausblick")
+        assertEquals(emptyMap<String, CourseSetting>(), Subjects.keepColors(events, emptyMap(), events + last, emptyMap(), auto))
+    }
 }

@@ -129,6 +129,29 @@ object Subjects {
     }
 
     /**
+     * [afterSettings] with the colors of [before]'s subjects kept as shown. Automatic colors go by a subject's place in the
+     * sorted list ([autoColor]), so adding or removing a course that brings or takes a subject moved the colors of the
+     * subjects after it; a subject (same key) whose automatic color would change gets the one it showed, stored.
+     */
+    fun keepColors(
+        before: List<Event>,
+        beforeSettings: Map<String, CourseSetting>,
+        after: List<Event>,
+        afterSettings: Map<String, CourseSetting>,
+        autoColor: (Int) -> Int,
+    ): Map<String, CourseSetting> {
+        val shown = build(before, beforeSettings).withIndex().associate { (i, s) -> s.key to (s.color ?: autoColor(i)) }
+        val out = afterSettings.toMutableMap()
+        for ((i, subject) in build(after, afterSettings).withIndex()) {
+            if (subject.color != null) continue
+            val was = shown[subject.key] ?: continue
+            if (autoColor(i) == was) continue
+            for (c in subject.courses) out[c.key] = (afterSettings[c.key] ?: CourseSetting(c.key, c.title)).copy(color = was)
+        }
+        return out
+    }
+
+    /**
      * Settings for showing a friend's plan, per course: my [local] override for that friend, else [mine] (resolved, for
      * courses I take too, so they look like in my plan), else the friend's [shared] defaults, else automatic.
      */
