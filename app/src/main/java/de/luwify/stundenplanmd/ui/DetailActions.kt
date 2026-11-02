@@ -270,7 +270,7 @@ private class GrowGeometry {
     var panel = Rect.Zero
 }
 
-/** A popup over the whole window. */
-private object WholeWindow : PopupPositionProvider {
+/** A popup over the whole window: its content places itself (in screen coordinates, see the menus). */
+internal object WholeWindow : PopupPositionProvider {
     override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) = IntOffset.Zero
 }

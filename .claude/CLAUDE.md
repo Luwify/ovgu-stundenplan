@@ -82,6 +82,11 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   `withReadableSnackbar` (Theme.kt) nudges inversePrimary to 4.5:1 on inverseSurface in every theme. Host in
   `MainScreen` above the overlays: safeDrawing insets, + 80 dp over the bottom bar (not with the rail).
   **Mensa MD should get the same snackbar later** (it still uses the plain `SnackbarHost`), to keep the two apps in sync.
+- `SettingsDropdown` (language, theme, manual course subject): spinner-style menu. Popup over the whole window
+  (`WholeWindow`, screen coordinates: a popup's window may start beside a cutout), current value's row centered on the
+  field, others above/below, clamped to the window's safe area (`menuPlacement`, `MenuPlacementTest`; a list taller than
+  the space fills it and scrolls to the current row). Opens like `GrowingMenu`: the field's rect grows into the panel
+  on the bouncy spring, other rows fade in, the current one stays; closes at once; instant with animations off.
 - Day view free blocks: `DayScreen` merges `DayPlan.gaps` into the list as dashed, non-clickable `FreeRow`s ("Frei · 13–15  2 h").
 - Landscape fit (setting "Querformat an Bildschirm anpassen", `ThemeSettings.fitLandscape`, default on, in the backup as
   `display` since version 4): `WeekPage` scales the hour height over the whole plan's `Schedule.hours` (`HourScale`, min
