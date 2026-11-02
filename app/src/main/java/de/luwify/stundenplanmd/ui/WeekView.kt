@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -477,10 +478,13 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
                 if (note && left-- > 0) MarkerBadge(note = true, 15.dp)
             }
         }
-        Column(Modifier.fillMaxSize().padding(start = 6.dp, end = if (badges) 17.dp else 3.dp, top = pad, bottom = pad)) {
+        // The badges take their width only from the lines beside them (the title, and more lines while the column of
+        // badges is taller); the room and type below it get the block's full width.
+        // The badges are round: a line reaching less than 3 dp up beside the last one's bottom still passes below it.
+        val badgeBottom = if (badges) 17.dp * shownBadges - pad - 3.dp else 0.dp
+        BlockLines(titleEnd = if (badges) 17.dp else BlockEnd, badgeBottom, Modifier.fillMaxSize().padding(start = 6.dp, end = BlockEnd, top = pad, bottom = pad)) {
             Text(
                 blockName(subject, item),
-                Modifier.weight(1f, fill = false),
                 maxLines = titleLines,
                 color = c.content,
                 fontSize = if (narrow || tiny) 10.sp else 11.sp,
@@ -519,6 +523,38 @@ private fun EventBlock(plan: PlanUi, item: Timed, strong: Boolean, narrow: Boole
                     )
                 }
             }
+        }
+    }
+}
+
+/** End padding of a block's text. */
+private val BlockEnd = 3.dp
+
+/**
+ * A block's lines, top to bottom: the first (the title) gets the height the others leave. A line that starts beside the
+ * badge column at the top right (down to [badgeBottom]) ends [titleEnd] before the block's edge, like the title; a line
+ * below it gets the full width ([BlockEnd] padding). The other lines are single lines, so their height doesn't depend on
+ * their width.
+ */
+@Composable
+private fun BlockLines(titleEnd: Dp, badgeBottom: Dp, modifier: Modifier, content: @Composable () -> Unit) {
+    Layout(content, modifier) { measurables, constraints ->
+        val full = constraints.maxWidth
+        val narrow = (full + BlockEnd.roundToPx() - titleEnd.roundToPx()).coerceAtLeast(0)
+        val bottom = badgeBottom.roundToPx()
+        val rest = measurables.drop(1)
+        val restHeight = rest.sumOf { it.maxIntrinsicHeight(full) }
+        val maxHeight = if (constraints.hasBoundedHeight) constraints.maxHeight else Constraints.Infinity
+        val titleMax = if (constraints.hasBoundedHeight) (maxHeight - restHeight).coerceAtLeast(0) else Constraints.Infinity
+        val title = measurables.firstOrNull()?.measure(Constraints(maxWidth = narrow, maxHeight = titleMax))
+        var y = title?.height ?: 0
+        val lines = rest.map { m ->
+            val p = m.measure(Constraints(maxWidth = if (y < bottom) narrow else full))
+            (p to y).also { y += p.height }
+        }
+        layout(full, if (constraints.hasBoundedHeight) maxHeight else y) {
+            title?.place(0, 0)
+            lines.forEach { (p, top) -> p.place(0, top) }
         }
     }
 }
