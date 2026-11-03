@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Frames, qrText } from '../core'
-import { drawQr, encodeQr } from '../qr'
+import { drawQr, encodeQr, readableQr } from '../qr'
 import { t } from '../i18n'
 import { Button, Dialog } from './ui'
 
@@ -17,10 +17,13 @@ export function QrShow(props: {
   onShareFile: () => void
   onClose: () => void
 }) {
-  const single = useMemo(() => encodeQr(qrText(props.payload)), [props.payload])
+  // One code: read back first and switch the mask if needed (ShareQr.readable); frames as the app: default mask.
+  const text = useMemo(() => qrText(props.payload), [props.payload])
+  const fits = useMemo(() => encodeQr(text), [text])
+  const auto = fits && fits.version <= MAX_SINGLE_VERSION ? 'single' : 'animated'
+  const mode = !fits ? 'animated' : props.mode ?? auto
+  const single = useMemo(() => (mode === 'single' ? readableQr(text) : null), [text, mode])
   const frames = useMemo(() => new Frames(props.payload), [props.payload])
-  const auto = single && single.version <= MAX_SINGLE_VERSION ? 'single' : 'animated'
-  const mode = !single ? 'animated' : props.mode ?? auto
   const canvas = useRef<HTMLCanvasElement>(null)
   const box = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState(300)
@@ -47,6 +50,7 @@ export function QrShow(props: {
     if (m && canvas.current) {
       drawQr(canvas.current, m, size)
       canvas.current.dataset.drawn = mode === 'single' ? 'single' : String(seq)
+      canvas.current.dataset.mask = String(m.mask)
     }
   }, [mode, seq, size, single])
 
@@ -69,7 +73,7 @@ export function QrShow(props: {
           {props.stand && <p class="muted">{t('stand', props.stand)}</p>}
           <p>{t('qr_how_to')}</p>
           {mode === 'animated' && <p class="muted">{t('qr_animated_hint')}</p>}
-          {single && (
+          {fits && (
             <div class="segmented" role="group">
               <button type="button" aria-pressed={mode === 'single'} onClick={() => props.onMode('single')}>{t('qr_mode_single')}</button>
               <button type="button" aria-pressed={mode === 'animated'} onClick={() => props.onMode('animated')}>{t('qr_mode_animated')}</button>

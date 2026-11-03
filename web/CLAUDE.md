@@ -14,7 +14,17 @@ worker is the updater).
   Strip, Detail, People, Settings, QrShow, Scanner, ui), `model.ts` (state, undo snapshots, snackbar), `store.ts`
   (IndexedDB key-value: StoredData JSON as in data.json, raw .ics, backup extras, lastBackup, language, qrMode;
   `navigator.storage.persist()` once there is data), `i18n.ts`, `colors.ts` (SubjectColors.block port, Oklab lerp like
-  Compose), `qr.ts` (qrcode-generator, alphanumeric, ECC L).
+  Compose), `qr.ts` (QR codes, see below).
+- QR codes (`qr.ts`): ZXing's JS port (@zxing/library 0.21.3, deep ESM imports), patched where it differs from the
+  app's ZXing-Java 3.5 (`willFit` integer bytes, mask penalty rule 3 bounds, finder patterns: diagonal check on every
+  candidate and the best-triangle selection), so the web's codes equal the app's module by module. One code goes
+  through `readableQr` = the app's `ShareQr.readable`: rendered at 3 px/module, read back by ZXing (hybrid, then global
+  histogram, TRY_HARDER) and jsQR (the web's scanner); default mask, else masks 0..7; frames use the default mask, as
+  in the app. `scripts/qrcheck.sh` (run by e2e.sh): `:core:qrTool texts` makes 34 plans (version 6–40, notes,
+  umlauts, my share with changes and hidden dates, a forwarded friend, 5 whose default mask ZXing-Java can't read
+  back) with Java's matrix and decision; the web must encode the same matrix, decide the same mask, and ZXing-Java
+  (`qrTool singles`) must read every chosen code. The Playwright test "one code whose default mask..." does the same
+  in the browser for my plan (`meta.maskName`, share id fixed by stubbing getRandomValues).
 - Strings: `scripts/strings.mjs` copies the listed keys from the app's `strings.xml` (de + en) into
   `src/generated/strings.ts` on every build; web-only strings are in `i18n.ts`. Language: German if the browser prefers
   it (or chosen in settings), else English.

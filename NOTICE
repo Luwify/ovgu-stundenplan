@@ -51,8 +51,9 @@ Web app (web/, bundled into the static page, unmodified)
             https://github.com/nodeca/pako  License: MIT and Zlib
   jsQR 1.4.0 (jsqr): QR code decoding from camera frames.
             https://github.com/cozmo/jsQR  License: Apache License, Version 2.0
-  qrcode-generator 1.4.4 (qrcode-generator): QR code encoding.
-            https://github.com/kazuhiko-arase/qrcode-generator  License: MIT
+  ZXing for JS 0.21.3 (@zxing/library): QR code encoding as the app's ZXing, and the read-back check of
+            one code (encoder version/mask choice and finder pattern selection aligned with ZXing 3.5).
+            https://github.com/zxing-js/library  License: Apache License, Version 2.0
   Kotlin standard library and kotlinx.serialization (JS build of :core): Apache License, Version 2.0.
   Tests only (not shipped): Playwright (Apache 2.0), Vite and TypeScript (MIT / Apache 2.0), ZXing javase 3.5.4
   (Apache 2.0) for the Android-side QR checks.

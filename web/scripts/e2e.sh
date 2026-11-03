@@ -10,6 +10,7 @@ RUN=$(command -v podman || command -v docker)
 
 ./gradlew -q :core:webCore :core:qrTool --args="write $ROOT/web/tests/fixtures/generated"
 (cd web && npm run build)
+web/scripts/qrcheck.sh
 rm -rf web/android-check
 "$RUN" run --rm --userns=keep-id --ipc=host -v "$ROOT/web":/web:Z -w /web -e HOME=/tmp "$IMAGE" npx playwright test "$@"
 
@@ -22,6 +23,14 @@ for dir in web/android-check/*/; do
     out=$(./gradlew -q :core:qrTool --args="read $(echo $files | tr '\n' ' ')" | tail -1)
     echo "$set: $out"
     echo "$out" | grep -q '"share":{"ok":true,"name":"Alex"' || status=1
+  done
+  # The plan whose default mask ZXing can't read: the web's other mask must read.
+  mask=$(node -p "require('./web/tests/fixtures/generated/meta.json').maskName")
+  for f in "$dir/mask.png" "$dir/mask-screenshot.png"; do
+    [ -f "$f" ] || continue
+    out=$(./gradlew -q :core:qrTool --args="read $f" | tail -1)
+    echo "$f: $out"
+    echo "$out" | grep -q "\"share\":{\"ok\":true,\"name\":\"$mask\"" || status=1
   done
   out=$(./gradlew -q :core:qrTool --args="file $dir/share.stundenplan" | tail -1)
   echo "$dir file: $out"

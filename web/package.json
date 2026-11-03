@@ -13,10 +13,10 @@
     "test": "playwright test"
   },
   "dependencies": {
+    "@zxing/library": "0.21.3",
     "jsqr": "1.4.0",
     "pako": "2.1.0",
-    "preact": "10.29.8",
-    "qrcode-generator": "1.4.4"
+    "preact": "10.29.8"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

@@ -181,6 +181,36 @@ test.describe('sharing', () => {
     expect(shared.type).toBe('application/vnd.luwify.stundenplan')
     writeFileSync(join(dir, 'share.stundenplan'), Buffer.from(shared.b64, 'base64'))
   })
+
+  test('one code whose default mask ZXing cannot read gets another mask (ShareQr.readable)', async ({ page }, info) => {
+    test.skip(info.project.name !== 'ipad-pro11-landscape' && info.project.name !== 'chromium-phone', 'one WebKit and one Chromium run')
+    // The JVM build searched names for my fixture share (id 0123456789abcdef) until ZXing's default mask failed.
+    const m = meta()
+    await page.addInitScript(() => {
+      const real = crypto.getRandomValues.bind(crypto)
+      crypto.getRandomValues = (<T extends ArrayBufferView | null>(a: T): T => {
+        if (a instanceof Uint8Array && a.length === 8) { a.set([0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]); return a }
+        return real(a as never) as T
+      }) as typeof crypto.getRandomValues
+    })
+    await open(page)
+    await importMyPlan(page)
+    const list = await people(page)
+    await list.getByRole('button', { name: 'QR-Code' }).click()
+    await page.getByRole('textbox', { name: 'Name' }).fill(m.maskName)
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    const canvas = page.getByTestId('qr')
+    await page.getByRole('button', { name: 'Als ein Code' }).click()
+    await expect(canvas).toHaveAttribute('data-drawn', 'single')
+    // Not the default mask; the app (ZXing-Java read-back) picks the same one here.
+    await expect(canvas).toHaveAttribute('data-mask', String(m.maskReadable))
+    expect(m.maskReadable).not.toBe(m.maskDefault)
+    const dir = join(OUT, info.project.name)
+    mkdirSync(dir, { recursive: true })
+    const single = await canvas.evaluate((c: HTMLCanvasElement) => c.toDataURL('image/png'))
+    writeFileSync(join(dir, 'mask.png'), Buffer.from(single.split(',')[1], 'base64'))
+    await canvas.screenshot({ path: join(dir, 'mask-screenshot.png') })
+  })
 })
 
 test.describe('backup', () => {
