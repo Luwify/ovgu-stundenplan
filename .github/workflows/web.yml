@@ -1,12 +1,12 @@
 # Web app (web/) on GitHub Pages: built from the Kotlin/JS build of :core and deployed as a static PWA.
-# Runs on release tags, on pushes to the web-pwa branch (preview while it isn't merged; drop that trigger when merging)
-# and by hand. The JVM and JS tests of :core run first (CompatTest: the JS build gives the same bytes as the JVM build).
+# Runs on release tags (tools/release.sh pushes v<version>; the web app then shows that version, like the Android
+# release) and by hand (version.properties + commit). The JVM and JS tests of :core run first (CompatTest: the JS
+# build gives the same bytes as the JVM build).
 name: Web app
 
 on:
   push:
     tags: ['v*']
-    branches: [web-pwa]
   workflow_dispatch:
 
 permissions:
@@ -38,7 +38,13 @@ jobs:
       - name: Build
         working-directory: web
         run: |
-          if [ "$GITHUB_REF_TYPE" = tag ]; then export APP_VERSION="$GITHUB_REF_NAME"; else export APP_VERSION="preview-${GITHUB_SHA::7}"; fi
+          version=$(sed -n 's/^version=//p' ../version.properties)
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            [ "$GITHUB_REF_NAME" = "v$version" ] || { echo "::error::tag $GITHUB_REF_NAME != v$version (version.properties)"; exit 1; }
+            export APP_VERSION="$version"
+          else
+            export APP_VERSION="$version-${GITHUB_SHA::7}"
+          fi
           npm ci
           npm run build
       - uses: actions/upload-pages-artifact@v3

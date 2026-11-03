@@ -59,6 +59,14 @@ worker is the updater).
   canvas); the app's scan pipeline is unchanged.
 
 ## Deploy
-- `.github/workflows/web.yml`: `:core:test` (JVM + JS compat) + build, then GitHub Pages. Triggers: tags `v*`, pushes to
-  `web-pwa` (preview while unmerged; remove that trigger when merging), manual. Pages source = GitHub Actions;
-  environment `github-pages` allows `web-pwa` and `v*` tags.
+- `.github/workflows/web.yml`: `:core:test` (JVM + JS compat) + build, then GitHub Pages
+  (https://luwify.github.io/ovgu-stundenplan/). Triggers: tags `v*` (pushed by `tools/release.sh`; the build takes the
+  version from `version.properties` and fails if the tag differs, so the web app shows the Android release's version
+  in its settings and in `sw.js`) and manual runs (`<version>-<sha7>`). Pages source = GitHub Actions; environment
+  `github-pages` allows `main` (manual runs) and `v*` tags. A tag starts the workflow only while `web.yml` is on the
+  default branch.
+- `tools/release.sh` (settings `WEB_WORKFLOW`, `WEB_URL` in `release/app.conf`): preflight checks the workflow
+  (in the release commit, tag trigger, on GitHub's default branch, active), Pages (source Actions) and the
+  environment's tag rule; step 6b builds the web app locally with the release version as a probe (also in
+  `--dry-run`, output in `build/release/<ver>/web`); after publishing it waits for the Pages run and checks that the
+  live `sw.js` has the version. A failed web deploy doesn't undo the Android release (exit 2, like the outsider check).

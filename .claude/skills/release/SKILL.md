@@ -36,6 +36,11 @@ description: Stundenplan MD releases - version bump, changelog style, signing, t
   release with notes and all three files, check the asset sizes, publish (`--latest`), then an anonymous outsider
   check (https only, at most 3 redirects, final host = the ones the app allows). On failure it prints what was done
   and how to clean up (deletes nothing). **Only the user runs the real release.**
+- **Web app** (`WEB_WORKFLOW`/`WEB_URL` in `release/app.conf`): the pushed tag starts `.github/workflows/web.yml`
+  (GitHub Pages, version from version.properties == tag). The script checks workflow, Pages and the environment's
+  `v*` tag rule in the preflight, builds the web app as a probe (step 6b, also in the dry run), says in the summary
+  that the web deploy will happen, and after publishing waits for the run and checks the live version (step 10).
+  Not for `--backfill`. Details: `web/CLAUDE.md`.
 - `tools/release.sh --backfill <tag> [--dry-run]`: an existing tag rebuilt in a temporary worktree, release with
   `--latest=false`, the tag's date, an "Archiv, neu gebaut" note; only in version order and before any newer release.
 - `tools/withdraw.sh <ver>` sets withdrawn=true in updates.json of the latest release (with confirmation).

@@ -11,6 +11,9 @@
 # updates.json is an asset of every release; the app reads the one of the latest release
 # (https://github.com/<repo>/releases/latest/download/updates.json). The release is created as a draft, all files
 # are uploaded, then it is published in one step: the manifest never points to a missing file.
+# Web app (WEB_WORKFLOW in release/app.conf): the pushed tag starts the GitHub Pages workflow, which deploys web/
+# with the same version; the script checks that workflow and Pages beforehand, builds the web app once locally as a
+# probe, and after publishing waits for the deploy and checks the version online.
 # Never prints secrets; never run with -x.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/release-common.sh"
@@ -152,6 +155,39 @@ CHANGELOG_DE="$BUILD_DIR/changelog/$VERSION.de.md"
 CHANGELOG_EN="$BUILD_DIR/changelog/$VERSION.en.md"
 [[ -s "$CHANGELOG_DE" && -s "$CHANGELOG_EN" ]] || die "Changelog fehlt: changelog/$VERSION.de.md und .en.md"
 
+# Web app: the tag push deploys it (not for --backfill: that tag is already pushed and the release isn't the latest).
+WEB=0
+if [[ -n "${WEB_WORKFLOW:-}" && -z "$BACKFILL" ]]; then
+    WEB=1
+    web_problem() { if ((DRY_RUN)); then WARNINGS+=("Web-App: $1: ein echtes Release bricht hier ab"); else die "Web-App: $1"; fi; }
+    WEB_WF_NAME="$(basename "$WEB_WORKFLOW")"
+    if ! git -C "$BUILD_DIR" cat-file -e "$COMMIT:$WEB_WORKFLOW" 2>/dev/null; then
+        web_problem "$WEB_WORKFLOW fehlt im Release-Commit"
+    elif ! git -C "$BUILD_DIR" show "$COMMIT:$WEB_WORKFLOW" | grep -qE "^ +tags: \[ *'v\*' *\]"; then
+        web_problem "$WEB_WORKFLOW startet nicht bei Tags v*"
+    fi
+    # GitHub runs a tag's workflow only if the workflow file is also on the default branch.
+    default_branch="$(gh api "repos/$GH_REPO" -q '.default_branch' 2>/dev/null || true)"
+    [[ "$(gh_status "repos/$GH_REPO/contents/$WEB_WORKFLOW?ref=${default_branch:-$WORK_BRANCH}")" == 200 ]] \
+        || web_problem "$WEB_WORKFLOW ist nicht auf ${default_branch:-$WORK_BRANCH} auf GitHub (erst pushen): sonst startet der Tag nichts"
+    if [[ "$(gh_status "repos/$GH_REPO/actions/workflows/$WEB_WF_NAME")" == 200 ]]; then
+        [[ "$(jq -r '.state' "$TMP/gh.json")" == active ]] || web_problem "Workflow $WEB_WF_NAME ist auf GitHub nicht aktiv ($(jq -r '.state' "$TMP/gh.json"))"
+    else
+        web_problem "Workflow $WEB_WF_NAME ist auf GitHub nicht bekannt ($WORK_BRANCH mit $WEB_WORKFLOW pushen)"
+    fi
+    if [[ "$(gh_status "repos/$GH_REPO/pages")" == 200 ]]; then
+        [[ "$(jq -r '.build_type' "$TMP/gh.json")" == workflow ]] || web_problem "GitHub Pages baut nicht aus Actions (Quelle: $(jq -r '.build_type' "$TMP/gh.json"))"
+    else
+        web_problem "GitHub Pages ist für $GH_REPO nicht eingerichtet"
+    fi
+    if gh api "repos/$GH_REPO/environments/github-pages/deployment-branch-policies" -q '.branch_policies[] | "\(.type) \(.name)"' >"$TMP/policies.txt" 2>"$TMP/gh.err"; then
+        grep -qx 'tag v\*' "$TMP/policies.txt" || web_problem "Umgebung github-pages erlaubt keine Tags v* (Regeln: $(tr '\n' ',' <"$TMP/policies.txt"))"
+    else
+        web_problem "Regeln der Umgebung github-pages nicht lesbar: $(head -c 200 "$TMP/gh.err")"
+    fi
+    say "Web-App: $WEB_WORKFLOW startet beim Tag-Push $TAG, Ziel $WEB_URL"
+fi
+
 say "Tests und Lint ($GRADLE_CHECKS) ..."
 # shellcheck disable=SC2086
 (cd "$BUILD_DIR" && ./gradlew -q $GRADLE_CHECKS) >"$TMP/checks.log" 2>&1 || { tail -40 "$TMP/checks.log"; die "Tests oder Lint fehlgeschlagen"; }
@@ -210,6 +246,23 @@ diff -u --label "updates.json (bisher)" --label "updates.json (neu)" "$TMP/old.j
     printf 'Quellcode / source code (GPL-3.0-or-later): %s\n' "$SRC_NAME"
 } >"$OUT/release-notes.md"
 
+# ---------------------------------------------------------------- 6b. web app probe build
+if ((WEB)); then
+    step "6b. Web-App (Probe-Build mit Version $VERSION)"
+    NODE_BIN="$(ls -d "$HOME"/.gradle/nodejs/node-*/bin 2>/dev/null | sort -V | tail -1)"
+    if [[ -z "$NODE_BIN" ]] && ! command -v npm >/dev/null; then
+        die "kein Node.js (weder im PATH noch von Kotlin/JS unter ~/.gradle/nodejs: ./gradlew :core:webCore lädt es)"
+    fi
+    (cd "$BUILD_DIR" && ./gradlew -q :core:webCore) >"$TMP/web.log" 2>&1 || { tail -30 "$TMP/web.log"; die "Kotlin/JS-Build für die Web-App fehlgeschlagen"; }
+    (
+        cd "$BUILD_DIR/web"
+        [[ -z "$NODE_BIN" ]] || PATH="$NODE_BIN:$PATH"
+        npm ci --no-audit --no-fund && APP_VERSION="$VERSION" npm run build -- --outDir "$OUT/web" --emptyOutDir
+    ) >>"$TMP/web.log" 2>&1 || { tail -30 "$TMP/web.log"; die "Web-Build fehlgeschlagen"; }
+    grep -qE "const VERSION = \"$VERSION-[0-9a-f]{12}\"" "$OUT/web/sw.js" || die "Web-Build: sw.js trägt nicht die Version $VERSION"
+    say "ok: $OUT/web, Version $VERSION ($(du -sk "$OUT/web" | cut -f1) KB); der Workflow baut dasselbe aus dem Tag"
+fi
+
 summary() {
     step "Zusammenfassung"
     say "Version:       $VERSION (versionCode $VERSION_CODE, minSdk $MIN_SDK), Tag $TAG auf ${COMMIT:0:12}"
@@ -223,6 +276,11 @@ summary() {
     say "APK-URL:       $APK_URL"
     say "Manifest:      $TAG_MANIFEST_URL"
     [[ -n "$BACKFILL" ]] || say "               $MANIFEST_URL (nach dem Veröffentlichen)"
+    if ((WEB)); then
+        say "Web-App:       wird bereitgestellt: der Tag-Push $TAG startet $WEB_WORKFLOW -> $WEB_URL (zeigt Version $VERSION)"
+    else
+        say "Web-App:       keine Bereitstellung${BACKFILL:+ (Archiv)}"
+    fi
     say ""
     cat "$OUT/updates.diff"
     if ((${#WARNINGS[@]})); then
@@ -318,6 +376,29 @@ if [[ "$st" == 200 && "$(sha256sum "$TMP/public.apk" | cut -d' ' -f1)" == "$SHA"
     say "  APK: öffentlich erreichbar, SHA-256 stimmt (über $final)"
 else
     say "  APK: HTTP $st, $n Weiterleitungen, $final – nicht wie erwartet (Host außerhalb der Freigabe der App?)"; outside_ok=0
+fi
+
+# ---------------------------------------------------------------- 10. web app deploy
+if ((WEB)); then
+    step "10. Web-App (GitHub Pages, $WEB_WF_NAME für $TAG)"
+    run_id=""
+    for _ in $(seq 1 30); do
+        run_id="$(gh run list --repo "$GH_REPO" --workflow "$WEB_WF_NAME" --branch "$TAG" --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
+        [[ -z "$run_id" ]] || break
+        sleep 10
+    done
+    if [[ -z "$run_id" ]]; then
+        say "  kein Workflow-Lauf für $TAG nach 5 Minuten: Actions prüfen ($PUBLIC_BASE/actions), notfalls von Hand starten"; outside_ok=0
+    elif ! timeout 1800 gh run watch "$run_id" --repo "$GH_REPO" --exit-status >/dev/null 2>&1; then
+        say "  Lauf $PUBLIC_BASE/actions/runs/$run_id fehlgeschlagen oder nicht fertig: dort prüfen (das Android-Release ist davon unberührt)"; outside_ok=0
+    else
+        read -r st n final <<<"$(public_get "${WEB_URL%/}/sw.js?release=$VERSION" "$TMP/sw.js")"
+        if [[ "$st" == 200 ]] && grep -qE "const VERSION = \"$VERSION-" "$TMP/sw.js"; then
+            say "  $WEB_URL: Version $VERSION ist online"
+        else
+            say "  $WEB_URL: HTTP $st, sw.js trägt nicht Version $VERSION (Cache? später erneut prüfen)"; outside_ok=0
+        fi
+    fi
 fi
 
 trap '[[ -z "$BACKFILL" ]] || git -C "$ROOT" worktree remove --force "$BUILD_DIR" 2>/dev/null; rm -rf "$TMP"' EXIT
