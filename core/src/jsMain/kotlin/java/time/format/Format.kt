@@ -36,8 +36,13 @@ class DateTimeFormatter private constructor(private val tokens: List<Token>) {
         return out
     }
 
+    /** java.time's default SMART resolver: a day of month 1..31 past the month's end becomes its last day. */
     private fun date(f: Map<Char, Int>, text: CharSequence): LocalDate = try {
-        LocalDate.of(f['y'] ?: f['u'] ?: missing(text), f['M'] ?: missing(text), f['d'] ?: missing(text))
+        val y = f['y'] ?: f['u'] ?: missing(text)
+        val m = f['M'] ?: missing(text)
+        val d = f['d'] ?: missing(text)
+        if (m !in 1..12 || d !in 1..31) throw DateTimeException("Invalid date")
+        LocalDate.of(y, m, minOf(d, LocalDate.of(y, m, 1).lengthOfMonth()))
     } catch (e: DateTimeParseException) {
         throw e
     } catch (e: DateTimeException) {

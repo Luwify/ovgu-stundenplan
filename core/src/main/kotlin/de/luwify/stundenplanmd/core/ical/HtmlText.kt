@@ -3,8 +3,8 @@ package de.luwify.stundenplanmd.core.ical
 /** Turns the HTML that LSF puts into DESCRIPTION into plain text with paragraphs as lines. */
 object HtmlText {
     private val anyTag = Regex("<[^>]*>")
-    private val blockEnd = Regex("(?i)<br\\s*/?>|</(p|div|li|h[1-6]|tr|ul|ol)\\s*>")
-    private val listItem = Regex("(?i)<li(\\s[^>]*)?>")
+    private val blockEnd = Regex("<br\\s*/?>|</(p|div|li|h[1-6]|tr|ul|ol)\\s*>", RegexOption.IGNORE_CASE)
+    private val listItem = Regex("<li(\\s[^>]*)?>", RegexOption.IGNORE_CASE)
     private val entity = Regex("&(#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z]+);")
     private val spaces = Regex("[ \\t\\u00A0\\u2007\\u202F]+")
     private val named = mapOf(
