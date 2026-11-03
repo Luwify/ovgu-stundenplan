@@ -13,6 +13,16 @@ the Stundenplan). Offline only: the plan is stored on the device and appears ins
 - Subjects with editable short name and color; themes System, Soft, AMOLED and a custom theme.
 - Not affiliated with or endorsed by the Otto-von-Guericke-Universität Magdeburg or HIS eG.
 
+## Web version
+
+For friends with an iPad or iPhone: **https://luwify.github.io/ovgu-stundenplan/**. Same timetable from the LSF
+`.ics`, friends by QR code or file, sharing and backups in the Android app's formats (it runs the same Kotlin code,
+compiled to JavaScript). Everything stays in the browser, no account, no server.
+
+In Safari, add it to the home screen (Share → "Add to Home Screen"): it then opens like an app, works offline, and
+Safari keeps its data (pages that are not on the home screen lose their data after 7 days without a visit). Updated with
+every Android release; the code is in `web/` (see `web/CLAUDE.md`).
+
 ## Build
 
 Requirements: JDK 21 and the Android SDK (compileSdk 37). Put `sdk.dir=/path/to/Sdk` in `local.properties` or set
@@ -31,17 +41,10 @@ release, point them at your own keystore. The version lives in `version.properti
 ./gradlew installDebug                           # debug build "Stundenplan Preview" (debug key, own package)
 ```
 
-Min SDK 26, target SDK 37. Modules: `:core` (pure Kotlin/JVM: iCal parser, model, occurrence expansion, change
-detection) and `:app` (Android UI); see `CLAUDE.md` for the architecture and the data-source notes.
+Min SDK 26, target SDK 37. Modules: `:core` (Kotlin, JVM and JS: iCal parser, model, occurrence expansion, change
+detection, share and backup formats), `:app` (Android UI) and `web/` (the web version); see `CLAUDE.md` for the architecture and the data-source notes.
 
 ## License
 
 Stundenplan MD is licensed under the **GNU General Public License, version 3 or any later version**
 (GPL-3.0-or-later); see [LICENSE](LICENSE). Third-party material, if any: [NOTICE](NOTICE).
-
-## Web version
-
-`web/` is a static web app (PWA) of the same timetable for friends with an iPad or iPhone: import the LSF .ics,
-week and day view, friends by QR code or file, sharing and backups in the same formats as the Android app (it runs the
-same Kotlin code, compiled to JavaScript). Everything stays in the browser. See `web/CLAUDE.md`.
-
