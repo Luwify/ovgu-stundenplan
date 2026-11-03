@@ -21,13 +21,10 @@ kotlin {
     }
     js {
         outputModuleName.set("stundenplan-core")
-        browser {
-            testTask { enabled = false }
-        }
         nodejs {
             testTask { useMocha { timeout = "60s" } }
         }
-        binaries.library()
+        binaries.executable()
         useEsModules()
         generateTypeScriptDefinitions()
         compilerOptions { target.set("es2015") }
@@ -43,7 +40,8 @@ kotlin {
             kotlin.srcDir("src/test/kotlin")
             kotlin.srcDir("src/compatTest/kotlin")
             resources.srcDir("src/test/resources")
-            dependencies { implementation(libs.junit) }
+            // ZXing (as in the app) for the QR tools of the web tests (QrTools.kt); test classpath only.
+            dependencies { implementation(libs.junit); implementation(libs.zxing.core); implementation(libs.zxing.javase) }
         }
         jsMain {
             kotlin.srcDir("src/main/kotlin")
@@ -98,3 +96,13 @@ tasks.named("compileTestKotlinJs") { dependsOn(compatGolden) }
 plugins.withType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin> {
     extensions.getByType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec>().downloadBaseUrl.set(null as String?)
 }
+
+// The web app (web/) imports the optimized JS build of :core from web/src/generated/core.
+tasks.register<Sync>("webCore") {
+    from(tasks.named("compileProductionExecutableKotlinJs").map { (it as org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile).destinationDirectory })
+    include("stundenplan-core.mjs", "stundenplan-core.d.mts")
+    into(rootDir.resolve("web/src/generated/core"))
+}
+
+// Web tests: the Android side of QR codes (ZXing), see QrTools.kt.
+devTool("qrTool", "de.luwify.stundenplanmd.core.QrToolsKt")
