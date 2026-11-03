@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72" width="512" height="512">
+  <!-- From the Android launcher icon (ic_launcher_foreground on #1565C0), cropped to the adaptive icon's 72-unit view. -->
+  <rect x="18" y="18" width="72" height="72" fill="#1565C0"/>
+  <path fill="#FFFFFF" d="M34,32h40a4,4 0,0 1,4 4v6h-48v-6a4,4 0,0 1,4 -4z"/>
+  <path fill="#FFFFFF" d="M30,46h8v10h-8z M40,46h8v6h-8z M50,52h8v14h-8z M60,46h8v8h-8z M70,46h8v10h-8z M30,60h8v8h-8z M40,56h8v12h-8z M60,58h8v14h-8z M70,62h8v6h-8z M30,72h8v4h-8z M40,72h8v4h-8z M50,70h8v6h-8z M70,72h8v4h-8z"/>
+</svg>

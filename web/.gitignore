@@ -1,0 +1,7 @@
+node_modules/
+dist/
+src/generated/
+test-results/
+playwright-report/
+tests/fixtures/generated/
+android-check/
