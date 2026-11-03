@@ -10,10 +10,13 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 - Kotlin, Jetpack Compose, Material 3. Single Activity.
 - Package `de.luwify.stundenplanmd`, minSdk 26 (java.time native), target/compile 37.
 - Build setup mirrors Mensa MD (AGP 9 built-in Kotlin, version catalog, Gradle 9.8.0, kotlinx.serialization).
-- Modules: `:core` (pure Kotlin/JVM: parser, model, expansion, layout math, share codec, update policy;
-  no Android imports), `:app` (Android, UI, storage, import intents).
+- Modules: `:core` (Kotlin Multiplatform, JVM + JS: parser, model, expansion, layout math, share codec, stored data
+  format + backup (`store/`), update policy (JVM only); no Android imports), `:app` (Android, UI, storage I/O, import
+  intents), `web/` (PWA for iPad/iPhone friends: Preact + TypeScript + Vite on the JS build of `:core`, GitHub Pages;
+  see `web/CLAUDE.md`).
 - JDK 21 (Android Studio's JBR); a newer system JDK doesn't work with this Gradle/AGP.
-- `./gradlew testDebugUnitTest` also runs `:core:test`; `lint` also lints `:core`.
+- `./gradlew testDebugUnitTest` also runs `:core:test` (= `jvmTest` + `jsNodeTest`, the JS tests check that the JS build
+  gives the JVM build's bytes); `lint` also lints `:core`. Kotlin/JS downloads its own Node.js into `~/.gradle/nodejs`.
 - Device tests only on the debug build (package `de.luwify.stundenplanmd.preview`, launcher label "Stundenplan Preview"),
   never on the real app `de.luwify.stundenplanmd` (see Rules).
 
@@ -25,13 +28,15 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 - `app/src/main/java/de/luwify/stundenplanmd/ui/CLAUDE.md`: UI components (pagers, top bar, snackbars, dropdowns, landscape, performance,
   language, QR screens).
 - `app/src/main/java/de/luwify/stundenplanmd/data/CLAUDE.md`: storage, migrations, backup.
+- `web/CLAUDE.md`: the web app (architecture, iPad layout, tests, deploy).
 - `app/src/main/java/de/luwify/stundenplanmd/data/update/CLAUDE.md`: in-app updater, Mensa MD banner.
 - Skills: `release` (versioning, changelogs, signing, release scripts), `device-testing` (dev tools, fake-data
   device tests, perf build, baseline profile).
 
 ## Persistence (user data must survive every update)
 - **Any change to the stored format: raise `Migrations.CURRENT` (or `ThemeSettings.SCHEMA`), add the step, add a test
-  in `PersistenceTest`.** Never drop or rename stored keys without a step.
+  in `PersistenceTest`.** Never drop or rename stored keys without a step. `StoredData`, `Migrations` and the backup
+  envelope (`BackupFormat`) live in `:core` `store/`: the web app stores and backs up the same format.
 - Details (files, migration history, backup format): `app/src/main/java/de/luwify/stundenplanmd/data/CLAUDE.md`.
 
 ## Privacy

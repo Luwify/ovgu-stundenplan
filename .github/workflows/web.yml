@@ -1,0 +1,56 @@
+# Web app (web/) on GitHub Pages: built from the Kotlin/JS build of :core and deployed as a static PWA.
+# Runs on release tags, on pushes to the web-pwa branch (preview while it isn't merged; drop that trigger when merging)
+# and by hand. The JVM and JS tests of :core run first (CompatTest: the JS build gives the same bytes as the JVM build).
+name: Web app
+
+on:
+  push:
+    tags: ['v*']
+    branches: [web-pwa]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Core tests (JVM + JS) and JS build
+        run: ./gradlew --no-configuration-cache :core:test :core:webCore
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build
+        working-directory: web
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then export APP_VERSION="$GITHUB_REF_NAME"; else export APP_VERSION="preview-${GITHUB_SHA::7}"; fi
+          npm ci
+          npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

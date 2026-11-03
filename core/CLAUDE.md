@@ -1,7 +1,26 @@
 # :core
 
+## Kotlin Multiplatform (JVM + JS)
+- JVM target (used by `:app`): `src/main/kotlin` compiled exactly as before, tests `src/test/kotlin` (`jvmTest`).
+- JS target (the web app): the same `src/main/kotlin` (minus `update/`) against small stand-ins for the `java.*`
+  classes core uses, in `src/jsMain/kotlin/java/...`: `java.time` (LocalDate/Time/DateTime, Instant, Duration,
+  ZoneId with UTC + Europe/Berlin EU rules, DateTimeFormatter for fixed-width patterns with the SMART day resolution,
+  ChronoUnit, IsoFields, TemporalAdjusters), `java.util.zip` (CRC32; Deflater/Inflater via pako 2.1.0, inflate
+  capped), `BitSet`, `ByteArrayOutputStream`, `ConcurrentHashMap`; `share/JvmText.kt` = `String.toByteArray()` with the
+  JVM's '?' for lone surrogates. **New java.* API in core = add it to the stand-in** (the JS compile fails otherwise).
+  No inline regex flags (`(?i)`): use `RegexOption` (JS has none). No `String.format`, `Character`, `System`, `Math`.
+- `src/jsMain/kotlin/.../web/WebCore.kt`: the exported API (`@JsExport`, JSON strings in/out) the web app calls.
+- `src/compatTest/kotlin` (in jvmTest and jsTest): `CompatProbe.describe` = state JSON, schedules, together, subjects,
+  a java.time probe, QR payloads, files, frames, backup. Task `compatGolden` writes the JVM result as `CompatGolden.kt`
+  (build/generated) for jsTest; `CompatTest` (jsNodeTest) must reproduce it byte for byte (deflate output too, pako ==
+  the JDK's zlib so far) and checks `WebCore`. `:core:test` runs jvmTest + jsNodeTest.
+- `:core:webCore` syncs the optimized JS build (whole-program DCE, ES module) into `web/src/generated/core`.
+- `:core:qrTool` (QrTools.kt, ZXing on the test classpath only): `write <dir>` = fixtures for the web tests (a friend's
+  share as file, ZXing QR image and animated frames, an Android backup), `read <png>...` = decode like the app's
+  scanner, `file <share>` = read a share file.
+
 ## Packages
-- `:core` (pure JVM, tests in `core/src/test`, fixture `lsf_scrubbed.ics`):
+- `:core` (tests in `core/src/test`, fixture `lsf_scrubbed.ics`):
   - `ical/IcsReader` (lenient lines/props/components), `HtmlText`, `LsfText` (LOCATION/SUMMARY split,
     `titleStem`), `LsfImport` -> `ImportResult(events, source, warnings)`.
   - `model/`: `Event`, `Location`, `Recurrence`, `Plan`, `Person`, `CourseKeys` (UID hypothesis),
@@ -17,7 +36,9 @@
     (matching, `OccurrenceKey`), `Personal` (own changes resolved per occurrence, `PersonalChanges` editing + orphans),
     `Hiding` (what a `Schedule` leaves out, `forSharing`), `AddedCourses`/`Groups`, `FriendCourses` ("Zu meinem Plan"), `FreeGaps`/`FreeGap` (`DayPlan.gaps`: breaks of >= 45 min between occurrences, cancelled/hidden leave a gap), `HourScale` (hour height of the week grid: fill the height, minimum, margin).
   - `share/`: `Base45` (RFC 9285), `ShareCodec` (`SharedPlan`, `ShareResult`, QR text / file, limits).
-  - `update/`: `UpdateManifest`, `UpdatePolicy` (see "In-app updater").
+  - `store/`: `StoredData` + `MyShare` + `SubjectPalette` (default subject colors), `Migrations`, `BackupFormat` (the
+    backup envelope; `:app`'s `BackupCodec` maps the theme), `StoreOps` (pure import, friend import, my share).
+  - `update/` (JVM only): `UpdateManifest`, `UpdatePolicy` (see "In-app updater").
 - Share codec details: `core/src/main/kotlin/de/luwify/stundenplanmd/core/share/CLAUDE.md`; updater: `app/src/main/java/de/luwify/stundenplanmd/data/update/CLAUDE.md`.
 
 ## LSF export findings (PRODID "QIS-LSF HIS eG")

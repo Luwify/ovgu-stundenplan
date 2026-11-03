@@ -1,5 +1,7 @@
 # Data (:app)
 
+- The format (`StoredData`, `MyShare`, `Migrations`, backup envelope `BackupFormat`, `StoreOps`) is in `:core` `store/`
+  (shared with the web app); `:app` keeps the I/O, `BackupCodec` (theme mapping) and the repository.
 - `:app`: `data/PlanRepository` (one atomic JSON file `files/plans/data.json` + `me.ics`, `StoredData`
   with people/plans/courseSettings/friendSettings/share, import with undo, friend import/rename/delete,
   `shareIdentity`), `data/PersonIds`, `data/IcsSource` (uri -> bytes, text UTF-8/1252),
@@ -14,7 +16,7 @@
   versions 4 and 5 are on a real device, never change their meaning) and `me.ics` (raw import). Theme: DataStore `settings` (key `schema_version`).
   `data/PlanStore` does the I/O: atomic writes (tmp + fsync + rename, `AtomicFiles`), a leftover `data.json.bak` from
   the old AtomicFile scheme is restored, an unreadable or too-new `data.json` is renamed to `data.json.broken[.n]`
-  (never overwritten; the app shows a snackbar), an older version is migrated step by step (`data/Migrations`:
+  (never overwritten; the app shows a snackbar), an older version is migrated step by step (`core/store/Migrations`:
   `STEPS[n]` = n -> n+1) and the old file is kept as `data.json.v<n>`.
 - **Any change to the stored format: raise `Migrations.CURRENT` (or `ThemeSettings.SCHEMA`), add the step, add a test
   in `PersistenceTest`.** Never drop or rename stored keys without a step.

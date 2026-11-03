@@ -38,3 +38,10 @@ detection) and `:app` (Android UI); see `CLAUDE.md` for the architecture and the
 
 Stundenplan MD is licensed under the **GNU General Public License, version 3 or any later version**
 (GPL-3.0-or-later); see [LICENSE](LICENSE). Third-party material, if any: [NOTICE](NOTICE).
+
+## Web version
+
+`web/` is a static web app (PWA) of the same timetable for friends with an iPad or iPhone: import the LSF .ics,
+week and day view, friends by QR code or file, sharing and backups in the same formats as the Android app (it runs the
+same Kotlin code, compiled to JavaScript). Everything stays in the browser. See `web/CLAUDE.md`.
+
