@@ -481,6 +481,7 @@ class WebCore(stateJson: String?) {
                 obj(
                     "key" to s.key, "name" to s.name, "displayName" to s.displayName, "shortName" to s.shortName,
                     "color" to (s.color ?: SubjectPalette.defaultColor(i)), "auto" to (s.color == null),
+                    "hidden" to data.hiddenOf(personId).any { it.kind == Hidden.Kind.SUBJECT && it.subject == s.key },
                     "typeShortNames" to JsonObject(s.typeShortNames.mapValues { JsonPrimitive(it.value) }),
                     "courses" to s.courses.map { c ->
                         obj(

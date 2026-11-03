@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks'
 import { Core } from './core'
 import { persist, save, type Stored } from './store'
-import { resolveLang, setLang } from './i18n'
+import { resolveLang, setLang, t } from './i18n'
+import { DEFAULT_THEME, type ThemeSpec } from './theme'
 
 export interface Snapshot {
   state: string
@@ -79,6 +80,12 @@ export class Model {
     this.notify(message, { label: undoLabel, run: () => this.restoreSnapshot(before) })
   }
 
+  /** After a change made since [before]: stores it and shows [message] with "Rückgängig" (back to [before]). */
+  async changed(before: Snapshot, message: string, onUndo?: () => void) {
+    await this.commit()
+    this.notify(message, { label: t('undo'), run: () => { this.restoreSnapshot(before); onUndo?.() } })
+  }
+
   notify(text: string, action?: Snack['action']) {
     clearTimeout(this.snackTimer)
     this.snack = { id: Date.now(), text, action }
@@ -89,6 +96,44 @@ export class Model {
   dismiss() {
     this.snack = null
     this.emit()
+  }
+
+  /** The backup extras (theme, language, updates, display) as an object; what the web doesn't use is kept. */
+  private extras(): Record<string, unknown> {
+    try { return this.stored.extras ? JSON.parse(this.stored.extras) : {} } catch { return {} }
+  }
+
+  private async setExtras(next: Record<string, unknown>) {
+    const extras = JSON.stringify(next)
+    this.stored.extras = extras
+    this.emit()
+    await save({ extras })
+  }
+
+  /** The theme as the app's backup stores it (ThemeBackup); Soft until one is chosen or restored. */
+  get theme(): ThemeSpec {
+    const t = this.extras().theme as Partial<ThemeSpec> | undefined
+    return t && typeof t.mode === 'string' ? { ...DEFAULT_THEME, ...t } as ThemeSpec : DEFAULT_THEME
+  }
+
+  async setTheme(spec: ThemeSpec) {
+    await this.setExtras({ ...this.extras(), theme: spec })
+  }
+
+  /** "Querformat an Bildschirm anpassen" (DisplayBackup.fitLandscape, default on). */
+  get fitLandscape(): boolean {
+    const d = this.extras().display as { fitLandscape?: boolean } | undefined
+    return d?.fitLandscape ?? true
+  }
+
+  async setFitLandscape(on: boolean) {
+    const e = this.extras()
+    await this.setExtras({ ...e, display: { mensaBannerHidden: null, ...(e.display as object | undefined), fitLandscape: on } })
+  }
+
+  /** The extras for a backup: the theme shown here goes with it (Soft when none was chosen). */
+  backupExtras(): string {
+    return JSON.stringify({ ...this.extras(), theme: this.theme })
   }
 
   async setLanguage(choice: Stored['language']) {

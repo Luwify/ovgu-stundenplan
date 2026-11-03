@@ -12,6 +12,7 @@ import com.google.zxing.qrcode.QRCodeReader
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.google.zxing.qrcode.encoder.Encoder
 import com.google.zxing.qrcode.encoder.QRCode
+import de.luwify.stundenplanmd.core.compat.CompatEdits
 import de.luwify.stundenplanmd.core.compat.CompatProbe
 import de.luwify.stundenplanmd.core.ical.LsfImport
 import de.luwify.stundenplanmd.core.model.PlanZone
@@ -181,6 +182,13 @@ fun qrWrite(out: File) {
         UpdatesBackup(autoCheck = false, skippedCode = 10503), DisplayBackup(fitLandscape = false, mensaBannerHidden = true), CompatProbe.NOW,
     )
     File(out, "android-backup.json").writeText(backup)
+    // With every kind of data the editing adds ([CompatEdits]): hidden items, short names, own changes, manual courses,
+    // rhythms, added courses, an .ics friend.
+    val full = CompatEdits.run(ics).last().second
+    File(out, "android-backup-full.json").writeText(
+        BackupFormat.encode(full, ics, ThemeBackup("system", "system", 0x7839D0, false, ""), "system", UpdatesBackup(), DisplayBackup(), CompatProbe.NOW),
+    )
+    File(out, "android-backup-full.summary.json").writeText(backupSummary(full))
     val (maskName, maskText) = maskCase(ics)
     val maskDefault = encode(maskText)
     File(out, "meta.json").writeText(
@@ -222,6 +230,21 @@ fun qrRead(files: List<File>) {
     println("""{"images":[${results.joinToString(",")}],"share":$summary}""")
 }
 
+/** What a backup holds of the edited data, compared between the web's export and the JVM's reading of it. */
+fun backupSummary(d: de.luwify.stundenplanmd.core.store.StoredData): String {
+    val me = de.luwify.stundenplanmd.core.store.StoredData.ME
+    return buildString {
+        append("{")
+        append(""""people":${d.people.size},"icsFriends":${d.friends.count { it.fromIcs }},"favorites":${d.friends.count { it.favorite }},""")
+        append(""""manualCourses":${d.manualCourses.size},"personalChanges":${d.personalChanges.size},"cancelledForMe":${d.personalChanges.count { it.cancelled }},""")
+        append(""""notes":${d.personalChanges.count { !it.note.isNullOrEmpty() }},"rhythms":${d.rhythms.values.sumOf { it.size }},"addedEvents":${d.addedEvents.size},""")
+        append(""""hiddenMine":${d.hiddenOf(me).size},"hiddenAll":${d.hidden.values.sumOf { it.size }},""")
+        append(""""shortNames":${d.courseSettings.values.count { it.shortName != null }},"typeShortNames":${d.courseSettings.values.count { it.typeShortName != null }},""")
+        append(""""friendSettings":${d.friendSettings.values.sumOf { it.size }},"withChanges":${d.share.withChanges},"localNames":${d.friends.count { it.localName != null }}""")
+        append("}")
+    }
+}
+
 fun main(args: Array<String>) {
     when (args.firstOrNull()) {
         "write" -> qrWrite(File(args[1]))
@@ -238,6 +261,13 @@ fun main(args: Array<String>) {
                 else -> println("""{"file":"${File(path).name}","ok":false,"result":"$r"}""")
             }
         }
-        else -> error("usage: write <dir> | texts <out.json> [names to search] | singles <png>... | read <image>... | file <share file>...")
+        // A backup file read as the app reads it: the summary of its data, or the error.
+        "backup" -> args.drop(1).forEach { path ->
+            when (val r = BackupFormat.decode(File(path).readText())) {
+                is de.luwify.stundenplanmd.core.store.BackupFileResult.Ok -> println(backupSummary(r.backup.data))
+                else -> println("""{"ok":false,"result":"$r"}""")
+            }
+        }
+        else -> error("usage: backup <file>... | write <dir> | texts <out.json> [names to search] | singles <png>... | read <image>... | file <share file>...")
     }
 }

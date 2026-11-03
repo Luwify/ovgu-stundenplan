@@ -6,27 +6,15 @@ import { dirname, join } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const res = join(here, '../../app/src/main/res')
-const KEYS = `app_name import_file empty_title empty_how_to imported undo import_failed import_not_calendar import_no_events
-settings back no_room change_day change_time change_room change_lecturer changed extra cancelled lecture_free week_number
-semester_starts plan_ended now no_events_day cancelled_full tab_week tab_day detail_when detail_room detail_lecturers
-detail_notes detail_lsf_title building seats settings_plan plan_imported_at course_count settings_backup
-backup_export backup_import backup_exported backup_failed backup_not_a_backup backup_too_new backup_restored
-backup_confirm_title backup_made_at backup_replace cancel backup_events friend_confirm_add_title
-friend_confirm_update_title friend_confirm_stand friend_shared_on friend_add friend_update friend_added friend_updated
-share_own share_too_new share_broken close qr_title qr_how_to share_as_file scan_title scan_hint scan_other_code
-scan_no_permission share_failed save open_drawer my_plan friends friends_empty friend_add_action share_action qr_action
-friend_add_title friend_add_scan_hint friend_add_file share_name_title share_name_hint share_name_label
-friend_delete friend_deleted friend_share friend_share_qr now_in now_free_until now_free no_plan_to_share settings_share
-share_name_setting share_name_unset notes_shortened notes_not_sent together_marker detail_together together_you favorite
-favorite_toggle st_badge st_long free_gap manual_marker from_ics legacy_share_hint qr_mode_single qr_mode_animated
-qr_animated_hint scan_progress language_title language_system personal_changed_by personal_note`.split(/\s+/)
+// Every string of the app except the parts the web doesn't have (APK updater, Mensa MD banner, APK sharing).
+const SKIP = /^(update_|companion_|mensa_|unknown_sources_|check_|app_share_|auto_check|version_install|version_needs_android|settings_update_badge)/
 
 function unescape(s) {
   return s
     .replace(/<[^>]+>/g, '')
     .replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/\\@/g, '@').replace(/\\\?/g, '?')
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&')
-    .replace(/%(\d+)\$[sd]/g, '{$1}').replace(/%%/g, '%')
+    .replace(/%(\d+)\$[sd]/g, '{$1}').replace(/(?<!%)%[sd]/g, '{1}').replace(/%%/g, '%')
 }
 
 function read(dir) {
@@ -43,6 +31,7 @@ function read(dir) {
 
 const en = read('values')
 const de = read('values-de')
+const KEYS = Object.keys(en).filter((k) => !SKIP.test(k))
 const pick = (all, lang) => Object.fromEntries(KEYS.map((k) => {
   if (!(k in all)) {
     if (lang === 'de' && k in en) return [k, en[k]]

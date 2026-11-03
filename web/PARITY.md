@@ -17,40 +17,40 @@ FreeGaps, ManualCourses, Subjects), but the *StoredData edits* that use it live 
 | Feature | Android | Logic in :core | Web | Plan |
 |---|---|---|---|---|
 | Import my .ics (replace) | Settings, empty state; `StoreOps.importIcs` | yes | done | — |
-| .ics routing: partial file asks replace/add | `ImportRouting`, `IcsImportDialog` | **no** (`data/ImportRouting`) | todo | move to core (A), dialog (3) |
-| .ics from drawer: as friend / add courses / as mine | `IcsImportDialog`, `PlanRepository.importIcsFriend/addCourses` | partial (`AddedCourses`) | todo | edits to core (A), UI (3) |
+| .ics routing: partial file asks replace/add | `ImportRouting`, `IcsImportDialog` | **no** (`data/ImportRouting`) | done | move to core (A), dialog (3) |
+| .ics from drawer: as friend / add courses / as mine | `IcsImportDialog`, `PlanRepository.importIcsFriend/addCourses` | partial (`AddedCourses`) | done | edits to core (A), UI (3) |
 | Week view grid, colours, badges | `WeekView` | yes | done | — |
 | Today column tint + day progress in hour column | `WeekView`, `DayProgress` | yes | partial | check/align (4) |
 | Weekend columns (Sat/Sun when something is on) | `Schedule.week` | yes | done (core gives the days) | verify with manual weekend course (1) |
 | Day view, cancellations near today | `DayScreen` | yes | done | — |
-| Day view free blocks "Frei · 13–15 2 h" | `DayScreen` `FreeRow` | yes (`FreeGaps`) | todo | (4) |
-| "Zusammen frei" in free blocks | `DayScreen`, `FreeGaps.together` | yes | todo | WebCore gaps with people (3/4) |
+| Day view free blocks "Frei · 13–15 2 h" | `DayScreen` `FreeRow` | yes (`FreeGaps`) | done | (4) |
+| "Zusammen frei" in free blocks | `DayScreen`, `FreeGaps.together` | yes | done | WebCore gaps with people (3/4) |
 | Strip (week/day chips, current, muted, jump back) | `PlanStrip` | — | done | — |
-| Detail sheet: info, changes, together, note hint, rhythm text | `DetailSheet` | yes | partial | rhythm text, own-change lines (1) |
-| Detail action row + Mehr / Ausblenden menus | `DetailActions` (`SheetActionRow`) | — | todo | (4, built with 1/2) |
-| Fach bearbeiten: colour, Kürzel all + per type, preview | `SubjectEditor`, `Subjects.setStyle/setTypeShortName` | partial (friend override merge in VM) | todo | move to core (A), UI (1) |
-| Fach bearbeiten: move course to other/own subject | `SubjectEditor`, `Subjects.move` | partial | todo | (A, 1) |
-| Fach bearbeiten: rhythm per biweekly series | `SubjectEditor`, `PlanRepository.setRhythm` | partial | todo | (A, 1) |
-| Fach bearbeiten: course options (hide type, edit/delete manual, remove added) | `SubjectEditor` | partial | todo | (1, 2) |
-| Own changes editor (note, s.t., room, time; date / series) | `PersonalUi`, `PersonalChanges` | yes | todo | (1) |
-| Fällt für mich aus + undo | `DetailSheet`, `PersonalChanges.setCancelled` | yes | todo | (1) |
-| Termine auswählen (cancelled / hidden) | `PersonalUi`, `PlanRepository.setDates` | partial | todo | (A, 1) |
-| Own-change markers (dashed violet, pencil, note, s.t.) | `PersonalUi` | — | todo | (1) |
-| Orphaned changes cleanup list (settings) | `SettingsScreen`, `PersonalChanges.orphans` | yes | todo | (1) |
-| Manual courses (editor, badge, edit/delete, weekend) | `ManualCourseUi`, `ManualCourses`, `PlanRepository.saveManual/deleteManual` | partial | todo | (A, 1) |
-| Hide: Termin / Fach / Nur Typ / Nur Gruppe | `HiddenUi.hideChoices`, `HideTargets` | **no** (`HideTargets`) | todo | move to core (A), UI (2) |
-| Ausgeblendet screen with restore | `HiddenScreen` | yes (`Hidden.remove`) | todo | (2) |
-| Snackbars: undo, swipe, expand, timer rules | `Snackbars.kt` | — | partial (plain) | (2) |
+| Detail sheet: info, changes, together, note hint, rhythm text | `DetailSheet` | yes | done | rhythm text, own-change lines (1) |
+| Detail action row + Mehr / Ausblenden menus | `DetailActions` (`SheetActionRow`) | — | done | (4, built with 1/2) |
+| Fach bearbeiten: colour, Kürzel all + per type, preview | `SubjectEditor`, `Subjects.setStyle/setTypeShortName` | partial (friend override merge in VM) | done | move to core (A), UI (1) |
+| Fach bearbeiten: move course to other/own subject | `SubjectEditor`, `Subjects.move` | partial | done | (A, 1) |
+| Fach bearbeiten: rhythm per biweekly series | `SubjectEditor`, `PlanRepository.setRhythm` | partial | done | (A, 1) |
+| Fach bearbeiten: course options (hide type, edit/delete manual, remove added) | `SubjectEditor` | partial | done | (1, 2) |
+| Own changes editor (note, s.t., room, time; date / series) | `PersonalUi`, `PersonalChanges` | yes | done | (1) |
+| Fällt für mich aus + undo | `DetailSheet`, `PersonalChanges.setCancelled` | yes | done | (1) |
+| Termine auswählen (cancelled / hidden) | `PersonalUi`, `PlanRepository.setDates` | partial | done | (A, 1) |
+| Own-change markers (dashed violet, pencil, note, s.t.) | `PersonalUi` | — | done | (1) |
+| Orphaned changes cleanup list (settings) | `SettingsScreen`, `PersonalChanges.orphans` | yes | done | (1) |
+| Manual courses (editor, badge, edit/delete, weekend) | `ManualCourseUi`, `ManualCourses`, `PlanRepository.saveManual/deleteManual` | partial | done | (A, 1) |
+| Hide: Termin / Fach / Nur Typ / Nur Gruppe | `HiddenUi.hideChoices`, `HideTargets` | **no** (`HideTargets`) | done | move to core (A), UI (2) |
+| Ausgeblendet screen with restore | `HiddenScreen` | yes (`Hidden.remove`) | done | (2) |
+| Snackbars: undo, swipe, expand, timer rules | `Snackbars.kt` | — | partial | (2) |
 | Friends from shares (QR/file), confirm, undo | `FriendConfirmDialog` | yes | done | — |
-| .ics friends (new / update), "aus ICS importiert" | `IcsImportDialog`, `importIcsFriend` | **no** | todo | (A, 3) |
-| Rename friend, details dialog, delete with undo | `FriendDialog` | **no** (repo) | partial (delete) | (A, 3) |
-| Share a friend's plan with name choice | `ShareNameChoiceDialog`, `Forwarding` | yes | partial (no name choice) | (3) |
-| Favourites (heart in drawer and top bar) | `PlanDrawer` | yes | partial (drawer) | top bar (3) |
-| Drag reordering of friends | `ColumnReorder`, `reorderFriends` | **no** | todo | (A, 3) |
-| "Zu meinem Plan" / Entfernen / In deinem Plan | `DetailSheet`, `FriendCourses`, `addFromFriend/removeAdded` | partial | todo | (A, 3) |
-| Added courses ("Hinzugefügter Kurs" box, remove group) | `DetailSheet` | partial | todo | (A, 3) |
+| .ics friends (new / update), "aus ICS importiert" | `IcsImportDialog`, `importIcsFriend` | **no** | done | (A, 3) |
+| Rename friend, details dialog, delete with undo | `FriendDialog` | **no** (repo) | done | (A, 3) |
+| Share a friend's plan with name choice | `ShareNameChoiceDialog`, `Forwarding` | yes | done | (3) |
+| Favourites (heart in drawer and top bar) | `PlanDrawer` | yes | done | top bar (3) |
+| Drag reordering of friends | `ColumnReorder`, `reorderFriends` | **no** | done | (A, 3) |
+| "Zu meinem Plan" / Entfernen / In deinem Plan | `DetailSheet`, `FriendCourses`, `addFromFriend/removeAdded` | partial | done | (A, 3) |
+| Added courses ("Hinzugefügter Kurs" box, remove group) | `DetailSheet` | partial | done | (A, 3) |
 | Drawer now-line, Stand | `PlanDrawer` | yes | done | — |
-| My share: name, "Eigene Änderungen teilen" | `SettingsScreen` | partial | partial (name) | toggle (A, 5) |
+| My share: name, "Eigene Änderungen teilen" | `SettingsScreen` | partial | done | toggle (A, 5) |
 | QR show (single / animated) + scan | `QrScreens` | yes | done | — |
 | Backup export/import with undo, reminder | `SettingsScreen` | yes | done | round-trip tests with all new data (each phase) |
 | Landscape squash setting | `ThemeSettings.fitLandscape` | — | todo | web always fits now; add the setting (stored in `extras.display`) (4) |
@@ -69,6 +69,16 @@ FreeGaps, ManualCourses, Subjects), but the *StoredData edits* that use it live 
 
 ## Phase log
 - Phase 0 (inventory): done, this file.
+- Phase 1 (editing) + 2 (hiding) + most of 3 (friends): done. Web UI: `components/Detail.tsx` (sheet with the app's
+  action row: 3 primaries + "Mehr", `Menu.tsx`), `Editors.tsx` (SubjectEditor, PersonalEditor, PickDates, ManualEditor,
+  ColorChoice), `Hidden.tsx`, `IcsDialog.tsx`, `FriendDialogs.tsx`, markers in week/day (`Badges`), settings (subjects,
+  share changes, Ausgeblendet, orphans). All app strings are copied now (`strings.mjs`, minus updater/Mensa keys).
+  Tests: `tests/edit.spec.ts` (subject editor, own changes, Termine auswählen, hiding + undo + restore, manual course on
+  Saturday, .ics friend + Zu meinem Plan, backup round trips). `e2e.sh` reads the web's backups with the JVM
+  (`qrTool backup`): an Android backup with every kind of edit (`android-backup-full.json`, from `CompatEdits`) must
+  give the same summary after web import/export; a backup made through the web UI must contain every new data type.
+  Full run: 119 passed (all projects). Differences: the orphan list's undo is the snackbar (the app shows an inline undo
+  row); friend reordering uses a drag handle (pointer or arrow keys) instead of a long-press.
 - Phase A (logic into :core): done. `core/store/StoreEdits.kt` (+ `HideTargets`, `ImportRouting`, `IcsEntry/IcsRoute`)
   holds every edit `PlanRepository`/`MainViewModel` made; `:app` calls it (`PlanRepository.edit { }`), Android tests and
   lint unchanged. WebCore exposes it all (keys `uid|start|o/c` for dates): detail, hide/hideSubject/hideCourse,

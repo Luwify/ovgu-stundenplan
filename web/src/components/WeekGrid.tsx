@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { Day, Item, Week } from '../core'
 import { blockColors } from '../colors'
-import { dayAndDate, t, weekdayShort } from '../i18n'
+import { dayAndDate, plural, t, weekdayShort } from '../i18n'
 import { Icon } from './ui'
 
 const MIN_HOUR_PX = 18
@@ -97,14 +97,17 @@ function Block(props: { item: Item; hours: [number, number]; hourPx: number; dar
   const cancelled = it.status === 'cancelled' || it.status === 'cancelledByMe'
   const highlighted = it.status === 'changed' || it.status === 'extra'
   const lines = h >= 58 ? 3 : h >= 38 ? 2 : 1
-  const favorite = it.together.some((x) => x.favorite)
-  const label = [it.name, it.typeName, it.room, `${it.start}–${it.end}`, cancelled ? t('cancelled_full') : '', highlighted ? t(it.status === 'changed' ? 'changed' : 'extra') : '']
+  const label = [
+    it.name, it.typeName, it.room, `${it.start}–${it.end}`, cancelled ? t('cancelled_full') : '', highlighted ? t(it.status === 'changed' ? 'changed' : 'extra') : '',
+    it.manual ? t('manual_marker') : '', it.ownChange ? t('own_marker') : '', it.personal?.note ? t('note_marker') : '', it.st ? t('st_long') : '',
+    it.together.length ? plural('together_marker', it.together.length) : '',
+  ]
     .filter(Boolean)
     .join(', ')
   return (
     <button
       type="button"
-      class={`block ${cancelled ? 'cancelled' : ''} ${highlighted ? 'highlight' : ''} ${h < 28 ? 'squashed' : ''}`}
+      class={`block ${cancelled ? 'cancelled' : ''} ${highlighted ? 'highlight' : ''} ${it.ownChange ? 'own' : ''} ${h < 28 ? 'squashed' : ''}`}
       style={{
         top: `${top + 1}px`,
         height: `${h}px`,
@@ -118,9 +121,7 @@ function Block(props: { item: Item; hours: [number, number]; hourPx: number; dar
       title={label}
       onClick={() => props.onOpen(it)}
     >
-      <span class="block-badges">
-        {it.together.length > 0 && <span class={`badge-together ${favorite ? 'fav' : ''}`}><Icon name="group" size={14} /></span>}
-      </span>
+      <Badges item={it} size={14} max={h < 28 ? 1 : h < 46 ? 2 : 4} />
       <span class="block-name" style={{ WebkitLineClamp: lines >= 3 ? 2 : 1 }}>{it.name}</span>
       {lines >= 2 && (
         <span class="block-meta">
@@ -129,6 +130,26 @@ function Block(props: { item: Item; hours: [number, number]; hourPx: number; dar
       )}
     </button>
   )
+}
+
+/**
+ * The marker badges of a date (the app's EventBlock badges): own course (plus), together (group, red with a favourite),
+ * own change (violet pencil) or note, then s.t.; at most [max] of them (squashed blocks show only the first ones).
+ */
+export function Badges(props: { item: Item; size: number; max?: number; inline?: boolean }) {
+  const it = props.item
+  const all = [
+    it.manual && <span class="badge manual" title={t('manual_marker')}><Icon name="add" size={props.size} /></span>,
+    it.together.length > 0 && (
+      <span class={`badge badge-together ${it.together.some((x) => x.favorite) ? 'fav' : ''}`} title={plural('together_marker', it.together.length)}><Icon name="group" size={props.size} /></span>
+    ),
+    it.ownChange
+      ? <span class="badge own" title={t('own_marker')}><Icon name="edit" size={props.size} /></span>
+      : it.personal?.note ? <span class="badge note" title={t('note_marker')}><Icon name="note" size={props.size} /></span> : null,
+    it.st && <span class="st-badge" title={t('st_long')}>{t('st_badge')}</span>,
+  ].filter(Boolean).slice(0, props.max ?? 4)
+  if (!all.length) return null
+  return <span class={props.inline ? 'inline-badges' : 'block-badges'} aria-hidden="true">{all}</span>
 }
 
 /** Hover hint for pointer devices: the day's date in long form on the header (title). */

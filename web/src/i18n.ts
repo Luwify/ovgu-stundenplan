@@ -32,7 +32,8 @@ const webStrings = {
     me: 'Ich',
     detail_type: 'Typ',
     install_dismiss: 'Ausblenden',
-    friend_ics_not_supported: 'Freunde per .ics gehen in der Web-Version noch nicht. Bitte eine .stundenplan-Datei oder den QR-Code nehmen.',
+    ok: 'OK',
+    reorder_handle: 'Ziehen oder Pfeiltasten zum Sortieren',
   },
   en: {
     update_available: 'New version available',
@@ -64,7 +65,8 @@ const webStrings = {
     me: 'Me',
     detail_type: 'Type',
     install_dismiss: 'Dismiss',
-    friend_ics_not_supported: "Friends from an .ics aren't supported in the web version yet. Please use a .stundenplan file or the QR code.",
+    ok: 'OK',
+    reorder_handle: 'Drag or use the arrow keys to reorder',
   },
 } as const
 

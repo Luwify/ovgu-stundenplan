@@ -1,16 +1,17 @@
+import { subjectPalette } from './generated/core/stundenplan-core.mjs'
 // The subject block colors of the Android app (ui/theme/SubjectColors + ColorMath): a tint of the subject's hue as
 // fill, the color itself as a stripe, nudged for contrast against the Soft theme's page. Compose's lerp works in
 // Oklab, so does this port.
 
-type RGB = [number, number, number] // 0..1 sRGB
+export type RGB = [number, number, number] // 0..1 sRGB
 
-const fromInt = (rgb: number): RGB => [((rgb >> 16) & 255) / 255, ((rgb >> 8) & 255) / 255, (rgb & 255) / 255]
+export const fromInt = (rgb: number): RGB => [((rgb >> 16) & 255) / 255, ((rgb >> 8) & 255) / 255, (rgb & 255) / 255]
 export const css = (c: RGB) => `rgb(${c.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255)).join(' ')})`
 
 const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
 const unlin = (c: number) => (c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055)
-const luminance = (c: RGB) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2])
-const contrast = (a: RGB, b: RGB) => {
+export const luminance = (c: RGB) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2])
+export const contrast = (a: RGB, b: RGB) => {
   const la = luminance(a)
   const lb = luminance(b)
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
@@ -35,13 +36,13 @@ function fromOklab([L, a, b]: RGB): RGB {
   ].map((v) => Math.min(1, Math.max(0, unlin(v)))) as RGB
 }
 
-const lerp = (a: RGB, b: RGB, f: number): RGB => {
+export const lerp = (a: RGB, b: RGB, f: number): RGB => {
   const x = toOklab(a)
   const y = toOklab(b)
   return fromOklab([x[0] + (y[0] - x[0]) * f, x[1] + (y[1] - x[1]) * f, x[2] + (y[2] - x[2]) * f])
 }
 
-function toHsl([r, g, b]: RGB): RGB {
+export function toHsl([r, g, b]: RGB): RGB {
   const max = Math.max(r, g, b)
   const min = Math.min(r, g, b)
   const l = (max + min) / 2
@@ -52,7 +53,7 @@ function toHsl([r, g, b]: RGB): RGB {
   return [h, s, l]
 }
 
-function hsl(h: number, s: number, l: number): RGB {
+export function hsl(h: number, s: number, l: number): RGB {
   const c = (1 - Math.abs(2 * l - 1)) * s
   const hp = (((h % 360) + 360) % 360) / 60
   const x = c * (1 - Math.abs((hp % 2) - 1))
@@ -61,7 +62,7 @@ function hsl(h: number, s: number, l: number): RGB {
   return [r + m, g + m, b + m].map((v) => Math.min(1, Math.max(0, v))) as RGB
 }
 
-function withContrast(c: RGB, min: number, backgrounds: RGB[]): RGB {
+export function withContrast(c: RGB, min: number, backgrounds: RGB[]): RGB {
   if (backgrounds.every((b) => contrast(c, b) >= min)) return c
   const towardWhite = backgrounds.reduce((s, b) => s + luminance(b), 0) / backgrounds.length < 0.18
   const target: RGB = towardWhite ? [1, 1, 1] : [0, 0, 0]
@@ -78,17 +79,21 @@ export interface BlockColors {
   stripe: string
 }
 
-/** Soft theme pages (SoftTheme.light/dark background). */
-export const PAGE = { light: 0xf7f1e6, dark: 0x0d0b09 }
+/** The page the blocks sit on: the theme's background (theme.ts sets it). Soft light by default. */
+let themePage = 0xf7f1e6
+
+export function setThemePage(rgb: number) {
+  themePage = rgb
+}
 
 const cache = new Map<string, BlockColors>()
 
-/** SubjectColors.block for the Soft page in light or dark. */
+/** SubjectColors.block on the current theme's page, light or dark. */
 export function blockColors(rgb: number, dark: boolean): BlockColors {
-  const key = `${rgb}/${dark}`
+  const key = `${rgb}/${dark}/${themePage}`
   const hit = cache.get(key)
   if (hit) return hit
-  const page = fromInt(dark ? PAGE.dark : PAGE.light)
+  const page = fromInt(themePage)
   const base = fromInt(rgb)
   const [h, s] = toHsl(base)
   const fill = dark ? hsl(h, s * 0.45, 0.22) : hsl(h, s * 0.55, 0.88)
@@ -99,3 +104,12 @@ export function blockColors(rgb: number, dark: boolean): BlockColors {
   cache.set(key, out)
   return out
 }
+
+/** The app's subject palette (SubjectPalette, from :core). */
+export const palette: number[] = Array.from(subjectPalette())
+
+/** "#rrggbb" of 0xRRGGBB. */
+export const rgbHex = (rgb: number) => '#' + (rgb & 0xffffff).toString(16).padStart(6, '0')
+
+/** 0..1 sRGB -> 0xRRGGBB. */
+export const toInt = (c: RGB) => c.reduce((v, x) => (v << 8) | Math.round(Math.min(1, Math.max(0, x)) * 255), 0)

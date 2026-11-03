@@ -36,4 +36,20 @@ for dir in web/android-check/*/; do
   echo "$dir file: $out"
   echo "$out" | grep -q '"ok":true,"name":"Alex"' || status=1
 done
+# Backups with every kind of edit, read by the JVM's BackupFormat as the app reads them: an Android backup that went
+# through the web must give the same summary; one made on the web must hold every new kind of data.
+for f in web/android-check/full-roundtrip-*.json; do
+  [ -f "$f" ] || continue
+  out=$(./gradlew -q :core:qrTool --args="backup $f" | tail -1)
+  echo "$f: $out"
+  [ "$out" = "$(cat web/tests/fixtures/generated/android-backup-full.summary.json)" ] || status=1
+done
+for f in web/android-check/web-edits-*.json; do
+  [ -f "$f" ] || continue
+  out=$(./gradlew -q :core:qrTool --args="backup $f" | tail -1)
+  echo "$f: $out"
+  for k in icsFriends manualCourses personalChanges cancelledForMe notes rhythms addedEvents hiddenMine shortNames typeShortNames; do
+    echo "$out" | grep -q "\"$k\":[1-9]" || { echo "  missing $k"; status=1; }
+  done
+done
 [ $status -eq 0 ] && echo "Android decoder: all web codes and files read." || { echo "Android decoder: FAILED"; exit 1; }

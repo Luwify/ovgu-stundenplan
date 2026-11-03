@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import type { Item, PersonInfo, SharePeek } from './core'
+import type { DateState, IcsRead, Item, ManualCourse, PersonInfo, PickDate, SharePeek } from './core'
 import { type Model, useModel } from './model'
 import { addDays, dateShort, dayAndDate, isoWeek, mondayOf, plural, t, weekdayShort } from './i18n'
 import { save } from './store'
 import { WeekGrid, useNowMinutes } from './components/WeekGrid'
 import { DayList } from './components/DayList'
 import { Strip } from './components/Strip'
-import { Detail } from './components/Detail'
+import { Detail, type DetailActions } from './components/Detail'
+import { ManualEditor, PersonalEditor, PickDates, SubjectEditor } from './components/Editors'
+import { HiddenScreen } from './components/Hidden'
+import { IcsDialog } from './components/IcsDialog'
+import { FriendDialog, ShareNameChoice } from './components/FriendDialogs'
+import { MenuButton } from './components/Menu'
+import { dayAndDate as dayAndDateText } from './i18n'
+import { duplicateText, hiddenName } from './texts'
 import { People } from './components/People'
 import { Settings } from './components/Settings'
 import { QrShow } from './components/QrShow'
 import { Scanner } from './components/Scanner'
 import { Button, Dialog, Icon, IconButton, pickFile } from './components/ui'
+import { palette } from './colors'
 
 const ME = 'me'
 const MIME = 'application/vnd.luwify.stundenplan'
@@ -83,12 +91,31 @@ export function App({ model }: { model: Model }) {
   const dayWeek = useMemo(() => (dayMonday && nav?.weeks.includes(dayMonday) ? core.week(pid, dayMonday) : null), [core, pid, dayMonday, model.version])
   const shownDay = dayWeek?.days.find((d) => d.date === day) ?? dayWeek?.days[0] ?? null
 
-  const [detail, setDetail] = useState<Item | null>(null)
+  // The detail sheet follows its date through every change (looked up by the date's ref in its week).
+  const [detailRef, setDetailRef] = useState<{ pid: string; uid: string; date: string; monday: string } | null>(null)
+  const detail: Item | null = useMemo(() => {
+    if (!detailRef) return null
+    const w = core.week(detailRef.pid, detailRef.monday)
+    for (const d of w?.days ?? []) for (const it of d.items) if (it.ref.uid === detailRef.uid && it.ref.date === detailRef.date) return it
+    return null
+  }, [detailRef, core, model.version])
+  const openDetail = (it: Item) => setDetailRef({ pid, uid: it.ref.uid, date: it.ref.date, monday: mondayOf(it.date) })
+  const [subjectEdit, setSubjectEdit] = useState<{ pid: string; subjectKey: string; courseKey: string | null } | null>(null)
+  const [personalEdit, setPersonalEdit] = useState<{ key: string } | null>(null)
+  const [pickEdit, setPickEdit] = useState<{ key: string; name: string; dates: PickDate[] } | null>(null)
+  const [manualEdit, setManualEdit] = useState<{ id: string | null } | null>(null)
+  const [showHidden, setShowHidden] = useState(false)
+  const [icsRead, setIcsRead] = useState<Extract<IcsRead, { route: string }> | null>(null)
+  /** An editor opened from the sheet hides it while open; it comes back when the editor closes. */
+  const editorOpen = !!(subjectEdit || personalEdit || pickEdit || manualEdit)
   const [drawer, setDrawer] = useState(false)
   const [settings, setSettings] = useState(false)
   const [adding, setAdding] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [qrFor, setQrFor] = useState<string | null>(null)
+  /** A friend's plan shown as QR under this name (their shared one or my local one). */
+  const [qrName, setQrName] = useState<string | null>(null)
+  const [shareAs, setShareAs] = useState<{ person: PersonInfo; how: 'file' | 'qr' } | null>(null)
   const [pending, setPending] = useState<Pending | null>(null)
   const [restore, setRestore] = useState<{ text: string; exportedAt: string | null; people: number } | null>(null)
   const [nameFor, setNameFor] = useState<null | (() => void)>(null)
@@ -97,7 +124,7 @@ export function App({ model }: { model: Model }) {
     try { return localStorage.getItem('installHintHidden') === '1' } catch { return false }
   })
 
-  const anyDialog = !!(detail || settings || adding || scanning || qrFor || pending || restore || nameFor || friendMenu || (drawer && !wide))
+  const anyDialog = !!(detail || editorOpen || showHidden || icsRead || settings || adding || scanning || qrFor || pending || restore || nameFor || friendMenu || shareAs || (drawer && !wide))
 
   // ---- navigation
   const weeks = nav?.weeks ?? []
@@ -153,17 +180,53 @@ export function App({ model }: { model: Model }) {
   // ---- actions
   const hasMyPlan = !!people.find((p) => p.isMe)?.hasPlan
 
+  /** An .ics from the settings or the empty plan ([fromSettings]) or from the drawer's "+": routed like the app. */
+  const handleIcs = async (text: string, fromSettings: boolean) => {
+    const r = core.edit.readIcs(text, fromSettings)
+    if ('error' in r) return model.notify(r.error === 'notCalendar' ? t('import_not_calendar') : t('import_no_events'))
+    if (r.route === 'replace') return replaceMine()
+    setIcsRead(r)
+  }
+
+  const replaceMine = async () => {
+    setIcsRead(null)
+    const before = model.snapshot()
+    const r = core.edit.icsReplaceMine()
+    if ('error' in r) return model.notify(t('import_no_events'))
+    await model.commit({ ics: r.text ?? null })
+    setPersonId(ME)
+    const text = plural('imported', r.events) + (r.dropped > 0 ? ' ' + plural('added_dropped', r.dropped) : '')
+    model.notify(text, { label: t('undo'), run: () => model.restoreSnapshot(before) })
+  }
+
+  const icsAddCourses = async () => {
+    setIcsRead(null)
+    const before = model.snapshot()
+    const r = core.edit.icsAddCourses()
+    const parts = [
+      r.added > 0 ? plural('courses_added', r.added) : null,
+      r.updated > 0 ? plural('courses_updated', r.updated) : null,
+      r.duplicates.length ? duplicateText(r.duplicates) : null,
+    ].filter(Boolean).join(' ')
+    setPersonId(ME)
+    if (r.added + r.updated === 0) { await model.commit(); return model.notify(parts) }
+    await model.changed(before, parts)
+  }
+
+  const icsAddFriend = async (name: string, existingId: string | null) => {
+    setIcsRead(null)
+    const before = model.snapshot()
+    const r = core.edit.icsAddFriend(name, existingId)
+    setPersonId(r.id)
+    await model.changed(before, t(r.replaced ? 'friend_updated' : 'friend_added', r.name), () => setPersonId(ME))
+  }
+
   const importIcs = async () => {
     const f = await pickFile('.ics,text/calendar')
     if (!f) return
     let text: string
     try { text = await f.text() } catch { return model.notify(t('import_failed')) }
-    const before = model.snapshot()
-    const r = core.importIcs(text)
-    if ('error' in r) return model.notify(r.error === 'notCalendar' ? t('import_not_calendar') : t('import_no_events'))
-    await model.commit({ ics: text })
-    setPersonId(ME)
-    model.notify(plural('imported', r.events), { label: t('undo'), run: () => model.restoreSnapshot(before) })
+    await handleIcs(text, true)
   }
 
   const offerShare = (data: Uint8Array | string) => {
@@ -180,7 +243,7 @@ export function App({ model }: { model: Model }) {
     if (!f) return
     const bytes = new Uint8Array(await f.arrayBuffer())
     const head = new TextDecoder().decode(bytes.slice(0, 64))
-    if (/BEGIN:VCALENDAR/i.test(head)) return model.notify(t('friend_ics_not_supported'))
+    if (/BEGIN:VCALENDAR/i.test(head)) return handleIcs(new TextDecoder().decode(bytes), false)
     offerShare(bytes)
   }
 
@@ -210,6 +273,21 @@ export function App({ model }: { model: Model }) {
     if (!bytes) return model.notify(t('no_plan_to_share'))
     void shareOrSave(bytes, core.shareFileName(id), MIME).then((r) => {
       if (r === 'saved') model.notify(t('file_shared_download', core.shareFileName(id)))
+    }).catch(() => model.notify(t('share_failed')))
+  }
+
+  /** Passes a friend's plan on as they shared it; a renamed friend asks which name goes into the share first. */
+  const forward = (p: PersonInfo, how: 'file' | 'qr') => {
+    if (p.localName && p.localName !== p.sharedName) return setShareAs({ person: p, how })
+    sendForward(p, how, p.sharedName)
+  }
+  const sendForward = (p: PersonInfo, how: 'file' | 'qr', name: string) => {
+    if (how === 'qr') { setQrName(name); setQrFor(p.id); return }
+    const bytes = core.edit.shareFileAs(p.id, name)
+    if (!bytes) return model.notify(t('no_plan_to_share'))
+    const fileName = `Stundenplan ${name.replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'Stundenplan'}.stundenplan`
+    void shareOrSave(bytes, fileName, MIME).then((r) => {
+      if (r === 'saved') model.notify(t('file_shared_download', fileName))
     }).catch(() => model.notify(t('share_failed')))
   }
 
@@ -260,6 +338,59 @@ export function App({ model }: { model: Model }) {
     setPersonId(ME)
   }
 
+  // ---- detail and editors (the app's MainScreen/MainViewModel flows)
+  const isMe = !!person?.isMe
+  const detailInfo = useMemo(() => (detail && detailRef ? core.edit.detail(detailRef.pid, detail.key) : null), [detail, detailRef, core, model.version])
+  const closeDetail = () => setDetailRef(null)
+  const act: DetailActions = {
+    editSubject: () => detail?.subjectKey && setSubjectEdit({ pid, subjectKey: detail.subjectKey, courseKey: detail.courseKey }),
+    editPersonal: () => detail && setPersonalEdit({ key: detail.key }),
+    cancelForMe: (on) => {
+      if (!detail) return
+      const before = model.snapshot()
+      const r = core.edit.setCancelledForMe(detail.key, on)
+      if (r) void model.changed(before, t(on ? 'cancelled_for_me' : 'uncancelled_for_me', r.title, dayAndDateText(r.date)))
+    },
+    pickDates: () => detail && setPickEdit({ key: detail.key, name: detail.name, dates: core.edit.pickDates(detail.key) }),
+    editManual: (id) => setManualEdit({ id }),
+    deleteManual: (id) => deleteManual(id),
+    removeAdded: () => {
+      if (!detail) return
+      const before = model.snapshot()
+      const title = core.edit.removeAdded(detail.key)
+      if (title) { closeDetail(); void model.changed(before, t('added_removed', title)) }
+    },
+    hide: (kind) => {
+      if (!detail || !detailRef) return
+      const before = model.snapshot()
+      const h = core.edit.hide(detailRef.pid, detail.key, kind)
+      if (h) { closeDetail(); void model.changed(before, t('hidden_snackbar', hiddenName(h))) }
+    },
+    addToMine: () => {
+      if (!detail || !detailRef) return
+      const before = model.snapshot()
+      const title = core.edit.addFromFriend(detailRef.pid, detail.key)
+      if (title) void model.changed(before, t('added_from_friend', title))
+    },
+    removeFromMine: () => {
+      if (!detail || !detailRef) return
+      const before = model.snapshot()
+      const title = core.edit.removeFriendGroup(detailRef.pid, detail.key)
+      if (title) void model.changed(before, t('added_removed', title))
+    },
+  }
+  const deleteManual = (id: string) => {
+    const before = model.snapshot()
+    const title = core.edit.deleteManual(id)
+    if (title) { closeDetail(); void model.changed(before, t('manual_deleted', title)) }
+  }
+  const hideFromEditor = (h: ReturnType<typeof core.edit.hideSubject>, before: ReturnType<typeof model.snapshot>) => {
+    if (!h) return
+    setSubjectEdit(null)
+    closeDetail()
+    void model.changed(before, t('hidden_snackbar', hiddenName(h)))
+  }
+
   // ---- banners
   const hasData = people.some((p) => p.hasPlan)
   const now = Date.now()
@@ -291,6 +422,7 @@ export function App({ model }: { model: Model }) {
       selected={pid}
       onSelect={(id) => { setPersonId(id); setDrawer(false) }}
       onFavorite={(p) => { core.setFavorite(p.id, !p.favorite); void model.commit() }}
+      onReorder={(ids) => { core.edit.reorderFriends(ids); void model.commit() }}
       onAdd={() => { setDrawer(false); setAdding(true) }}
       onShareFile={() => { setDrawer(false); withName(() => shareFile(ME)) }}
       onQr={() => { setDrawer(false); withName(() => setQrFor(ME)) }}
@@ -319,10 +451,31 @@ export function App({ model }: { model: Model }) {
             <IconButton icon="chevron_left" label={t(tab === 'week' ? 'previous_week' : 'previous_day')} onClick={() => step(-1)} />
             <IconButton icon="chevron_right" label={t(tab === 'week' ? 'next_week' : 'next_day')} onClick={() => step(1)} />
           </div>
+          {person?.isMe && hasMyPlan && <IconButton icon="add" label={t('manual_add')} onClick={() => setManualEdit({ id: null })} />}
           {person?.isMe ? (
             <IconButton icon="settings" label={t('settings')} onClick={() => setSettings(true)} />
-          ) : (
-            <IconButton icon="share" label={t('friend_share', person?.name ?? '')} onClick={() => setFriendMenu(true)} />
+          ) : person && (
+            <>
+              <IconButton
+                icon={person.favorite ? 'favorite_filled' : 'favorite'}
+                class={person.favorite ? 'fav' : ''}
+                label={t('favorite_toggle', person.name)}
+                pressed={person.favorite}
+                onClick={() => { core.setFavorite(person.id, !person.favorite); void model.commit() }}
+              />
+              <MenuButton
+                class="icon-menu"
+                align="end"
+                label={t('friend_share', person.name)}
+                entries={[
+                  { label: t('share_as_file'), onClick: () => forward(person, 'file') },
+                  { label: t('friend_share_qr'), onClick: () => forward(person, 'qr') },
+                ]}
+              >
+                {() => <span class="icon-button"><Icon name="share" /></span>}
+              </MenuButton>
+              <IconButton icon="edit" label={t('friend_details')} onClick={() => setFriendMenu(true)} />
+            </>
           )}
         </header>
 
@@ -357,9 +510,9 @@ export function App({ model }: { model: Model }) {
             <main class="content" onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={() => (swipe.current = null)}>
               {tab === 'week' && week && week.free && <div class="week-free">{t('lecture_free')}</div>}
               {tab === 'week' && week ? (
-                <WeekGrid week={week} hours={nav.hours} today={nav.today} nowMin={nowMin} dark={dark} onOpen={setDetail} />
+                <WeekGrid week={week} hours={nav.hours} today={nav.today} nowMin={nowMin} dark={dark} onOpen={openDetail} />
               ) : shownDay ? (
-                <DayList day={shownDay} dark={dark} onOpen={setDetail} />
+                <DayList day={shownDay} dark={dark} onOpen={openDetail} />
               ) : null}
             </main>
           </>
@@ -385,8 +538,6 @@ export function App({ model }: { model: Model }) {
         </div>
       )}
 
-      {detail && <Detail item={detail} dark={dark} onClose={() => setDetail(null)} />}
-
       {settings && (
         <Settings
           model={model}
@@ -395,8 +546,117 @@ export function App({ model }: { model: Model }) {
           onExportBackup={() => void exportBackup()}
           onImportBackup={() => void importBackup()}
           onName={() => setNameFor(() => () => {})}
+          onEditSubject={(k) => setSubjectEdit({ pid: ME, subjectKey: k, courseKey: null })}
+          onShowHidden={() => setShowHidden(true)}
+          onDeleteOrphan={(i) => { const b = model.snapshot(); core.edit.deleteChange(i); void model.changed(b, t('orphan_deleted')) }}
         />
       )}
+
+      {detail && !editorOpen && (
+        <Detail item={detail} info={detailInfo} who={detailRef?.pid === ME ? null : people.find((p) => p.id === detailRef?.pid)?.name ?? ''} dark={dark} act={act} onClose={closeDetail} />
+      )}
+
+      {subjectEdit && (
+        <SubjectEditor
+          key={subjectEdit.subjectKey}
+          subjects={core.edit.subjects(subjectEdit.pid)}
+          subjectKey={subjectEdit.subjectKey}
+          courseKey={subjectEdit.courseKey}
+          isMe={subjectEdit.pid === ME}
+          dark={dark}
+          onSave={(short, color, typed) => {
+            core.edit.setSubjectStyle(subjectEdit.pid, subjectEdit.subjectKey, short, color, typed)
+            setSubjectEdit(null)
+            void model.commit()
+          }}
+          onMove={(courseKey, target) => {
+            core.edit.moveCourse(subjectEdit.pid, courseKey, target)
+            void model.commit()
+            // The subject may be gone (its last course moved): follow the course.
+            const s = core.edit.subjects(subjectEdit.pid).find((x) => x.courses.some((c) => c.key === courseKey))
+            if (!core.edit.subjects(subjectEdit.pid).some((x) => x.key === subjectEdit.subjectKey)) setSubjectEdit(s ? { ...subjectEdit, subjectKey: s.key, courseKey } : null)
+          }}
+          onRhythm={(uid, r) => { core.edit.setRhythm(subjectEdit.pid, uid, r); void model.commit() }}
+          onHideSubject={() => { const b = model.snapshot(); hideFromEditor(core.edit.hideSubject(subjectEdit.pid, subjectEdit.subjectKey), b) }}
+          onHideCourse={(k) => { const b = model.snapshot(); hideFromEditor(core.edit.hideCourse(subjectEdit.pid, k), b) }}
+          onEditManual={(id) => { setSubjectEdit(null); setManualEdit({ id }) }}
+          onDeleteManual={(id) => { setSubjectEdit(null); deleteManual(id) }}
+          onRemoveAdded={(k) => {
+            setSubjectEdit(null)
+            const before = model.snapshot()
+            const title = core.edit.removeAddedCourse(k)
+            if (title) { closeDetail(); void model.changed(before, t('added_removed', title)) }
+          }}
+          onClose={() => setSubjectEdit(null)}
+        />
+      )}
+
+      {personalEdit && detailInfo && (
+        <PersonalEditor
+          editor={detailInfo.editor}
+          onSave={(series, note, st, room, start, end) => {
+            core.edit.savePersonal(personalEdit.key, series, note, st, room, start, end)
+            setPersonalEdit(null)
+            void model.commit()
+          }}
+          onClose={() => setPersonalEdit(null)}
+        />
+      )}
+
+      {pickEdit && (
+        <PickDates
+          name={pickEdit.name}
+          dates={pickEdit.dates}
+          onSave={(states: Record<string, DateState>) => {
+            if (Object.keys(states).length) { core.edit.setDates(pickEdit.key, states); void model.commit() }
+            setPickEdit(null)
+          }}
+          onClose={() => setPickEdit(null)}
+        />
+      )}
+
+      {manualEdit && (() => {
+        const subjects = core.edit.subjects(ME)
+        const existing: ManualCourse | null = manualEdit.id ? core.edit.manualCourse(manualEdit.id) : null
+        const subject = existing ? subjects.find((x) => x.courses.some((c) => c.key === `manual:${existing.id}`)) ?? null : null
+        return (
+          <ManualEditor
+            existing={existing}
+            existingSubject={subject?.key ?? null}
+            existingShort={subject?.shortName ?? null}
+            existingColor={subject && !subject.auto ? subject.color : null}
+            subjects={subjects}
+            newId={() => core.edit.newManualId()}
+            defaultEnd={(d) => core.edit.manualDefaultEnd(d)}
+            today={nav?.today ?? new Date().toISOString().slice(0, 10)}
+            autoColor={palette[subjects.length % palette.length]}
+            onSave={(course, subjectKey, short, color) => {
+              if (core.edit.saveManual(course, subjectKey, short, color)) void model.commit()
+              setManualEdit(null)
+            }}
+            onClose={() => setManualEdit(null)}
+          />
+        )
+      })()}
+
+      {showHidden && (
+        <HiddenScreen
+          groups={core.edit.hidden()}
+          onRestore={(p, i) => { core.edit.unhide(p, i); void model.commit() }}
+          onClose={() => setShowHidden(false)}
+        />
+      )}
+
+      {icsRead && (
+        <IcsDialog
+          read={icsRead}
+          onReplace={() => void replaceMine()}
+          onAddCourses={() => void icsAddCourses()}
+          onFriend={(name, id) => void icsAddFriend(name, id)}
+          onCancel={() => { core.edit.cancelIcs(); setIcsRead(null) }}
+        />
+      )}
+
 
       {adding && (
         <Dialog title={t('friend_add_title')} onClose={() => setAdding(false)}>
@@ -461,27 +721,28 @@ export function App({ model }: { model: Model }) {
       }} />}
 
       {friendMenu && person && !person.isMe && (
-        <Dialog title={person.name} onClose={() => setFriendMenu(false)}>
-          {person.planDate && <p class="muted">{t('stand', dateShort(person.planDate))}{person.exportedOn ? ` · ${t('friend_shared_on', dateShort(person.exportedOn))}` : ''}</p>}
-          <div class="choice-list">
-            <button type="button" class="choice" onClick={() => { setFriendMenu(false); shareFile(person.id) }}>
-              <Icon name="share" /><span><strong>{t('share_as_file')}</strong></span>
-            </button>
-            <button type="button" class="choice" onClick={() => { setFriendMenu(false); setQrFor(person.id) }}>
-              <Icon name="qr_code_2" /><span><strong>{t('friend_share_qr')}</strong></span>
-            </button>
-            <button type="button" class="choice danger" onClick={() => void deleteFriend()}>
-              <Icon name="delete" /><span><strong>{t('friend_delete')}</strong></span>
-            </button>
-          </div>
-        </Dialog>
+        <FriendDialog
+          person={person}
+          onRename={(name) => { core.edit.renameFriend(person.id, name); setFriendMenu(false); void model.commit() }}
+          onDelete={() => void deleteFriend()}
+          onClose={() => setFriendMenu(false)}
+        />
+      )}
+
+      {shareAs && (
+        <ShareNameChoice
+          original={shareAs.person.sharedName}
+          local={shareAs.person.localName ?? ''}
+          onChoose={(name) => { const s = shareAs; setShareAs(null); sendForward(s.person, s.how, name) }}
+          onClose={() => setShareAs(null)}
+        />
       )}
 
       {qrFor && (() => {
-        const payload = core.qrPayload(qrFor)
+        const payload = qrFor !== ME && qrName ? core.edit.qrPayloadAs(qrFor, qrName) : core.qrPayload(qrFor)
         const p = people.find((x) => x.id === qrFor)
         if (!payload) { setQrFor(null); model.notify(t('no_plan_to_share')); return null }
-        const name = qrFor === ME ? core.shareIdentity().name ?? '' : p?.name ?? ''
+        const name = qrFor === ME ? core.shareIdentity().name ?? '' : qrName ?? p?.sharedName ?? ''
         const stand = qrFor === ME ? p?.planDate ?? null : p?.planDate ?? null
         return (
           <QrShow
@@ -491,7 +752,7 @@ export function App({ model }: { model: Model }) {
             mode={model.stored.qrMode}
             onMode={(m) => { model.stored.qrMode = m; model.emit(); void save({ qrMode: m }) }}
             onShareFile={() => shareFile(qrFor)}
-            onClose={() => setQrFor(null)}
+            onClose={() => { setQrFor(null); setQrName(null) }}
           />
         )
       })()}

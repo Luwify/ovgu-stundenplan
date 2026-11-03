@@ -1,10 +1,21 @@
 import type { ComponentChildren, JSX } from 'preact'
 import { useEffect, useRef } from 'preact/hooks'
-import { iconPaths, type IconName } from '../iconPaths'
+import { iconPaths, type IconName as MaterialName } from '../iconPaths'
+import { lineIcons, type LineIconName } from '../lineIcons'
 import { t } from '../i18n'
 
+export type IconName = MaterialName | LineIconName
+
 export function Icon({ name, size = 24, class: cls }: { name: IconName; size?: number; class?: string }) {
-  const p = iconPaths[name]
+  if (name in lineIcons) {
+    const l = lineIcons[name as LineIconName]
+    return (
+      <svg class={`icon ${cls ?? ''}`} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+        <path d={l.d} fill="none" stroke="currentColor" stroke-width={l.w} stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    )
+  }
+  const p = iconPaths[name as MaterialName]
   return (
     <svg class={`icon ${cls ?? ''}`} width={size} height={size} viewBox={`0 0 ${p.vb} ${p.vb}`} aria-hidden="true">
       <path d={p.d} fill="currentColor" />
