@@ -14,12 +14,9 @@ data class BlockColors(val container: Color, val content: Color, val stripe: Col
  */
 object SubjectColors {
     /** Default colors, assigned to subjects in order. 0xRRGGBB. */
-    val palette = listOf(
-        0x1E88E5, 0x43A047, 0xFB8C00, 0x8E24AA, 0x00897B, 0xE53935,
-        0x3949AB, 0xC0CA33, 0xD81B60, 0x6D4C41, 0x00ACC1, 0xFDD835,
-    )
+    val palette: List<Int> = de.luwify.stundenplanmd.core.store.SubjectPalette.palette
 
-    fun defaultColor(index: Int): Int = palette[index.mod(palette.size)]
+    fun defaultColor(index: Int): Int = de.luwify.stundenplanmd.core.store.SubjectPalette.defaultColor(index)
 
     /** [page] is the background the blocks sit on. */
     fun block(rgb: Int, page: Color): BlockColors {

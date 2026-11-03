@@ -1,5 +1,7 @@
 package de.luwify.stundenplanmd.ui
 
+import de.luwify.stundenplanmd.core.store.StoredData
+
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -52,7 +54,6 @@ import androidx.compose.ui.unit.dp
 import de.luwify.stundenplanmd.R
 import de.luwify.stundenplanmd.core.schedule.Cancellation
 import de.luwify.stundenplanmd.core.schedule.FreeGap
-import de.luwify.stundenplanmd.data.StoredData
 import de.luwify.stundenplanmd.core.schedule.Navigation
 import de.luwify.stundenplanmd.core.schedule.Occurrence
 import de.luwify.stundenplanmd.core.schedule.Status

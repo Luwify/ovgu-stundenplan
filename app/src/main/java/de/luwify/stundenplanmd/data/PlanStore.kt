@@ -1,5 +1,9 @@
 package de.luwify.stundenplanmd.data
 
+import de.luwify.stundenplanmd.core.store.StoredData
+import de.luwify.stundenplanmd.core.store.Migrations
+import de.luwify.stundenplanmd.core.store.MigrationException
+
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import java.io.File

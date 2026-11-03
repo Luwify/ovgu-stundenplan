@@ -1,5 +1,8 @@
 package de.luwify.stundenplanmd.data
 
+import de.luwify.stundenplanmd.core.store.StoredData
+import de.luwify.stundenplanmd.core.store.MyShare
+
 import de.luwify.stundenplanmd.core.ical.LsfImport
 import de.luwify.stundenplanmd.core.model.CourseSetting
 import de.luwify.stundenplanmd.core.model.Event
@@ -31,100 +34,12 @@ import java.io.File
 import java.time.Instant
 
 /**
- * How I appear in shares: [id] is made at the first share, [name] asked then. [withChanges]: my own cancellations,
- * room/time changes and s.t. go into shares ("Eigene Änderungen teilen"; notes never do).
- */
-@Serializable
-data class MyShare(val id: String? = null, val name: String? = null, val withChanges: Boolean = true)
-
-/**
- * Everything the app stores: me and friends (people + plans; the order of [people] is the drawer order), my course settings (keyed by course key) and, per
- * friend id, my local settings for their courses.
- */
-@Serializable
-data class StoredData(
-    val version: Int = Migrations.CURRENT,
-    val people: List<Person> = listOf(Person(ME, "Ich", isMe = true)),
-    val plans: List<Plan> = emptyList(),
-    val courseSettings: Map<String, CourseSetting> = emptyMap(),
-    val friendSettings: Map<String, Map<String, CourseSetting>> = emptyMap(),
-    val share: MyShare = MyShare(),
-    /** My own changes to my plan (notes, s.t., cancellations, rooms, times); kept across re-imports. */
-    val personalChanges: List<PersonalChange> = emptyList(),
-    /** Courses I added by hand; the LSF import never touches them. */
-    val manualCourses: List<ManualCourse> = emptyList(),
-    /**
-     * Rhythms set by hand for weekly INTERVAL=2 series (even/odd calendar weeks or 14 days), per person ([ME] or a
-     * friend's id): appointment UID -> rhythm. Kept across re-imports; mine go into shares with my own changes.
-     */
-    val rhythms: Map<String, Map<String, WeekRhythm>> = emptyMap(),
-    /** LSF courses added to my plan from another .ics ([AddedCourses]); kept across re-imports unless the plan has them. */
-    val addedEvents: List<Event> = emptyList(),
-    /** What I hid, per person ([ME] or a friend's id): subjects, courses, groups, dates. Kept across re-imports. */
-    val hidden: Map<String, List<Hidden>> = emptyMap(),
-) {
-    /** My LSF events: the imported plan plus the added courses it does not have. */
-    val myLsfEvents: List<Event> get() = myPlan?.events.orEmpty().let { it + AddedCourses.visible(it, addedEvents) }
-
-    /** Appointment UIDs of the added courses shown. */
-    val addedUids: Set<String> get() = AddedCourses.visible(myPlan?.events.orEmpty(), addedEvents).mapTo(HashSet()) { it.uid }
-
-    /** My events: the LSF ones (with my rhythms) plus the manual courses. */
-    val myEvents: List<Event> get() = ManualCourses.merge(Expansion.withRhythms(myLsfEvents, rhythmsOf(ME)), manualCourses)
-
-    fun rhythmsOf(personId: String): Map<String, WeekRhythm> = rhythms[personId].orEmpty()
-
-    /** The events shown for [personId]: mine ([myEvents]) or the friend's plan with my rhythms for it. */
-    fun eventsOf(personId: String): List<Event> =
-        if (personId == ME) myEvents else Expansion.withRhythms(planOf(personId)?.events.orEmpty(), rhythmsOf(personId))
-
-    val myPlan: Plan? get() = planOf(ME)
-    val friends: List<Person> get() = people.filter { !it.isMe }
-
-    fun planOf(personId: String): Plan? = plans.firstOrNull { it.personId == personId }
-    fun person(id: String): Person? = people.firstOrNull { it.id == id }
-
-    fun hiddenOf(personId: String): List<Hidden> = hidden[personId].orEmpty()
-
-    /**
-     * The course settings shown for [personId]: mine, or for a friend my local overrides, else mine (resolved) for courses
-     * I take too, else theirs ([Subjects.forFriend]).
-     */
-    fun settingsOf(personId: String, events: List<Event> = eventsOf(personId)): Map<String, CourseSetting> =
-        if (personId == ME) courseSettings else Subjects.forFriend(
-            events,
-            local = friendSettings[personId].orEmpty(),
-            mine = Subjects.resolved(myEvents, courseSettings, de.luwify.stundenplanmd.ui.theme.SubjectColors::defaultColor),
-            shared = planOf(personId)?.sharedSettings.orEmpty(),
-        )
-
-    /** What is left out of [personId]'s plan: what I hid there and, for a friend, the dates they hid before sharing. */
-    fun hidingOf(personId: String, events: List<Event> = eventsOf(personId)): Hiding? {
-        val items = hiddenOf(personId)
-        val shared = if (personId == ME) emptyList() else planOf(personId)?.sharedHidden.orEmpty()
-        if (items.isEmpty() && shared.isEmpty()) return null
-        return Hiding.of(items, events, settingsOf(personId, events), shared)
-    }
-
-    /** [plan] expanded with the own changes (mine for my plan, the friend's shared ones for theirs), without what is hidden. */
-    fun schedule(plan: Plan): Schedule = if (plan.personId == ME) mySchedule() else eventsOf(plan.personId).let { events ->
-        Schedule(events, plan.sharedChanges, hidingOf(plan.personId, events))
-    }
-
-    fun mySchedule(): Schedule = myEvents.let { Schedule(it, personalChanges, hidingOf(ME, it)) }
-
-    companion object {
-        const val ME = "me"
-    }
-}
-
-/**
  * This state with the colors my subjects showed in [previous] kept ([Subjects.keepColors]): for changes that add or
  * remove my courses, so the automatic colors of the other subjects don't move.
  */
 private fun StoredData.keepingColors(previous: StoredData): StoredData = copy(
     courseSettings = Subjects.keepColors(
-        previous.myEvents, previous.courseSettings, myEvents, courseSettings, de.luwify.stundenplanmd.ui.theme.SubjectColors::defaultColor,
+        previous.myEvents, previous.courseSettings, myEvents, courseSettings, de.luwify.stundenplanmd.core.store.SubjectPalette::defaultColor,
     ),
 )
 
@@ -185,15 +100,9 @@ class PlanRepository(dir: File) {
         }
         return mutex.withLock {
             val current = _data.value ?: StoredData()
-            val plan = Plan(StoredData.ME, Instant.now(), result.source, result.events)
-            // The full plan wins over courses added on their own.
-            val (added, dropped) = AddedCourses.dedupe(result.events, current.addedEvents)
-            val next = current.copy(
-                plans = current.plans.filterNot { it.personId == StoredData.ME } + plan,
-                courseSettings = Subjects.carryOver(current.courseSettings, result.events),
-                addedEvents = added,
-            )
-            write(next)
+            val r = de.luwify.stundenplanmd.core.store.StoreOps.importIcs(current, result, Instant.now())
+            val dropped = r.dropped
+            write(r.data)
             withContext(Dispatchers.IO) { store.writeIcs(text) }
             ImportOutcome.Imported(result.events.size, current, dropped)
         }
@@ -290,30 +199,13 @@ class PlanRepository(dir: File) {
     /** Adds or replaces a friend's plan; my rename and local settings for them are kept. */
     suspend fun importFriend(shared: SharedPlan): FriendImport = mutex.withLock {
         val current = _data.value ?: StoredData()
-        if (shared.personId == current.share.id || shared.personId == StoredData.ME) return@withLock FriendImport.Own
-        val old = current.person(shared.personId)
-        val person = (old ?: Person(shared.personId, shared.name, isMe = false)).copy(name = shared.name)
-        val plan = Plan(
-            personId = shared.personId,
-            importedAt = Instant.now(),
-            source = "share",
-            events = shared.events,
-            exportedOn = shared.exportedOn,
-            planDate = shared.planDate,
-            sharedSettings = shared.settings,
-            sharedChanges = shared.changes,
-            legacyShare = shared.legacy,
-            sharedHidden = shared.hidden,
-        )
-        val local = current.friendSettings[shared.personId]
-        write(
-            current.copy(
-                people = if (old == null) current.people + person else current.people.map { if (it.id == person.id) person else it },
-                plans = current.plans.filterNot { it.personId == shared.personId } + plan,
-                friendSettings = if (local == null) current.friendSettings else current.friendSettings + (shared.personId to Subjects.carryOver(local, shared.events)),
-            ),
-        )
-        FriendImport.Imported(person, replaced = old != null, previous = current)
+        when (val r = de.luwify.stundenplanmd.core.store.StoreOps.importFriend(current, shared, Instant.now())) {
+            de.luwify.stundenplanmd.core.store.StoreOps.FriendResult.Own -> FriendImport.Own
+            is de.luwify.stundenplanmd.core.store.StoreOps.FriendResult.Imported -> {
+                write(r.data)
+                FriendImport.Imported(r.person, replaced = r.replaced, previous = current)
+            }
+        }
     }
 
     /** Null or blank: back to the name they shared. */

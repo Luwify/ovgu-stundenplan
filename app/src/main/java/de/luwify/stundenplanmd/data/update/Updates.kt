@@ -1,5 +1,7 @@
 package de.luwify.stundenplanmd.data.update
 
+import de.luwify.stundenplanmd.core.store.UpdatesBackup
+
 import android.content.Context
 import android.os.Build
 import androidx.core.content.pm.PackageInfoCompat
@@ -167,10 +169,10 @@ class Updates(context: Context, private val settings: UpdateSettings, private va
     }
 
     /** For the backup. */
-    suspend fun backupState(): de.luwify.stundenplanmd.data.UpdatesBackup =
-        settings.current().let { de.luwify.stundenplanmd.data.UpdatesBackup(it.autoCheck, it.skippedCode) }
+    suspend fun backupState(): de.luwify.stundenplanmd.core.store.UpdatesBackup =
+        settings.current().let { de.luwify.stundenplanmd.core.store.UpdatesBackup(it.autoCheck, it.skippedCode) }
 
-    suspend fun restore(backup: de.luwify.stundenplanmd.data.UpdatesBackup) = settings.restore(backup.autoCheck, backup.skippedCode)
+    suspend fun restore(backup: de.luwify.stundenplanmd.core.store.UpdatesBackup) = settings.restore(backup.autoCheck, backup.skippedCode)
 
     fun setAutoCheck(on: Boolean) {
         scope.launch { settings.setAutoCheck(on) }

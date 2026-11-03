@@ -1,5 +1,11 @@
 package de.luwify.stundenplanmd.ui
 
+import de.luwify.stundenplanmd.data.toChoice
+import de.luwify.stundenplanmd.core.store.StoredData
+import de.luwify.stundenplanmd.core.store.MyShare
+import de.luwify.stundenplanmd.core.store.UpdatesBackup
+import de.luwify.stundenplanmd.core.store.DisplayBackup
+
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -42,9 +48,7 @@ import de.luwify.stundenplanmd.data.parseIcs
 import de.luwify.stundenplanmd.core.schedule.AddedCourses
 import de.luwify.stundenplanmd.core.schedule.FriendCourses
 import de.luwify.stundenplanmd.core.schedule.Groups
-import de.luwify.stundenplanmd.data.StoredData
 import de.luwify.stundenplanmd.data.FriendImport
-import de.luwify.stundenplanmd.data.MyShare
 import de.luwify.stundenplanmd.core.model.PlanZone
 import de.luwify.stundenplanmd.ui.theme.SubjectColors
 import java.io.File
@@ -56,7 +60,6 @@ import de.luwify.stundenplanmd.core.share.Forwarding
 import de.luwify.stundenplanmd.core.share.ShareCodec
 import de.luwify.stundenplanmd.core.share.ShareResult
 import de.luwify.stundenplanmd.core.share.SharedPlan
-import de.luwify.stundenplanmd.data.DisplayBackup
 import de.luwify.stundenplanmd.data.settings.CustomThemeSpec
 import de.luwify.stundenplanmd.data.settings.ThemeChoice
 import de.luwify.stundenplanmd.data.settings.ThemeMode
@@ -223,8 +226,8 @@ data class Snapshot(
     val ics: String?,
     val theme: ThemeChoice,
     val language: AppLanguage? = null,
-    val updates: de.luwify.stundenplanmd.data.UpdatesBackup? = null,
-    val display: de.luwify.stundenplanmd.data.DisplayBackup? = null,
+    val updates: de.luwify.stundenplanmd.core.store.UpdatesBackup? = null,
+    val display: de.luwify.stundenplanmd.core.store.DisplayBackup? = null,
 )
 
 /** A backup file read and waiting for the user's confirmation. */
@@ -614,35 +617,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun mySharedPlan(): SharedPlan? {
         val identity = repo.shareIdentity()
         val data = repo.data.value ?: return null
-        val plan = data.myPlan
-        val name = identity.name ?: return null
-        // Manual courses go with my own changes ("Eigene Änderungen teilen"), without their notes (notes are mine).
-        val withChanges = data.share.withChanges
-        // So do my rhythms for biweekly series (sent as the dates they give).
-        val all = if (withChanges) data.myEvents.map { if (it.isManual) it.copy(notes = "") else it } else data.myLsfEvents
         return withContext(Dispatchers.Default) {
-            // What I hid stays on my phone: hidden courses are left out, hidden dates listed so the friend never sees them.
-            // Notes never leave the phone ([PersonalChange.forSharing]); my changes only while the setting is on.
-            val shared = Hiding.forSharing(
-                all,
-                if (withChanges) data.personalChanges.mapNotNull { it.forSharing() } else emptyList(),
-                data.hidingOf(StoredData.ME, data.myEvents),
-            )
-            val events = shared.events
-            if (events.isEmpty()) return@withContext null
-            val keys = events.mapTo(HashSet()) { it.courseKey }
-            SharedPlan(
-                personId = identity.id!!,
-                name = name,
-                exportedOn = LocalDate.now(PlanZone),
-                planDate = (plan?.importedAt ?: java.time.Instant.now()).atZone(PlanZone).toLocalDate(),
-                events = events,
-                // Resolved over my whole plan, so automatic colors are the ones I see.
-                settings = Subjects.resolved(data.myEvents, data.courseSettings, SubjectColors::defaultColor).filterKeys { it in keys },
-                complete = true,
-                changes = shared.changes,
-                hidden = shared.hidden,
-            )
+            de.luwify.stundenplanmd.core.store.StoreOps.mySharedPlan(data, identity, LocalDate.now(PlanZone), java.time.Instant.now())
         }
     }
 

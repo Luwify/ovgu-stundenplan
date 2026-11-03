@@ -1,5 +1,7 @@
 package de.luwify.stundenplanmd.ui
 
+import de.luwify.stundenplanmd.core.store.StoredData
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -102,7 +104,7 @@ fun PlanDrawer(
                     PersonLabel(stringResource(R.string.my_plan), meSelected, listOfNotNull(my?.takeIf { !it.isEmpty }?.let { standText(it.planDate) }))
                 },
                 selected = meSelected,
-                onClick = { onSelect(de.luwify.stundenplanmd.data.StoredData.ME) },
+                onClick = { onSelect(de.luwify.stundenplanmd.core.store.StoredData.ME) },
                 modifier = Modifier.padding(horizontal = 12.dp).height(if (my?.isEmpty == false) 64.dp else 56.dp),
             )
             HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 8.dp))

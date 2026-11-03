@@ -1,5 +1,7 @@
 package de.luwify.stundenplanmd.data
 
+import de.luwify.stundenplanmd.core.store.StoredData
+
 import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.model.Person
 import de.luwify.stundenplanmd.core.schedule.AddedCourses

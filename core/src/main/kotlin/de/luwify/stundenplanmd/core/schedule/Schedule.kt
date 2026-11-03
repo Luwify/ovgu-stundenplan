@@ -104,8 +104,8 @@ class Schedule(val events: List<Event>, val changes: List<PersonalChange> = empt
             for ((e, slot) in irregular.sortedBy { it.second.start }) {
                 val week = monday(slot.start)
                 val original = pool.filter { monday(it.start) == week }.minWithOrNull(
-                    compareBy<Cancellation> { Math.abs(it.start.toLocalDate().toEpochDay() - slot.start.toLocalDate().toEpochDay()) }
-                        .thenBy { Math.abs(Duration.between(it.start.toLocalTime(), slot.start.toLocalTime()).toMinutes()) },
+                    compareBy<Cancellation> { kotlin.math.abs(it.start.toLocalDate().toEpochDay() - slot.start.toLocalDate().toEpochDay()) }
+                        .thenBy { kotlin.math.abs(Duration.between(it.start.toLocalTime(), slot.start.toLocalTime()).toMinutes()) },
                 )
                 val status = if (original == null) {
                     Status.Extra
@@ -149,7 +149,7 @@ class Schedule(val events: List<Event>, val changes: List<PersonalChange> = empt
         }
         occ.clear()
         out.forEach { if (it is Occurrence) occ += it else cancelled += it as Cancellation }
-        cancelled.replaceAll { c -> if (c.byMe) c else personal(c, lsfChanged = true)?.let { c.copy(personal = it) } ?: c }
+        for (i in cancelled.indices) cancelled[i] = cancelled[i].let { c -> if (c.byMe) c else personal(c, lsfChanged = true)?.let { c.copy(personal = it) } ?: c }
     }
 
     private val byDate: Map<LocalDate, List<Occurrence>> = occurrences.groupBy { it.date }

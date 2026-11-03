@@ -1,5 +1,7 @@
 package de.luwify.stundenplanmd.data
 
+import de.luwify.stundenplanmd.core.store.MyShare
+
 import android.annotation.SuppressLint
 import java.security.SecureRandom
 

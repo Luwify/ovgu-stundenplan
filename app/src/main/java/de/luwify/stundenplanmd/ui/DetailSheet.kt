@@ -1,5 +1,7 @@
 package de.luwify.stundenplanmd.ui
 
+import de.luwify.stundenplanmd.core.store.StoredData
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -261,7 +263,7 @@ fun TogetherNames(plan: PlanUi, ids: List<String>, style: TextStyle, color: Colo
     val heart = stringResource(R.string.favorite)
     val red = planColors().favorite
     val (favorites, others) = ids.partition { it in plan.favorites }
-    fun name(id: String) = if (id == de.luwify.stundenplanmd.data.StoredData.ME) you else plan.names[id] ?: "?"
+    fun name(id: String) = if (id == de.luwify.stundenplanmd.core.store.StoredData.ME) you else plan.names[id] ?: "?"
     val text = buildAnnotatedString {
         (favorites + others).forEachIndexed { i, id ->
             if (i > 0) append(", ")

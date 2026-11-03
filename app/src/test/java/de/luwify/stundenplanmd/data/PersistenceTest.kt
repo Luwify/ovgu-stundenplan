@@ -1,5 +1,11 @@
 package de.luwify.stundenplanmd.data
 
+import de.luwify.stundenplanmd.core.store.StoredData
+import de.luwify.stundenplanmd.core.store.MyShare
+import de.luwify.stundenplanmd.core.store.Migrations
+import de.luwify.stundenplanmd.core.store.UpdatesBackup
+import de.luwify.stundenplanmd.core.store.DisplayBackup
+
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -672,7 +678,7 @@ class PersistenceTest {
         assertUserDataSurvived(ok.backup.data)
         assertEquals("de", ok.backup.language)
         assertEquals(null, ok.backup.updates)
-        assertEquals(BackupCodec.VERSION, BackupCodec.upgrade(kotlinx.serialization.json.Json.parseToJsonElement(v2) as JsonObject)["version"]?.let { (it as JsonPrimitive).content.toInt() })
+        assertEquals(BackupCodec.VERSION, de.luwify.stundenplanmd.core.store.BackupFormat.upgrade(kotlinx.serialization.json.Json.parseToJsonElement(v2) as JsonObject)["version"]?.let { (it as JsonPrimitive).content.toInt() })
         // Defaults for a block written without the skipped version.
         val partial = BackupCodec.encode(data, null, theme, "de", UpdatesBackup(true, null))
         assertEquals(UpdatesBackup(true, null), (BackupCodec.decode(partial) as BackupResult.Ok).backup.updates)

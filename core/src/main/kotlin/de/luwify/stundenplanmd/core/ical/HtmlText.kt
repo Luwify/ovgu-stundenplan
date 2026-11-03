@@ -45,5 +45,9 @@ object HtmlText {
     }
 
     private fun codePoint(cp: Int): String? =
-        if (Character.isValidCodePoint(cp)) String(Character.toChars(cp)) else null
+        when {
+            cp < 0 || cp > 0x10FFFF -> null
+            cp < 0x10000 -> cp.toChar().toString()
+            else -> (cp - 0x10000).let { charArrayOf((0xD800 + (it shr 10)).toChar(), (0xDC00 + (it and 0x3FF)).toChar()).concatToString() }
+        }
 }

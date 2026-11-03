@@ -381,7 +381,7 @@ object ShareCodec {
         fun read(bytes: ByteArray, version: Int): SharedPlan {
             val r = In(bytes)
             val flags = r.byte()
-            val personId = (0 until 8).joinToString("") { "%02x".format(r.byte()) }
+            val personId = (0 until 8).joinToString("") { r.byte().toString(16).padStart(2, '0') }
             val exportedOn = LocalDate.ofEpochDay(r.varint())
             val planDate = LocalDate.ofEpochDay(r.varint())
             val name = r.string()
@@ -396,7 +396,7 @@ object ShareCodec {
             data class RawSetting(val key: String, val subject: String?, val shortName: String?, val color: Int?)
             val rawSettings = List(r.count(MAX_EVENTS)) {
                 val ref = r.varint()
-                val key = if (ref == 0L) s(r.varint()) else "lsf:%06d".format(course(ref))
+                val key = if (ref == 0L) s(r.varint()) else "lsf:" + pad6(course(ref))
                 val subject = opt(r.varint())
                 val shortName = opt(r.varint())
                 val color = if (r.byte() == 1) (r.byte() shl 16) or (r.byte() shl 8) or r.byte() else null
@@ -415,7 +415,7 @@ object ShareCodec {
                 val c = courseOf[i]
                 prevAppt[c] += r.zigzag()
                 require(prevAppt[c] in 0..999_999) { "appointment id" }
-                uids[i] = "%06d%06d".format(courseIds[c - 1], prevAppt[c])
+                uids[i] = pad6(courseIds[c - 1]) + pad6(prevAppt[c])
             }
             val titles = List(n) { s(r.varint()) to s(r.varint()) }
             val lecturers = List(n) { List(r.count(MAX_STRINGS)) { s(r.varint()) } }
@@ -568,3 +568,6 @@ object ShareCodec {
         }
     }
 }
+
+/** `"%06d".format(n)` without String.format (not in Kotlin/JS). */
+internal fun pad6(n: Long): String = if (n < 0) "-" + n.toString().removePrefix("-").padStart(5, '0') else n.toString().padStart(6, '0')

@@ -1,4 +1,4 @@
-package de.luwify.stundenplanmd.data
+package de.luwify.stundenplanmd.core.store
 
 import de.luwify.stundenplanmd.core.model.Event
 import de.luwify.stundenplanmd.core.model.Person

@@ -139,7 +139,7 @@ object ShareFrames {
             for (i in 0 until k) {
                 val from = i * blockSize
                 if (from >= length) break
-                System.arraycopy(data[i]!!, 0, out, from, minOf(blockSize, length - from))
+                data[i]!!.copyInto(out, from, 0, minOf(blockSize, length - from))
             }
             if (CRC32().apply { update(out) }.value == crc) {
                 result = out
