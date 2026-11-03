@@ -1,5 +1,6 @@
 package de.luwify.stundenplanmd.data
 
+import de.luwify.stundenplanmd.core.store.StoreEdits
 import de.luwify.stundenplanmd.core.store.StoredData
 import de.luwify.stundenplanmd.core.store.MyShare
 import de.luwify.stundenplanmd.core.store.Migrations
@@ -361,9 +362,8 @@ class PersistenceTest {
         repo.importIcs(ics)
         val dates = repo.data.value!!.mySchedule().occurrences.filter { it.event.uid == "900066500555" }.take(2)
         val (a, b) = dates
-        fun hiddenItem(t: de.luwify.stundenplanmd.core.schedule.Timed) =
-            Hidden(Hidden.Kind.DATE, courses = setOf(t.event.courseKey), uid = t.ref.uid, date = t.ref.date, title = t.event.title)
-        repo.setDates(cancelled = mapOf(a.ref to true, b.ref to false), hidden = mapOf(hiddenItem(a) to false, hiddenItem(b) to true), title = a.event.title)
+        fun hiddenItem(t: de.luwify.stundenplanmd.core.schedule.Timed) = de.luwify.stundenplanmd.core.store.HideTargets.date(t)
+        repo.setDates(mapOf(a to StoreEdits.DateState.CANCELLED, b to StoreEdits.DateState.HIDDEN), a.event.title)
         fun state(data: StoredData) = data.mySchedule().let { s ->
             listOf(a, b).map { t ->
                 when {
@@ -381,7 +381,7 @@ class PersistenceTest {
         repo.importIcs(ics)
         assertEquals(listOf("cancelled", "hidden"), state(repo.data.value!!))
         // Switched: the cancelled one hidden, the hidden one cancelled; never both.
-        repo.setDates(cancelled = mapOf(a.ref to false, b.ref to true), hidden = mapOf(hiddenItem(a) to true, hiddenItem(b) to false), title = a.event.title)
+        repo.setDates(mapOf(a to StoreEdits.DateState.HIDDEN, b to StoreEdits.DateState.CANCELLED), a.event.title)
         assertEquals(listOf("hidden", "cancelled"), state(repo.data.value!!))
         assertTrue(repo.data.value!!.personalChanges.none { it.uid == a.ref.uid && it.date == a.ref.date && it.cancelled })
         // "Wiederherstellen" in the Ausgeblendet list brings it back.

@@ -2,6 +2,8 @@ package de.luwify.stundenplanmd.data
 
 import de.luwify.stundenplanmd.core.store.StoredData
 import de.luwify.stundenplanmd.core.store.MyShare
+import de.luwify.stundenplanmd.core.store.StoreEdits
+import de.luwify.stundenplanmd.core.schedule.Timed
 
 import de.luwify.stundenplanmd.core.ical.LsfImport
 import de.luwify.stundenplanmd.core.model.CourseSetting
@@ -32,16 +34,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.io.File
 import java.time.Instant
-
-/**
- * This state with the colors my subjects showed in [previous] kept ([Subjects.keepColors]): for changes that add or
- * remove my courses, so the automatic colors of the other subjects don't move.
- */
-private fun StoredData.keepingColors(previous: StoredData): StoredData = copy(
-    courseSettings = Subjects.keepColors(
-        previous.myEvents, previous.courseSettings, myEvents, courseSettings, de.luwify.stundenplanmd.core.store.SubjectPalette::defaultColor,
-    ),
-)
 
 sealed interface FriendImport {
     /** [replaced]: a plan of this person was there before. [previous] allows undo. */
@@ -111,10 +103,8 @@ class PlanRepository(dir: File) {
     /** Adds the courses of an .ics to my plan, next to the imported one ([AddedCourses.add]); [AddOutcome.previous] allows undo. */
     suspend fun addCourses(events: List<Event>): AddOutcome = mutex.withLock {
         val current = _data.value ?: StoredData()
-        val r = AddedCourses.add(current.myPlan?.events.orEmpty(), current.addedEvents, events)
-        if (r.events != current.addedEvents) {
-            write(current.copy(addedEvents = r.events, courseSettings = Subjects.carryOver(current.courseSettings, current.myPlan?.events.orEmpty() + r.events)).keepingColors(current))
-        }
+        val r = StoreEdits.addCourses(current, events)
+        if (r.data != current) write(r.data)
         AddOutcome(r.added, r.updated, r.duplicates, current)
     }
 
@@ -125,20 +115,8 @@ class PlanRepository(dir: File) {
      */
     suspend fun addFromFriend(group: List<Event>, color: Int?): StoredData? = mutex.withLock {
         val current = _data.value ?: return@withLock null
-        val lsf = current.myPlan?.events.orEmpty()
-        if (group.isEmpty() || FriendCourses.state(group, lsf, current.addedEvents, current.manualCourses) != FriendCourses.State.ADDABLE) return@withLock null
-        val next = if (group.first().isManual) {
-            val course = FriendCourses.manualCourse(group.first())
-            current.copy(
-                manualCourses = current.manualCourses + course,
-                courseSettings = FriendCourses.settings(current.courseSettings, current.myEvents, listOf(ManualCourses.event(course)), color),
-            )
-        } else {
-            val added = AddedCourses.add(lsf, current.addedEvents, group).events
-            val settings = Subjects.carryOver(current.courseSettings, lsf + added)
-            current.copy(addedEvents = added, courseSettings = FriendCourses.settings(settings, current.myEvents, group, color))
-        }
-        write(next.keepingColors(current))
+        val next = StoreEdits.addFromFriend(current, group, color) ?: return@withLock null
+        write(next)
         current
     }
 
@@ -146,20 +124,7 @@ class PlanRepository(dir: File) {
      * Removes added appointments ([group]: one group of a course, [de.luwify.stundenplanmd.core.schedule.Groups]) with my
      * changes and rhythms for them; other groups of the course stay. Returns the previous state for undo.
      */
-    suspend fun removeAdded(group: Set<String>): StoredData? = mutex.withLock {
-        val current = _data.value ?: return@withLock null
-        val uids = current.addedEvents.map { it.uid }.filter { it in group }.toSet()
-        if (uids.isEmpty()) return@withLock null
-        val mine = current.rhythmsOf(StoredData.ME) - uids
-        write(
-            current.copy(
-                addedEvents = AddedCourses.remove(current.addedEvents, uids),
-                personalChanges = current.personalChanges.filterNot { it.uid in uids },
-                rhythms = if (mine.isEmpty()) current.rhythms - StoredData.ME else current.rhythms + (StoredData.ME to mine),
-            ).keepingColors(current),
-        )
-        current
-    }
+    suspend fun removeAdded(group: Set<String>): StoredData? = edit { StoreEdits.removeAdded(it, group) }
 
     /**
      * A friend's plan from an .ics: new ([existingId] null, named [name]) or an update of an .ics friend I have (their
@@ -167,18 +132,9 @@ class PlanRepository(dir: File) {
      */
     suspend fun importIcsFriend(events: List<Event>, source: String?, name: String, existingId: String?, today: LocalDate): FriendImport.Imported = mutex.withLock {
         val current = _data.value ?: StoredData()
-        val old = existingId?.let(current::person)?.takeIf { it.fromIcs }
-        val person = old ?: Person(Person.ICS_ID_PREFIX + PersonIds.new(), name.trim(), isMe = false)
-        val plan = Plan(personId = person.id, importedAt = Instant.now(), source = source, events = events, planDate = today)
-        val local = current.friendSettings[person.id]
-        write(
-            current.copy(
-                people = if (old == null) current.people + person else current.people,
-                plans = current.plans.filterNot { it.personId == person.id } + plan,
-                friendSettings = if (local == null) current.friendSettings else current.friendSettings + (person.id to Subjects.carryOver(local, events)),
-            ),
-        )
-        FriendImport.Imported(person, replaced = old != null, previous = current)
+        val r = StoreEdits.importIcsFriend(current, events, source, name, existingId, PersonIds.new(), today, Instant.now())
+        write(r.data)
+        FriendImport.Imported(r.person, replaced = r.replaced, previous = current)
     }
 
     suspend fun restore(previous: StoredData) = mutex.withLock { write(previous) }
@@ -209,48 +165,18 @@ class PlanRepository(dir: File) {
     }
 
     /** Null or blank: back to the name they shared. */
-    suspend fun renameFriend(id: String, name: String?) = mutex.withLock {
-        val current = _data.value ?: return@withLock
-        write(current.copy(people = current.people.map { if (it.id == id && !it.isMe) it.copy(localName = name?.trim()?.ifEmpty { null }) else it }))
-    }
+    suspend fun renameFriend(id: String, name: String?) { edit { StoreEdits.renameFriend(it, id, name) } }
 
     /** New drawer order of the friends ([ids]); unknown ids are ignored, missing friends keep their place at the end. */
-    suspend fun reorderFriends(ids: List<String>) = mutex.withLock {
-        val current = _data.value ?: return@withLock
-        val rank = ids.withIndex().associate { it.value to it.index }
-        val (me, friends) = current.people.partition { it.isMe }
-        val next = me + friends.sortedBy { rank[it.id] ?: Int.MAX_VALUE }
-        if (next != current.people) write(current.copy(people = next))
-    }
+    suspend fun reorderFriends(ids: List<String>) { edit { StoreEdits.reorderFriends(it, ids) } }
 
-    suspend fun setFavorite(id: String, favorite: Boolean) = mutex.withLock {
-        val current = _data.value ?: return@withLock
-        write(current.copy(people = current.people.map { if (it.id == id && !it.isMe) it.copy(favorite = favorite) else it }))
-    }
+    suspend fun setFavorite(id: String, favorite: Boolean) { edit { StoreEdits.setFavorite(it, id, favorite) } }
 
     /** Removes the friend, their plan and my settings for them; returns the previous state for undo. */
-    suspend fun deleteFriend(id: String): StoredData? = mutex.withLock {
-        val current = _data.value ?: return@withLock null
-        if (id == StoredData.ME) return@withLock null
-        write(
-            current.copy(
-                people = current.people.filterNot { it.id == id },
-                plans = current.plans.filterNot { it.personId == id },
-                friendSettings = current.friendSettings - id,
-                rhythms = current.rhythms - id,
-                hidden = current.hidden - id,
-            ),
-        )
-        current
-    }
+    suspend fun deleteFriend(id: String): StoredData? = edit { StoreEdits.deleteFriend(it, id) }
 
     /** My rhythm for the series [uid] in [personId]'s plan; null = as the data says. */
-    suspend fun setRhythm(personId: String, uid: String, rhythm: WeekRhythm?) = mutex.withLock {
-        val current = _data.value ?: return@withLock
-        val mine = current.rhythmsOf(personId).let { if (rhythm == null) it - uid else it + (uid to rhythm) }
-        val next = if (mine.isEmpty()) current.rhythms - personId else current.rhythms + (personId to mine)
-        if (next != current.rhythms) write(current.copy(rhythms = next))
-    }
+    suspend fun setRhythm(personId: String, uid: String, rhythm: WeekRhythm?) { edit { StoreEdits.setRhythm(it, personId, uid, rhythm) } }
 
     suspend fun updateFriendSettings(id: String, transform: (Map<String, CourseSetting>) -> Map<String, CourseSetting>) = mutex.withLock {
         val current = _data.value ?: return@withLock
@@ -266,66 +192,43 @@ class PlanRepository(dir: File) {
     /** Adds or replaces (same id) a manual course and sets its course settings ([setting] null = none). */
     suspend fun saveManual(course: ManualCourse, setting: CourseSetting?) = mutex.withLock {
         val current = _data.value ?: StoredData()
-        val courses = if (current.manualCourses.any { it.id == course.id }) {
-            current.manualCourses.map { if (it.id == course.id) course else it }
-        } else {
-            current.manualCourses + course
-        }
-        val settings = if (setting == null) current.courseSettings - course.courseKey else current.courseSettings + (course.courseKey to setting)
-        write(current.copy(manualCourses = courses, courseSettings = settings).keepingColors(current))
+        write(StoreEdits.saveManual(current, course, setting))
     }
 
     /** Removes a manual course with its settings and my changes to it; returns the previous state for undo. */
-    suspend fun deleteManual(id: String): StoredData? = mutex.withLock {
-        val current = _data.value ?: return@withLock null
-        val course = current.manualCourses.firstOrNull { it.id == id } ?: return@withLock null
-        val (courses, changes) = ManualCourses.remove(current.manualCourses, current.personalChanges, id)
-        write(current.copy(manualCourses = courses, personalChanges = changes, courseSettings = current.courseSettings - course.courseKey).keepingColors(current))
-        current
-    }
+    suspend fun deleteManual(id: String): StoredData? = edit { StoreEdits.deleteManual(it, id) }
 
     /** Hides [item] in [personId]'s plan (narrower items it covers are dropped); returns the previous state for undo. */
-    suspend fun hide(personId: String, item: Hidden): StoredData? = mutex.withLock {
-        val current = _data.value ?: return@withLock null
-        write(current.copy(hidden = current.hidden + (personId to Hidden.add(current.hiddenOf(personId), item))))
-        current
-    }
+    suspend fun hide(personId: String, item: Hidden): StoredData? = edit { StoreEdits.hide(it, personId, item) }
 
     /**
      * "Termine auswählen" in my plan, in one write: [cancelled] = date -> cancelled for me or not, [hidden] = date ->
      * hidden or not.
      */
-    suspend fun setDates(cancelled: Map<de.luwify.stundenplanmd.core.schedule.OccurrenceRef, Boolean>, hidden: Map<Hidden, Boolean>, title: String) = mutex.withLock {
-        val current = _data.value ?: return@withLock
-        val changes = cancelled.entries.fold(current.personalChanges) { acc, (ref, on) ->
-            de.luwify.stundenplanmd.core.schedule.PersonalChanges.setCancelled(acc, ref, title, on)
-        }
-        val list = hidden.entries.fold(current.hiddenOf(StoredData.ME)) { acc, (item, on) -> if (on) Hidden.add(acc, item) else Hidden.remove(acc, item) }
-        val next = current.copy(
-            personalChanges = changes,
-            hidden = if (list.isEmpty()) current.hidden - StoredData.ME else current.hidden + (StoredData.ME to list),
-        )
-        if (next != current) write(next)
-    }
+    suspend fun setDates(states: Map<Timed, StoreEdits.DateState>, title: String) { edit { StoreEdits.setDates(it, states, title) } }
 
     /** Shows [item] in [personId]'s plan again ("Wiederherstellen"). */
-    suspend fun unhide(personId: String, item: Hidden) = mutex.withLock {
-        val current = _data.value ?: return@withLock
-        val list = Hidden.remove(current.hiddenOf(personId), item)
-        write(current.copy(hidden = if (list.isEmpty()) current.hidden - personId else current.hidden + (personId to list)))
-    }
+    suspend fun unhide(personId: String, item: Hidden) { edit { StoreEdits.unhide(it, personId, item) } }
 
-    suspend fun setShareChanges(on: Boolean) = mutex.withLock {
-        val current = _data.value ?: return@withLock
-        if (current.share.withChanges != on) write(current.copy(share = current.share.copy(withChanges = on)))
-    }
+    suspend fun setShareChanges(on: Boolean) { edit { StoreEdits.setShareChanges(it, on) } }
 
     /** My share identity; the id is made on first use. [name] null keeps the stored one. */
     suspend fun shareIdentity(name: String? = null): MyShare = mutex.withLock {
         val current = _data.value ?: StoredData()
-        val next = current.share.copy(id = current.share.id ?: PersonIds.new(), name = name?.trim()?.ifEmpty { null } ?: current.share.name)
-        if (next != current.share) write(current.copy(share = next))
-        next
+        val next = StoreEdits.shareIdentity(current, name, PersonIds.new())
+        if (next != current) write(next)
+        next.share
+    }
+
+    /**
+     * Applies [change] to the stored data ([StoreEdits]); a result equal to the current state writes nothing. Returns
+     * the previous state (for undo), or null when [change] returned null.
+     */
+    suspend fun edit(change: (StoredData) -> StoredData?): StoredData? = mutex.withLock {
+        val current = _data.value ?: return@withLock null
+        val next = change(current) ?: return@withLock null
+        if (next != current) write(next)
+        current
     }
 
     private suspend fun write(next: StoredData) {

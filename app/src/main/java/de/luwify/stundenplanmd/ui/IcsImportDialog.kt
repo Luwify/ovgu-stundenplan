@@ -22,7 +22,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import de.luwify.stundenplanmd.R
-import de.luwify.stundenplanmd.data.IcsRoute
+import de.luwify.stundenplanmd.core.store.IcsRoute
 
 /**
  * What to do with an .ics: from the settings with far fewer courses than my plan, replace it or add the courses; from

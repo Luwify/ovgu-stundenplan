@@ -1,5 +1,8 @@
 package de.luwify.stundenplanmd.data
 
+import de.luwify.stundenplanmd.core.store.ImportRouting
+import de.luwify.stundenplanmd.core.store.IcsRoute
+import de.luwify.stundenplanmd.core.store.IcsEntry
 import de.luwify.stundenplanmd.core.store.StoredData
 import de.luwify.stundenplanmd.core.store.Migrations
 import de.luwify.stundenplanmd.core.store.UpdatesBackup

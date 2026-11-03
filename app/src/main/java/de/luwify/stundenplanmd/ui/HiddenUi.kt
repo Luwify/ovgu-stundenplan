@@ -1,5 +1,7 @@
 package de.luwify.stundenplanmd.ui
 
+import de.luwify.stundenplanmd.core.store.HideTargets
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -45,32 +47,6 @@ import java.time.LocalTime
 import java.time.format.TextStyle
 import java.util.Locale
 
-/** What can be hidden: built from the item tapped (or the subject edited) in [PlanUi]. */
-object HideTargets {
-    fun subject(subject: Subject) = Hidden(
-        Hidden.Kind.SUBJECT, subject = subject.key, courses = subject.courses.mapTo(LinkedHashSet()) { it.key }, title = subject.name,
-    )
-
-    fun course(course: Course) = Hidden(Hidden.Kind.COURSE, courses = setOf(course.key), title = course.title, type = typeName(course))
-
-    /** The group of [item]: its series (or the series it was moved out of), described by that series' day, time, room. */
-    fun group(plan: PlanUi, item: Timed): Hidden {
-        val base = Groups.baseUid(item)
-        val series = plan.schedule.events.firstOrNull { it.uid == base } ?: item.event
-        return Hidden(
-            Hidden.Kind.GROUP, courses = setOf(item.event.courseKey), uid = base, title = series.title, type = series.type.name,
-            day = series.start.dayOfWeek.value, start = series.start.toLocalTime(), end = series.end.toLocalTime(), room = series.location?.room,
-        )
-    }
-
-    /** One date ([Timed.ref]: an occurrence LSF moved is kept by the date it was moved from). */
-    fun date(item: Timed) = Hidden(
-        Hidden.Kind.DATE, courses = setOf(item.event.courseKey), uid = item.ref.uid, date = item.ref.date, title = item.event.title,
-        type = item.event.type.name, start = item.start.toLocalTime(), end = item.end.toLocalTime(), room = item.room,
-    )
-
-    fun typeName(course: Course): String = course.type.name.ifEmpty { course.type.short }
-}
 
 /** "Mo 9–11" */
 private fun slotText(day: Int?, start: LocalTime?, end: LocalTime?, locale: Locale): String = listOfNotNull(
@@ -104,7 +80,7 @@ fun hideChoices(plan: PlanUi, item: Timed, subject: Subject?): List<Pair<String,
         if (course != null && subject.courses.size > 1) {
             add(stringResource(R.string.hide_type, HideTargets.typeName(course)) to { HideTargets.course(course) })
         }
-        if (groups > 1) add(stringResource(R.string.hide_group) to { HideTargets.group(plan, item) })
+        if (groups > 1) add(stringResource(R.string.hide_group) to { HideTargets.group(plan.schedule, item) })
     }
 }
 

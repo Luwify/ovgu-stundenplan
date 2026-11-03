@@ -40,10 +40,11 @@ import de.luwify.stundenplanmd.data.BackupResult
 import de.luwify.stundenplanmd.data.StoreRead
 import de.luwify.stundenplanmd.data.IcsSource
 import de.luwify.stundenplanmd.data.ImportOutcome
-import de.luwify.stundenplanmd.data.IcsEntry
+import de.luwify.stundenplanmd.core.store.IcsEntry
+import de.luwify.stundenplanmd.core.store.StoreEdits
 import de.luwify.stundenplanmd.data.IcsParse
-import de.luwify.stundenplanmd.data.IcsRoute
-import de.luwify.stundenplanmd.data.ImportRouting
+import de.luwify.stundenplanmd.core.store.IcsRoute
+import de.luwify.stundenplanmd.core.store.ImportRouting
 import de.luwify.stundenplanmd.data.parseIcs
 import de.luwify.stundenplanmd.core.schedule.AddedCourses
 import de.luwify.stundenplanmd.core.schedule.FriendCourses
@@ -668,25 +669,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun setSubjectStyle(subject: Subject, shortName: String?, color: Int?, typed: Map<String, String?> = emptyMap()) {
         val p = plan.value ?: return
-        fun apply(settings: Map<String, CourseSetting>) = typed.entries.fold(Subjects.setStyle(settings, subject, shortName, color)) { acc, (key, part) ->
-            subject.courses.firstOrNull { it.key == key }?.let { Subjects.setTypeShortName(acc, it, part) } ?: acc
-        }
-        viewModelScope.launch {
-            if (p.isMe) {
-                repo.updateSettings(::apply)
-            } else {
-                val edited = apply(p.settings)
-                repo.updateFriendSettings(p.person.id) { local ->
-                    val keys = subject.courses.map { it.key }.toSet()
-                    if (shortName.isNullOrBlank() && color == null && keys.all { edited[it]?.typeShortName == null }) {
-                        local.filterKeys { it !in keys || local[it]?.subject != null }
-                            .mapValues { (k, v) -> if (k in keys) v.copy(shortName = null, color = null, typeShortName = null) else v }
-                    } else {
-                        Subjects.overrides(local, p.settings, edited)
-                    }
-                }
-            }
-        }
+        viewModelScope.launch { repo.edit { StoreEdits.setSubjectStyle(it, p.person.id, subject, shortName, color, typed) } }
     }
 
     /** Hides [item] in the plan shown; [what] names it in the snackbar (with undo). */
@@ -715,13 +698,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun moveCourse(course: Course, target: String) {
         val p = plan.value ?: return
-        viewModelScope.launch {
-            if (p.isMe) {
-                repo.updateSettings { Subjects.move(it, course, target, p.subjects) }
-            } else {
-                repo.updateFriendSettings(p.person.id) { local -> Subjects.overrides(local, p.settings, Subjects.move(p.settings, course, target, p.subjects)) }
-            }
-        }
+        viewModelScope.launch { repo.edit { StoreEdits.moveCourse(it, p.person.id, course, target) } }
     }
 
     /** Own changes no date of my plan matches any more (after a re-import): the cleanup list in the settings. */
@@ -753,11 +730,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setDates(states: Map<Timed, DateState>, title: String) {
         if (states.isEmpty()) return
         viewModelScope.launch {
-            repo.setDates(
-                cancelled = states.entries.associate { (t, s) -> t.ref to (s == DateState.CANCELLED) },
-                hidden = states.entries.associate { (t, s) -> HideTargets.date(t) to (s == DateState.HIDDEN) },
-                title = title,
-            )
+            repo.setDates(states, title)
         }
     }
 

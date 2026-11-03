@@ -94,15 +94,8 @@ private fun dateOfMillis(ms: Long) = java.time.Instant.ofEpochMilli(ms).atZone(Z
 /** What the editor saves: the course and its subject (an existing subject's key, or null = a new one of its own). */
 data class ManualEdit(val course: ManualCourse, val subjectKey: String?, val shortName: String?, val color: Int?) {
     /** The course setting to store: the chosen subject's style, or the new subject's short name and color. */
-    fun setting(plan: PlanUi): CourseSetting {
-        val key = course.courseKey
-        val subject = subjectKey?.let { k -> plan.subjects.firstOrNull { it.key == k } }
-        return if (subject != null) {
-            CourseSetting(key, course.title, subject = subject.key, shortName = subject.shortName, color = subject.color)
-        } else {
-            CourseSetting(key, course.title, subject = Subjects.ownKey(key), shortName = shortName, color = color)
-        }
-    }
+    fun setting(plan: PlanUi): CourseSetting =
+        de.luwify.stundenplanmd.core.store.StoreEdits.manualSetting(course, plan.subjects, subjectKey, shortName, color)
 }
 
 /**

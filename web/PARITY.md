@@ -69,3 +69,11 @@ FreeGaps, ManualCourses, Subjects), but the *StoredData edits* that use it live 
 
 ## Phase log
 - Phase 0 (inventory): done, this file.
+- Phase A (logic into :core): done. `core/store/StoreEdits.kt` (+ `HideTargets`, `ImportRouting`, `IcsEntry/IcsRoute`)
+  holds every edit `PlanRepository`/`MainViewModel` made; `:app` calls it (`PlanRepository.edit { }`), Android tests and
+  lint unchanged. WebCore exposes it all (keys `uid|start|o/c` for dates): detail, hide/hideSubject/hideCourse,
+  hidden/unhide, setCancelledForMe, savePersonal, pickDates/setDates, orphans/deleteChange, subjects, setSubjectStyle,
+  moveCourse, setRhythm, manual courses, removeAdded(+Course), addFromFriend, removeFriendGroup, renameFriend,
+  reorderFriends, readIcs/icsReplaceMine/icsAddCourses/icsAddFriend, setShareChanges, qrPayloadAs/shareFileAs; day gaps
+  carry "together". Compat: `CompatEdits` (19 steps) JVM golden == WebCore in JS, plus share file/QR/backup of the
+  result both ways (`StoreEditsTest` on the JVM).

@@ -271,7 +271,7 @@ private fun ScopeRow(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 /** What "Termine auswählen" makes of a date: it takes place, is shown as cancelled for me, or is hidden. */
-enum class DateState { ON, CANCELLED, HIDDEN }
+typealias DateState = de.luwify.stundenplanmd.core.store.StoreEdits.DateState
 
 /**
  * "Termine auswählen": every date of [item]'s group in my plan (LSF cancellations left out), checked = takes place for
@@ -289,19 +289,10 @@ fun PickDatesDialog(
 ) {
     val locale = appLocale()
     val course = item.event.courseKey
-    val hiddenRefs = remember(hiddenDates) {
-        hiddenDates.filter { it.kind == de.luwify.stundenplanmd.core.model.Hidden.Kind.DATE && it.uid != null && it.date != null }
-            .mapTo(HashSet()) { OccurrenceRef(it.uid!!, it.date!!) }
-    }
     // Only this group's dates (a course can have several groups, e.g. exercise groups in other time slots), with the
     // hidden ones: from the plan without hiding.
-    val dates: List<Pair<Timed, DateState>> = remember(plan, item, hiddenRefs) {
-        val full = de.luwify.stundenplanmd.core.schedule.Schedule(plan.schedule.events, plan.schedule.changes)
-        val group = Groups.of(full, item)
-        (full.occurrences + full.cancellations.filter { it.byMe })
-            .filter { it.event.uid in group }
-            .sortedBy { it.start }
-            .map { t -> t to if (t.ref in hiddenRefs) DateState.HIDDEN else if (t is Cancellation) DateState.CANCELLED else DateState.ON }
+    val dates: List<Pair<Timed, DateState>> = remember(plan, item, hiddenDates) {
+        de.luwify.stundenplanmd.core.store.StoreEdits.pickDates(plan.schedule.events, plan.schedule.changes, hiddenDates, item)
     }
     val checked = remember { mutableStateMapOf<OccurrenceRef, Boolean>() }
     fun isOn(t: Timed, initial: DateState) = checked[t.ref] ?: (initial == DateState.ON)

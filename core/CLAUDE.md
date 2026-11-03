@@ -11,7 +11,8 @@
   No inline regex flags (`(?i)`): use `RegexOption` (JS has none). No `String.format`, `Character`, `System`, `Math`.
 - `src/jsMain/kotlin/.../web/WebCore.kt`: the exported API (`@JsExport`, JSON strings in/out) the web app calls.
 - `src/compatTest/kotlin` (in jvmTest and jsTest): `CompatProbe.describe` = state JSON, schedules, together, subjects,
-  a java.time probe, QR payloads, files, frames, backup. Task `compatGolden` writes the JVM result as `CompatGolden.kt`
+  a java.time probe, QR payloads, files, frames, backup; `CompatEdits` = every `StoreEdits` step in a fixed sequence (JVM
+  states golden; `CompatTest.webCoreEditsGiveTheJvmStates` drives the same steps through WebCore's API). Task `compatGolden` writes the JVM result as `CompatGolden.kt`
   (build/generated) for jsTest; `CompatTest` (jsNodeTest) must reproduce it byte for byte (deflate output too, pako ==
   the JDK's zlib so far) and checks `WebCore`. `:core:test` runs jvmTest + jsNodeTest.
 - `:core:webCore` syncs the optimized JS build (whole-program DCE, ES module) into `web/src/generated/core`.
@@ -37,7 +38,10 @@
     `Hiding` (what a `Schedule` leaves out, `forSharing`), `AddedCourses`/`Groups`, `FriendCourses` ("Zu meinem Plan"), `FreeGaps`/`FreeGap` (`DayPlan.gaps`: breaks of >= 45 min between occurrences, cancelled/hidden leave a gap), `HourScale` (hour height of the week grid: fill the height, minimum, margin).
   - `share/`: `Base45` (RFC 9285), `ShareCodec` (`SharedPlan`, `ShareResult`, QR text / file, limits).
   - `store/`: `StoredData` + `MyShare` + `SubjectPalette` (default subject colors), `Migrations`, `BackupFormat` (the
-    backup envelope; `:app`'s `BackupCodec` maps the theme), `StoreOps` (pure import, friend import, my share).
+    backup envelope; `:app`'s `BackupCodec` maps the theme), `StoreOps` (pure import, friend import, my share),
+    `StoreEdits` (every other edit of the stored state, pure: styles, moves, rhythms, hiding, "Termine auswählen",
+    manual courses, added/friend courses, .ics friends, friend order/name/favorite, share identity; `PlanRepository`
+    and WebCore both call it), `HideTargets` (what "Ausblenden" hides), `ImportRouting` (.ics routing).
   - `update/` (JVM only): `UpdateManifest`, `UpdatePolicy` (see "In-app updater").
 - Share codec details: `core/src/main/kotlin/de/luwify/stundenplanmd/core/share/CLAUDE.md`; updater: `app/src/main/java/de/luwify/stundenplanmd/data/update/CLAUDE.md`.
 

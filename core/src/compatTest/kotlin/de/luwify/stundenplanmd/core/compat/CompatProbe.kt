@@ -147,6 +147,19 @@ object CompatProbe {
         val backup = BackupFormat.encode(d, ics, ThemeBackup("system", "system", 0x7839D0, false, ""), "system", UpdatesBackup(), DisplayBackup(), NOW)
         out += "backup" to backup
         out += "backupRestored" to ((BackupFormat.decode(backup) as BackupFileResult.Ok).backup.data == d).toString()
+        // Every edit the web app makes, and the result shared and backed up.
+        val edits = CompatEdits.run(ics)
+        for ((name, state) in edits) out += "edit:$name" to json.encodeToString(StoredData.serializer(), state)
+        val e = edits.last().second
+        out += "edits:schedule:me" to schedule(e.mySchedule())
+        out += "edits:week:me" to e.mySchedule().week(LocalDate.of(2026, 10, 12)).toString()
+        for (f in e.friends) out += "edits:schedule:${f.id}" to schedule(e.schedule(e.planOf(f.id)!!))
+        val editsShare = StoreOps.mySharedPlan(e, e.share, LocalDate.of(2026, 11, 3), NOW)!!
+        out += "edits:file:me" to b64(ShareCodec.file(editsShare))
+        out += "edits:qr:me" to b64(ShareCodec.qrPayload(editsShare))
+        val editsBackup = BackupFormat.encode(e, ics, ThemeBackup("system", "system", 0x7839D0, false, ""), "system", UpdatesBackup(), DisplayBackup(), NOW)
+        out += "edits:backup" to editsBackup
+        out += "edits:backupRestored" to ((BackupFormat.decode(editsBackup) as BackupFileResult.Ok).backup.data == e).toString()
         return out
     }
 }

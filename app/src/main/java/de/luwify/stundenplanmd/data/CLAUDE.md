@@ -2,7 +2,8 @@
 
 - The format (`StoredData`, `MyShare`, `Migrations`, backup envelope `BackupFormat`, `StoreOps`) is in `:core` `store/`
   (shared with the web app); `:app` keeps the I/O, `BackupCodec` (theme mapping) and the repository.
-- `:app`: `data/PlanRepository` (one atomic JSON file `files/plans/data.json` + `me.ics`, `StoredData`
+- `:app`: `data/PlanRepository` (the edits themselves are `:core` `StoreEdits`; the repository serializes and writes them,
+  `edit { }`; one atomic JSON file `files/plans/data.json` + `me.ics`, `StoredData`
   with people/plans/courseSettings/friendSettings/share, import with undo, friend import/rename/delete,
   `shareIdentity`), `data/PersonIds`, `data/IcsSource` (uri -> bytes, text UTF-8/1252),
   `data/settings/ThemeSettings` (DataStore, Mensa MD keys).

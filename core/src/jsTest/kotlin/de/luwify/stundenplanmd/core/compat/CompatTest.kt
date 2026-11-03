@@ -1,6 +1,11 @@
 package de.luwify.stundenplanmd.core.compat
 
+import de.luwify.stundenplanmd.core.model.Subjects
+import de.luwify.stundenplanmd.core.model.WeekRhythm
 import de.luwify.stundenplanmd.core.share.ShareCodec
+import de.luwify.stundenplanmd.core.store.StoreEdits
+import de.luwify.stundenplanmd.core.store.StoredData
+import de.luwify.stundenplanmd.core.model.ManualCourse
 import de.luwify.stundenplanmd.core.share.ShareResult
 import de.luwify.stundenplanmd.web.FrameDecoder
 import de.luwify.stundenplanmd.web.WebCore
@@ -70,5 +75,71 @@ class CompatTest {
         assertSame("richState", g("richState"), w.stateJson())
         val extras = r.substringAfter("\"extras\":\"").substringBefore("\",\"").replace("\\\"", "\"")
         assertSame("backup", g("backup"), w.backup(CompatGolden.ics, extras, CompatProbe.NOW_MS))
+    }
+
+    /** [CompatEdits] through WebCore's API (keys and JSON, as the web app calls it): the JVM's state after every step. */
+    @Test
+    fun webCoreEditsGiveTheJvmStates() {
+        val ics = CompatGolden.ics
+        val w = WebCore(g("richState"))
+        fun d() = CompatProbe.json.decodeFromString(StoredData.serializer(), w.stateJson())
+        fun check(name: String) = assertSame("edit:$name", g("edit:$name"), w.stateJson())
+        val me = StoredData.ME
+        val e = CompatEdits
+
+        e.styleSubject(d()).let { s -> w.setSubjectStyle(me, s.key, "Ana2", 0x00897B, "{\"${s.courses.first().key}\":\"Ü\"}") }
+        check("style")
+        e.moveCourse(d()).let { c -> w.moveCourse(me, c.key, Subjects.ownKey(c.key)) }
+        check("move")
+        w.setRhythm(me, e.rhythmUid(d()), WeekRhythm.EVEN_WEEKS.name)
+        check("rhythm")
+        assertTrue(w.hide(me, e.key(e.groupDate(d())), "group") != null)
+        check("hideGroup")
+        assertTrue(w.hide(me, e.key(e.typeDate(d())), "type") != null)
+        check("hideType")
+        assertTrue(w.setCancelledForMe(e.key(e.cancelDate(d())), true) != null)
+        check("cancel")
+        e.personalDate(d()).let { t ->
+            val v = e.personalValues(t)
+            assertTrue(w.savePersonal(e.key(t), true, v.note, v.st, v.room!!, v.start.toString(), v.end.toString()))
+        }
+        check("personal")
+        e.pickDate(d()).let { t ->
+            val dates = StoreEdits.pickDates(d(), t).map { e.key(it.first) }
+            w.setDates(e.key(t), "{\"${dates[0]}\":\"CANCELLED\",\"${dates[1]}\":\"HIDDEN\"}")
+        }
+        check("dates")
+        assertTrue(w.saveManual(CompatProbe.json.encodeToString(ManualCourse.serializer(), e.manual), null, "LG", 0xF4511E))
+        check("manual")
+        assertTrue(w.readIcs(e.friendIcs(ics), false).contains("askFriendOrAdd"))
+        assertTrue(w.icsAddFriend("Kim", null, CompatEdits.ICS_FRIEND_HEX, CompatProbe.NOW_MS).contains(e.icsFriendId()))
+        check("icsFriend")
+        StoreEdits.subjectsOf(d(), e.icsFriendId()).first().let { s -> w.setSubjectStyle(e.icsFriendId(), s.key, "K", -1, "{}") }
+        check("friendStyle")
+        assertTrue(w.addFromFriend(e.icsFriendId(), e.key(e.friendDate(d()))) != null)
+        check("addFromFriend")
+        w.readIcs(e.addedIcs(ics), false)
+        w.icsAddCourses()
+        check("addCourses")
+        assertTrue(w.removeAdded(e.key(e.addedDate(d()))) != null)
+        check("removeAdded")
+        w.renameFriend(e.icsFriendId(), "Kimmy")
+        check("rename")
+        w.setFavorite(e.icsFriendId(), true)
+        check("favorite")
+        w.reorderFriends("[\"${e.icsFriendId()}\",\"${CompatProbe.FRIEND_ID}\"]")
+        check("reorder")
+        w.setShareChanges(false)
+        check("shareChanges")
+        w.unhide(me, 0)
+        check("unhide")
+        // Shared and backed up from the web: the JVM's bytes.
+        assertEquals(g("edits:file:me"), CompatProbe.b64(w.shareFile(me, CompatProbe.NOW_MS)!!))
+        assertEquals(g("edits:qr:me"), CompatProbe.b64(w.qrPayload(me, CompatProbe.NOW_MS)!!))
+        assertSame("edits:backup", g("edits:backup"), w.backup(ics, null, CompatProbe.NOW_MS))
+        // And an Android backup with all of it restores on the web to the same state.
+        val r = WebCore(null)
+        assertTrue(r.restore(g("edits:backup")).contains("\"ok\":true"))
+        assertSame("edit:unhide", g("edit:unhide"), r.stateJson())
     }
 }
