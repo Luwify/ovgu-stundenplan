@@ -89,7 +89,9 @@
   toggle "Als ein Code" / "Animiert" below, remembered in `ThemeSettings.qrMode` (key `qr_mode`, null = by size; not
   in the backup); one code only when it fits at all (v40). Before showing one code `ShareQr.readable` renders it and
   reads it back with ZXing's camera detector, switching the mask if needed (some masks fail even on perfect
-  images). `QrCode` draws on whole pixels (a half-pixel origin left seams that broke ZXing's hybrid binarizer).
+  images). `QrCode` draws on whole pixels, module size and origin (`ShareQr.layout`; a half-pixel origin left 1 px seams
+  that broke ZXing's hybrid binarizer and jsQR, seen on version-12 frames until 1.6.0; `ShareQrTest` reads frames
+  rasterized at 100 % for many sizes).
   Scanner: frames go to a `ShareFrames.Decoder` (progress "Animierter Code: 62 %"), the finished payload into the
   normal import as `SPMD:` + Base45; the analyzer reports each new text once and keeps going for frames.
   Share file via FileProvider (`${applicationId}.files`, cache/share only).

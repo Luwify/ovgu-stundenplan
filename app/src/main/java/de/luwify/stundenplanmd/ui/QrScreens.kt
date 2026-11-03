@@ -101,7 +101,6 @@ import de.luwify.stundenplanmd.core.share.ShareCodec
 import kotlinx.coroutines.awaitCancellation
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.floor
 
 /** Top row of a full-screen overlay: close button and title. */
 /** Full brightness and the screen kept on while a QR code is shown. */
@@ -214,9 +213,7 @@ fun QrShowScreen(qr: MyQr, name: String, stand: String, chosen: QrMode?, onMode:
 @Composable
 internal fun QrCode(matrix: ByteMatrix, modifier: Modifier) {
     Canvas(modifier.clip(RoundedCornerShape(8.dp)).background(Color.White)) {
-        val modules = matrix.width + 8
-        val cell = floor(size.minDimension / modules)
-        val origin = (size.minDimension - cell * matrix.width) / 2
+        val (cell, origin) = ShareQr.layout(size.minDimension, matrix.width)
         for (y in 0 until matrix.height) for (x in 0 until matrix.width) {
             if (matrix.get(x, y).toInt() == 1) drawRect(Color.Black, Offset(origin + x * cell, origin + y * cell), GSize(cell, cell))
         }

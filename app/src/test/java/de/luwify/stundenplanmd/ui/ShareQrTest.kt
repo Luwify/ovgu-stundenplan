@@ -1,6 +1,8 @@
 package de.luwify.stundenplanmd.ui
 
+import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
 import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
@@ -14,6 +16,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.awt.Color
+import java.awt.RenderingHints
+import java.awt.geom.Rectangle2D
+import java.awt.image.BufferedImage
+import kotlin.math.floor
 import kotlin.random.Random
 
 class ShareQrTest {
@@ -85,5 +92,49 @@ class ShareQrTest {
         assertArrayEquals(payload, d.result)
         assertTrue("missed $missed of $shown", missed * 4 <= shown)
         assertTrue(ShareQr.code(enc.frame(1 shl 20))!!.version.versionNumber <= 12)
+    }
+
+    /**
+     * [code] as the screen shows it at 100 %: a [side] px square, white, modules filled at [layout] like the Compose
+     * Canvas (float rects, antialiased edges), then read as the app's scanner reads (QR only, TRY_HARDER, hybrid).
+     */
+    private fun readsOnScreen(text: String, side: Int, layout: ShareQr.Layout): Boolean {
+        val code = ShareQr.code(text)!!
+        val m = code.matrix
+        val img = BufferedImage(side, side, BufferedImage.TYPE_INT_RGB)
+        val g = img.createGraphics()
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+        g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE)
+        g.color = Color.WHITE
+        g.fillRect(0, 0, side, side)
+        g.color = Color.BLACK
+        for (y in 0 until m.height) for (x in 0 until m.width) if (m.get(x, y).toInt() == 1) {
+            g.fill(Rectangle2D.Float(layout.origin + x * layout.cell, layout.origin + y * layout.cell, layout.cell, layout.cell))
+        }
+        g.dispose()
+        val px = img.getRGB(0, 0, side, side, null, 0, side)
+        val hints = mapOf(DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE), DecodeHintType.TRY_HARDER to true)
+        return runCatching { QRCodeReader().decode(BinaryBitmap(HybridBinarizer(RGBLuminanceSource(side, side, px))), hints).text }.getOrNull() == text
+    }
+
+    @Test fun animatedFramesReadAtFullScaleWithoutSeams() {
+        val enc = ShareFrames.Encoder(Random(5).nextBytes(2600))
+        val frames = (0 until 4).map { enc.frame(it * 7) }
+        // Sides of a phone/tablet code in px (dp x density, rounded by layout): every leftover, odd and even.
+        val sides = (600..1000 step 11).toList()
+        val width = ShareQr.code(frames[0])!!.matrix.width
+        for (side in sides) for ((i, frame) in frames.withIndex()) {
+            val layout = ShareQr.layout(side.toFloat(), width)
+            assertEquals(floor(layout.origin), layout.origin)
+            assertEquals(floor(layout.cell), layout.cell)
+            assertTrue("side $side, frame $i", readsOnScreen(frame, side, layout))
+        }
+        // The check sees seams: with the old origin (half the leftover, a half pixel when it is odd) frames fail.
+        val old = sides.count { side ->
+            val cell = floor(side.toFloat() / (width + 8))
+            val origin = (side - cell * width) / 2
+            origin != floor(origin) && !readsOnScreen(frames[0], side, ShareQr.Layout(cell, origin))
+        }
+        assertTrue("old origin failed at $old sides", old > 0)
     }
 }

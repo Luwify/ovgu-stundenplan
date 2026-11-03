@@ -12,6 +12,7 @@ import com.google.zxing.qrcode.QRCodeReader
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.google.zxing.qrcode.encoder.Encoder
 import com.google.zxing.qrcode.encoder.QRCode
+import kotlin.math.floor
 
 /** How the share screen shows a plan: one code, or the animated frames ([de.luwify.stundenplanmd.core.share.ShareFrames]). */
 enum class QrMode(val key: String) {
@@ -32,6 +33,19 @@ object ShareQr {
     const val MAX_SINGLE_VERSION = 20
     /** Frames per second of the animation: about two camera analyses per frame, so few are missed. */
     const val FPS = 6
+
+    /** Module size and origin (px) of a [width]-module code with a 4-module quiet zone in a square of [side] px. */
+    data class Layout(val cell: Float, val origin: Float)
+
+    /**
+     * Whole pixels for both, so no module edge falls inside a pixel: an edge at x.5 is drawn antialiased from both
+     * sides and leaves a light seam between dark modules, which ZXing's binarizer (and jsQR) can't read past. The
+     * origin needs it too: half the leftover space is a half pixel whenever the leftover is odd.
+     */
+    fun layout(side: Float, width: Int): Layout {
+        val cell = floor(side / (width + 8))
+        return Layout(cell, floor((side - cell * width) / 2))
+    }
 
     /** The smallest code for [text], null if it doesn't fit (version 40). */
     fun code(text: String): QRCode? = try {
