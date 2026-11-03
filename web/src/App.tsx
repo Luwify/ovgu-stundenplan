@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { DateState, IcsRead, Item, ManualCourse, PersonInfo, PickDate, SharePeek } from './core'
 import { type Model, useModel } from './model'
-import { addDays, dateShort, dayAndDate, isoWeek, mondayOf, plural, t, weekdayShort } from './i18n'
+import { addDays, currentLang, dateShort, dayAndDate, isoWeek, mondayOf, plural, t, weekdayShort } from './i18n'
 import { save } from './store'
 import { WeekGrid, useNowMinutes } from './components/WeekGrid'
 import { DayList } from './components/DayList'
@@ -12,6 +12,7 @@ import { HiddenScreen } from './components/Hidden'
 import { IcsDialog } from './components/IcsDialog'
 import { FriendDialog, ShareNameChoice } from './components/FriendDialogs'
 import { MenuButton } from './components/Menu'
+import { Snackbar } from './components/Snackbar'
 import { dayAndDate as dayAndDateText } from './i18n'
 import { duplicateText, hiddenName } from './texts'
 import { People } from './components/People'
@@ -20,6 +21,7 @@ import { QrShow } from './components/QrShow'
 import { Scanner } from './components/Scanner'
 import { Button, Dialog, Icon, IconButton, pickFile } from './components/ui'
 import { palette } from './colors'
+import { applyTheme, type ThemeSpec } from './theme'
 
 const ME = 'me'
 const MIME = 'application/vnd.luwify.stundenplan'
@@ -64,7 +66,13 @@ type Pending = { data: Uint8Array | string; peek: Extract<SharePeek, { name: str
 export function App({ model }: { model: Model }) {
   useModel(model)
   const core = model.core
-  const dark = useMedia('(prefers-color-scheme: dark)')
+  const systemDark = useMedia('(prefers-color-scheme: dark)')
+  const landscape = useMedia('(orientation: landscape)')
+  // The theme (as the app's backup stores it); a custom theme previews while its hue slider moves.
+  const [themeDraft, setThemeDraft] = useState<ThemeSpec | null>(null)
+  const shownTheme = themeDraft ?? model.theme
+  const resolved = useMemo(() => applyTheme(shownTheme, systemDark), [JSON.stringify(shownTheme), systemDark])
+  const dark = resolved.dark
   const wide = useMedia('(min-width: 1000px)')
   const narrow = useMedia('(max-width: 599px)')
   const nowMin = useNowMinutes()
@@ -120,11 +128,12 @@ export function App({ model }: { model: Model }) {
   const [restore, setRestore] = useState<{ text: string; exportedAt: string | null; people: number } | null>(null)
   const [nameFor, setNameFor] = useState<null | (() => void)>(null)
   const [friendMenu, setFriendMenu] = useState(false)
+  const [shortcuts, setShortcuts] = useState(false)
   const [installHidden, setInstallHidden] = useState(() => {
     try { return localStorage.getItem('installHintHidden') === '1' } catch { return false }
   })
 
-  const anyDialog = !!(detail || editorOpen || showHidden || icsRead || settings || adding || scanning || qrFor || pending || restore || nameFor || friendMenu || shareAs || (drawer && !wide))
+  const anyDialog = !!(detail || editorOpen || showHidden || icsRead || settings || adding || scanning || qrFor || pending || restore || nameFor || friendMenu || shareAs || shortcuts || (drawer && !wide))
 
   // ---- navigation
   const weeks = nav?.weeks ?? []
@@ -155,12 +164,26 @@ export function App({ model }: { model: Model }) {
       if (anyDialog || e.altKey || e.ctrlKey || e.metaKey) return
       const target = e.target as HTMLElement
       if (target?.closest('input, textarea, [role="tablist"]')) return
-      if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1) }
-      if (e.key === 'ArrowRight') { e.preventDefault(); step(1) }
+      if (target?.closest('button, a, [role="option"], [role="menuitem"]') && (e.key === ' ' || e.key === 'Enter')) return
+      const ids = people.map((p) => p.id)
+      const go = (f: () => void) => { e.preventDefault(); f() }
+      switch (e.key) {
+        case 'ArrowLeft': return go(() => step(-1))
+        case 'ArrowRight': return go(() => step(1))
+        // People: the app's vertical pager.
+        case 'PageUp': return go(() => setPersonId(ids[Math.max(0, ids.indexOf(pid) - 1)] ?? ME))
+        case 'PageDown': return go(() => setPersonId(ids[Math.min(ids.length - 1, ids.indexOf(pid) + 1)] ?? ME))
+        case 'w': case 'W': return go(() => setTab('week'))
+        case 'd': case 'D': case 't': case 'T': return go(() => setTab('day'))
+        case 'h': case 'H': case 'Home': return go(() => { if (nav) { setMonday(nav.open); setDay(nav.day) } })
+        case 'n': case 'N': return go(() => { if (pid === ME && people.find((p) => p.isMe)?.hasPlan) setManualEdit({ id: null }) })
+        case ',': return go(() => setSettings(true))
+        case '?': return go(() => setShortcuts(true))
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [step, anyDialog, drawer, wide])
+  }, [step, anyDialog, drawer, wide, people, pid, nav])
 
   // Horizontal swipe on the content switches week/day.
   const swipe = useRef<{ x: number; y: number; id: number } | null>(null)
@@ -292,7 +315,7 @@ export function App({ model }: { model: Model }) {
   }
 
   const exportBackup = async () => {
-    const text = core.backup(model.stored.ics, model.stored.extras)
+    const text = core.backup(model.stored.ics, model.backupExtras())
     const name = `stundenplan-sicherung-${new Date().toISOString().slice(0, 10)}.json`
     try {
       const r = await shareOrSave(text, name, 'application/json')
@@ -510,7 +533,7 @@ export function App({ model }: { model: Model }) {
             <main class="content" onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={() => (swipe.current = null)}>
               {tab === 'week' && week && week.free && <div class="week-free">{t('lecture_free')}</div>}
               {tab === 'week' && week ? (
-                <WeekGrid week={week} hours={nav.hours} today={nav.today} nowMin={nowMin} dark={dark} onOpen={openDetail} />
+                <WeekGrid week={week} fit={model.fitLandscape && landscape} hours={nav.hours} today={nav.today} nowMin={nowMin} dark={dark} onOpen={openDetail} />
               ) : shownDay ? (
                 <DayList day={shownDay} dark={dark} onOpen={openDetail} />
               ) : null}
@@ -548,6 +571,10 @@ export function App({ model }: { model: Model }) {
           onName={() => setNameFor(() => () => {})}
           onEditSubject={(k) => setSubjectEdit({ pid: ME, subjectKey: k, courseKey: null })}
           onShowHidden={() => setShowHidden(true)}
+          systemDark={systemDark}
+          primary={resolved.primary}
+          draft={themeDraft}
+          onDraft={setThemeDraft}
           onDeleteOrphan={(i) => { const b = model.snapshot(); core.edit.deleteChange(i); void model.changed(b, t('orphan_deleted')) }}
         />
       )}
@@ -751,23 +778,30 @@ export function App({ model }: { model: Model }) {
             stand={stand ? dateShort(stand) : null}
             mode={model.stored.qrMode}
             onMode={(m) => { model.stored.qrMode = m; model.emit(); void save({ qrMode: m }) }}
-            onShareFile={() => shareFile(qrFor)}
+            onShareFile={() => { const p = people.find((x) => x.id === qrFor); if (qrFor !== ME && p) sendForward(p, 'file', qrName ?? p.sharedName); else shareFile(qrFor) }}
             onClose={() => { setQrFor(null); setQrName(null) }}
           />
         )
       })()}
 
-      {model.snack && (
-        <div class="snackbar" role="status" key={model.snack.id}>
-          <span>{model.snack.text}</span>
-          {model.snack.action && (
-            <button type="button" class="snack-action" onClick={() => { const a = model.snack?.action; model.dismiss(); a?.run() }}>
-              {model.snack.action.label}
-            </button>
-          )}
-          <IconButton icon="close" label={t('close')} onClick={() => model.dismiss()} />
-        </div>
+      {shortcuts && (
+        <Dialog title={t('shortcuts_title')} onClose={() => setShortcuts(false)}>
+          <dl class="shortcuts">
+            {([
+              ['← →', `${t('previous_week')} / ${t('next_week')}`],
+              ['W / D', `${t('tab_week')} / ${t('tab_day')}`],
+              ['H', t('back_to_this_week')],
+              [currentLang() === 'de' ? 'Bild ↑ / Bild ↓' : 'PgUp / PgDn', t('shortcut_people')],
+              ['N', t('manual_add')],
+              [',', t('settings')],
+              ['Esc', t('close')],
+              ['?', t('shortcuts_title')],
+            ] as const).map(([k, v]) => <><dt><kbd>{k}</kbd></dt><dd>{v}</dd></>)}
+          </dl>
+        </Dialog>
       )}
+
+      {model.snack && <Snackbar key={model.snack.id} snack={model.snack} onDismiss={() => model.dismiss()} />}
     </div>
   )
 }

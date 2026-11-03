@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path'
 const here = dirname(fileURLToPath(import.meta.url))
 const res = join(here, '../../app/src/main/res')
 // Every string of the app except the parts the web doesn't have (APK updater, Mensa MD banner, APK sharing).
-const SKIP = /^(update_|companion_|mensa_|unknown_sources_|check_|app_share_|auto_check|version_install|version_needs_android|settings_update_badge)/
+const SKIP = /^(update_|companion_|mensa_|unknown_sources_|check_|app_share_|auto_check|version_install$|version_needs_android|settings_update_badge)/
 
 function unescape(s) {
   return s

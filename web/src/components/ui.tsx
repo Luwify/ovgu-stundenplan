@@ -39,6 +39,16 @@ export function IconButton(props: { icon: IconName; label: string; onClick: () =
   )
 }
 
+/** Open layers (dialogs, menus, dropdowns), oldest first: Escape belongs to the topmost one. */
+const openDialogs: object[] = []
+
+/** Registers a layer; [isTop] says whether it gets Escape now; [remove] when it closes. */
+export function layer() {
+  const token = {}
+  openDialogs.push(token)
+  return { isTop: () => openDialogs[openDialogs.length - 1] === token, remove: () => { const i = openDialogs.indexOf(token); if (i >= 0) openDialogs.splice(i, 1) } }
+}
+
 /** A modal dialog (centered; a bottom sheet on narrow screens with [sheet]); Escape and the scrim close it. */
 export function Dialog(props: {
   title?: string
@@ -54,12 +64,18 @@ export function Dialog(props: {
     const prev = document.activeElement as HTMLElement | null
     const first = ref.current?.querySelector<HTMLElement>('[autofocus], button, input, a[href]')
     ;(first ?? ref.current)?.focus()
+    // Escape closes only the topmost dialog (a dialog opened from another one, e.g. the subject editor from the settings).
+    const token = {}
+    openDialogs.push(token)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); props.onClose() }
+      if (e.key !== 'Escape' || openDialogs[openDialogs.length - 1] !== token) return
+      e.stopPropagation()
+      props.onClose()
     }
     window.addEventListener('keydown', onKey, true)
     return () => {
       window.removeEventListener('keydown', onKey, true)
+      openDialogs.splice(openDialogs.indexOf(token), 1)
       prev?.focus?.()
     }
   }, [])

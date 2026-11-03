@@ -20,8 +20,8 @@ FreeGaps, ManualCourses, Subjects), but the *StoredData edits* that use it live 
 | .ics routing: partial file asks replace/add | `ImportRouting`, `IcsImportDialog` | **no** (`data/ImportRouting`) | done | move to core (A), dialog (3) |
 | .ics from drawer: as friend / add courses / as mine | `IcsImportDialog`, `PlanRepository.importIcsFriend/addCourses` | partial (`AddedCourses`) | done | edits to core (A), UI (3) |
 | Week view grid, colours, badges | `WeekView` | yes | done | — |
-| Today column tint + day progress in hour column | `WeekView`, `DayProgress` | yes | partial | check/align (4) |
-| Weekend columns (Sat/Sun when something is on) | `Schedule.week` | yes | done (core gives the days) | verify with manual weekend course (1) |
+| Today column tint + day progress in hour column | `WeekView`, `DayProgress` | yes | done | existing week grid (tint + progress fill) |
+| Weekend columns (Sat/Sun when something is on) | `Schedule.week` | yes | done | tested with a Saturday manual course |
 | Day view, cancellations near today | `DayScreen` | yes | done | — |
 | Day view free blocks "Frei · 13–15 2 h" | `DayScreen` `FreeRow` | yes (`FreeGaps`) | done | (4) |
 | "Zusammen frei" in free blocks | `DayScreen`, `FreeGaps.together` | yes | done | WebCore gaps with people (3/4) |
@@ -40,7 +40,7 @@ FreeGaps, ManualCourses, Subjects), but the *StoredData edits* that use it live 
 | Manual courses (editor, badge, edit/delete, weekend) | `ManualCourseUi`, `ManualCourses`, `PlanRepository.saveManual/deleteManual` | partial | done | (A, 1) |
 | Hide: Termin / Fach / Nur Typ / Nur Gruppe | `HiddenUi.hideChoices`, `HideTargets` | **no** (`HideTargets`) | done | move to core (A), UI (2) |
 | Ausgeblendet screen with restore | `HiddenScreen` | yes (`Hidden.remove`) | done | (2) |
-| Snackbars: undo, swipe, expand, timer rules | `Snackbars.kt` | — | partial | (2) |
+| Snackbars: undo, swipe, expand, timer rules | `Snackbars.kt` | — | done | `components/Snackbar.tsx` |
 | Friends from shares (QR/file), confirm, undo | `FriendConfirmDialog` | yes | done | — |
 | .ics friends (new / update), "aus ICS importiert" | `IcsImportDialog`, `importIcsFriend` | **no** | done | (A, 3) |
 | Rename friend, details dialog, delete with undo | `FriendDialog` | **no** (repo) | done | (A, 3) |
@@ -53,15 +53,15 @@ FreeGaps, ManualCourses, Subjects), but the *StoredData edits* that use it live 
 | My share: name, "Eigene Änderungen teilen" | `SettingsScreen` | partial | done | toggle (A, 5) |
 | QR show (single / animated) + scan | `QrScreens` | yes | done | — |
 | Backup export/import with undo, reminder | `SettingsScreen` | yes | done | round-trip tests with all new data (each phase) |
-| Landscape squash setting | `ThemeSettings.fitLandscape` | — | todo | web always fits now; add the setting (stored in `extras.display`) (4) |
-| Themes: System, Soft, AMOLED, Custom + editor | `ui/theme`, `CustomThemeEditor`, `ColorEditorScreen` | no (Android UI) | partial (Soft) | port colour maths to TS (5); stored in `extras.theme` |
-| Theme / language dropdown centred on selection | `SettingsDropdown` | — | todo | (4/5) |
+| Landscape squash setting | `ThemeSettings.fitLandscape` | — | done | extras.display.fitLandscape; off = min 40 px/h |
+| Themes: System, Soft, AMOLED, Custom + editor | `ui/theme`, `CustomThemeEditor`, `ColorEditorScreen` | no (Android UI) | done | `theme.ts` port; System = M3 baseline (no wallpaper on the web) softened |
+| Theme / language dropdown centred on selection | `SettingsDropdown` | — | done | `components/Dropdown.tsx` |
 | Language System/Deutsch/English | `AppLanguage` | — | done | — |
-| Version overview + changelogs | `UpdateScreens` (version list) | — | todo | generated from `changelog/*.md` at build time (5) |
-| Licenses / about | NOTICE | — | todo | (5) |
-| "Web-App teilen" (QR of the URL) | — (replaces "App teilen") | — | todo | (5) |
-| Keyboard shortcuts | — | — | partial (arrows, Esc) | (6) |
-| German/English complete, a11y, dark mode | — | — | partial | (6) |
+| Version overview + changelogs | `UpdateScreens` (version list) | — | done | `scripts/changelog.mjs` |
+| Licenses / about | NOTICE | — | done | NOTICE bundled + GPL note |
+| "Web-App teilen" (QR of the URL) | — (replaces "App teilen") | — | done | `About.tsx` |
+| Keyboard shortcuts | — | — | done | ? shows them |
+| German/English complete, a11y, dark mode | — | — | done | all app strings copied; contrast test per theme |
 | APK updater, version check | `data/update` | — | **n/a** | service worker banner replaces it |
 | Mensa MD banner | `MensaBanner` | — | **n/a** | |
 | NFC, notifications, baseline profiles | — | — | **n/a** | |
@@ -69,6 +69,13 @@ FreeGaps, ManualCourses, Subjects), but the *StoredData edits* that use it live 
 
 ## Phase log
 - Phase 0 (inventory): done, this file.
+- Phases 3 (rest), 4, 5, 6: done. Friend details/rename, share-name choice when forwarding, favourite in the top bar,
+  drag/keyboard reordering, Zusammen frei; snackbar with the app's rules (`Snackbar.tsx`); `Dropdown.tsx` centred on
+  the current value; themes (`theme.ts`, `ThemeEditor.tsx`) stored as ThemeBackup in the backup extras; landscape fit
+  setting; version overview from `changelog/*.md`, licenses (NOTICE), "Web-App teilen" (QR of the URL); shortcuts;
+  a layer stack so Escape closes only the topmost dialog/menu (it closed every open dialog before). Tests:
+  `tests/more.spec.ts` incl. a WCAG contrast check of every theme in light and dark (custom: 5 hues + black).
+  Full run: 171 passed on all 8 projects; the JVM reads both backup directions.
 - Phase 1 (editing) + 2 (hiding) + most of 3 (friends): done. Web UI: `components/Detail.tsx` (sheet with the app's
   action row: 3 primaries + "Mehr", `Menu.tsx`), `Editors.tsx` (SubjectEditor, PersonalEditor, PickDates, ManualEditor,
   ColorChoice), `Hidden.tsx`, `IcsDialog.tsx`, `FriendDialogs.tsx`, markers in week/day (`Badges`), settings (subjects,
@@ -87,3 +94,16 @@ FreeGaps, ManualCourses, Subjects), but the *StoredData edits* that use it live 
   reorderFriends, readIcs/icsReplaceMine/icsAddCourses/icsAddFriend, setShareChanges, qrPayloadAs/shareFileAs; day gaps
   carry "together". Compat: `CompatEdits` (19 steps) JVM golden == WebCore in JS, plus share file/QR/backup of the
   result both ways (`StoreEditsTest` on the JVM).
+
+## Left, and why
+- System theme: the app takes Material You colours from the wallpaper; a browser has no access to it, so the web's
+  System theme is the app's own fallback (Material 3 baseline, softened). Not fixable on the web.
+- Theme colour maths lives in TypeScript (`theme.ts`, like `colors.ts` before), not in `:core`: it is presentation
+  (Compose `Color` in the app), and moving it into `:core` would mean rewriting the app's theme code. It is ported
+  line by line; the contrast test checks the result.
+- Drawer reordering is a drag handle (pointer, or arrow keys when focused) rather than the app's long-press, which would
+  clash with text selection and iPadOS's own long-press menu.
+- The orphan cleanup list's undo is the snackbar (the app shows an inline undo row in the settings list).
+- Not built on purpose: APK updater, version check, Mensa MD banner, NFC, notifications, baseline profiles, APK sharing.
+- Bundle (production build): JS 1,203 KB (338 KB gzip; was 1,024 KB), CSS 28 KB (6 KB gzip). Most of the JS is the
+  Kotlin/JS core and ZXing as before.

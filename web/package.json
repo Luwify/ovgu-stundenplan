@@ -5,7 +5,7 @@
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
-    "strings": "node scripts/strings.mjs",
+    "strings": "node scripts/strings.mjs && node scripts/changelog.mjs",
     "core": "node scripts/core.mjs",
     "dev": "npm run strings && npm run core && vite",
     "build": "npm run strings && npm run core && tsc --noEmit && vite build",

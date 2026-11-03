@@ -5,6 +5,7 @@ import { dayAndDate, plural, t, weekdayShort } from '../i18n'
 import { Icon } from './ui'
 
 const MIN_HOUR_PX = 18
+const MIN_HOUR_PX_SCROLL = 40
 const HEADER_PX = 40
 
 /**
@@ -17,6 +18,8 @@ export function WeekGrid(props: {
   today: string
   nowMin: number
   dark: boolean
+  /** The app's landscape fit: the day range fills the height down to 18 px per hour; else down to 40 px, then it scrolls. */
+  fit: boolean
   onOpen: (item: Item) => void
 }) {
   const { week, hours } = props
@@ -31,7 +34,7 @@ export function WeekGrid(props: {
     return () => ro.disconnect()
   }, [])
   const span = Math.max(1, hours[1] - hours[0])
-  const hourPx = Math.max(MIN_HOUR_PX, Math.floor(((height || 600) - HEADER_PX - 4) / span))
+  const hourPx = Math.max(props.fit ? MIN_HOUR_PX : MIN_HOUR_PX_SCROLL, Math.floor(((height || 600) - HEADER_PX - 4) / span))
   const labels = Array.from({ length: span + 1 }, (_, i) => hours[0] + i)
   const labelEvery = hourPx < 22 ? 2 : 1
   const isThisWeek = week.days.some((d) => d.date === props.today)

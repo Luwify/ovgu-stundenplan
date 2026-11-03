@@ -1,4 +1,9 @@
+import { useState } from 'preact/hooks'
 import type { Model } from '../model'
+import type { ThemeMode, ThemeSpec } from '../theme'
+import { Dropdown } from './Dropdown'
+import { Licenses, VersionOverview, WebAppShare } from './About'
+import { ColorEditor, CustomThemeEditor } from './ThemeEditor'
 import { rgbHex } from '../colors'
 import { dateShort, dayAndDate, plural, t, timeRange } from '../i18n'
 import { Switch } from './Editors'
@@ -14,9 +19,18 @@ export function Settings(props: {
   onEditSubject: (subjectKey: string) => void
   onShowHidden: () => void
   onDeleteOrphan: (index: number) => void
+  systemDark: boolean
+  /** The accent the theme shows (after the readability nudge). */
+  primary: number
+  /** The custom theme while the hue slider moves (shown, not saved yet). */
+  draft: ThemeSpec | null
+  onDraft: (spec: ThemeSpec | null) => void
   children?: preact.ComponentChildren
 }) {
   const m = props.model
+  const theme = m.theme
+  const [colors, setColors] = useState(false)
+  const [about, setAbout] = useState<null | 'versions' | 'licenses' | 'share'>(null)
   const core = m.core
   const me = core.people().find((p) => p.isMe)
   const identity = core.shareIdentity()
@@ -28,13 +42,31 @@ export function Settings(props: {
     <Dialog title={t('settings')} onClose={props.onClose} wide>
       <section class="settings-section">
         <h3>{t('language_title')}</h3>
-        <div class="segmented" role="group" aria-label={t('language_title')}>
-          {(['system', 'de', 'en'] as const).map((l) => (
-            <button type="button" aria-pressed={m.stored.language === l} onClick={() => void m.setLanguage(l)}>
-              {l === 'system' ? t('language_system') : l === 'de' ? t('language_de') : t('language_en')}
-            </button>
-          ))}
-        </div>
+        <Dropdown
+          label={t('language_label')}
+          options={[['system', t('language_system')], ['de', 'Deutsch'], ['en', 'English']]}
+          value={m.stored.language}
+          onChange={(l) => void m.setLanguage(l)}
+        />
+        <Switch label={t('fit_landscape')} hint={t('fit_landscape_hint')} checked={m.fitLandscape} onChange={(on) => void m.setFitLandscape(on)} />
+      </section>
+      <section class="settings-section">
+        <h3>{t('theme_title')}</h3>
+        <Dropdown
+          label={t('theme_label')}
+          options={[['system', t('theme_system')], ['soft', t('theme_soft')], ['amoled', t('theme_amoled')], ['custom', t('theme_custom')]]}
+          value={theme.mode}
+          onChange={(mode) => void m.setTheme({ ...theme, mode: mode as ThemeMode })}
+        />
+        {theme.mode === 'custom' && (
+          <CustomThemeEditor
+            spec={props.draft ?? theme}
+            primary={props.primary}
+            onChange={(spec, commit) => (commit ? void m.setTheme(spec).then(() => props.onDraft(null)) : props.onDraft(spec))}
+            onAdvanced={() => setColors(true)}
+          />
+        )}
+        {colors && <ColorEditor spec={theme} systemDark={props.systemDark} onChange={(spec) => void m.setTheme(spec)} onClose={() => setColors(false)} />}
       </section>
       {props.children}
       {subjects.length > 0 && (
@@ -121,7 +153,21 @@ export function Settings(props: {
       <section class="settings-section">
         <h3>{t('about_title')}</h3>
         <p class="muted">{t('about_text')}</p>
-        <p class="muted small">{t('app_name')} Web {__APP_VERSION__}</p>
+        <button type="button" class="settings-row" onClick={() => setAbout('versions')}>
+          <span class="list-text"><span>{t('version_overview')}</span><span class="muted small">{t('app_name')} Web {__APP_VERSION__}</span></span>
+          <Icon name="chevron_right" />
+        </button>
+        <button type="button" class="settings-row" onClick={() => setAbout('share')}>
+          <span class="list-text"><span>{t('web_share_title')}</span></span>
+          <Icon name="qr_code_2" />
+        </button>
+        <button type="button" class="settings-row" onClick={() => setAbout('licenses')}>
+          <span class="list-text"><span>{t('licenses_title')}</span></span>
+          <Icon name="chevron_right" />
+        </button>
+        {about === 'versions' && <VersionOverview onClose={() => setAbout(null)} />}
+        {about === 'licenses' && <Licenses onClose={() => setAbout(null)} />}
+        {about === 'share' && <WebAppShare onClose={() => setAbout(null)} onNotify={(text) => m.notify(text)} />}
       </section>
     </Dialog>
   )

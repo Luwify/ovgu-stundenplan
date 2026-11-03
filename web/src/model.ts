@@ -14,6 +14,7 @@ export interface Snack {
   id: number
   text: string
   action?: { label: string; run: () => void }
+  sticky?: boolean
 }
 
 /** App state around one [Core]: persistence after every change, undo snapshots, snackbars. */
@@ -25,7 +26,6 @@ export class Model {
   updateReady: (() => void) | null = null
   persisted: boolean | null = null
   private listeners = new Set<() => void>()
-  private snackTimer: ReturnType<typeof setTimeout> | undefined
 
   constructor(stored: Stored) {
     this.stored = stored
@@ -86,11 +86,10 @@ export class Model {
     this.notify(message, { label: t('undo'), run: () => { this.restoreSnapshot(before); onUndo?.() } })
   }
 
-  notify(text: string, action?: Snack['action']) {
-    clearTimeout(this.snackTimer)
-    this.snack = { id: Date.now(), text, action }
+  /** Shows a snackbar; its timer (10 s with an action, 4 s without, none when [sticky]) runs in the component. */
+  notify(text: string, action?: Snack['action'], sticky = false) {
+    this.snack = { id: Date.now() + Math.random(), text, action, sticky }
     this.emit()
-    this.snackTimer = setTimeout(() => this.dismiss(), action ? 10000 : 4000)
   }
 
   dismiss() {

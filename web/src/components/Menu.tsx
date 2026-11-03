@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { Icon, type IconName } from './ui'
+import { Icon, type IconName, layer } from './ui'
 
 export interface MenuEntry {
   label: string
@@ -26,8 +26,10 @@ export function MenuButton(props: {
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
+    const l = layer()
     const onDown = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false) }
     const onKey = (e: KeyboardEvent) => {
+      if (!l.isTop()) return
       if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); box.current?.querySelector<HTMLElement>('.menu-trigger')?.focus() }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault()
@@ -42,6 +44,7 @@ export function MenuButton(props: {
     return () => {
       document.removeEventListener('pointerdown', onDown, true)
       window.removeEventListener('keydown', onKey, true)
+      l.remove()
     }
   }, [open])
   return (
