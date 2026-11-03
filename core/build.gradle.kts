@@ -106,3 +106,4 @@ tasks.register<Sync>("webCore") {
 
 // Web tests: the Android side of QR codes (ZXing), see QrTools.kt.
 devTool("qrTool", "de.luwify.stundenplanmd.core.QrToolsKt")
+devTool("deviceSeed", "de.luwify.stundenplanmd.core.DeviceSeedKt") // see DeviceSeed.kt (update checks on the debug copy)

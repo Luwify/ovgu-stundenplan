@@ -30,6 +30,12 @@ Follow the Rules in `.claude/CLAUDE.md` (never touch the real app, adb input saf
   - `./gradlew :core:shareFile --args="<ics> <out> <name> <16 hex id>"` writes a friend share (`<out>` binary file,
     `<out>.txt` QR text) for preview-app tests; open it with
     `am start -a VIEW -t application/octet-stream -d file:///data/user/0/<pkg>/cache/...`.
+  - `./gradlew :core:deviceSeed --args="<dir>"`: fake data for update checks of the `.preview` copy: `data.json` + `me.ics`
+    (my share identity, styles, short names with a type part, own changes with notes, a manual course, hidden items,
+    three friends with favorite/rename/local settings), `data-v7.json` (before step 7 -> 8, for a migration check) and
+    a friend's share file. Copy with `run-as <pkg> cp` into `files/plans/` before the first start (app stopped).
+  - Screenshots of the animated code don't read pixel-exact (1 px seams, see the QR notes); downscale them like a
+    camera (60 %, Lanczos) before `:core:qrTool read`/`singles`.
 - Device testing with fake data: debug build (`<pkg>` = `de.luwify.stundenplanmd.preview`), `adb push` the fixture
   to /data/local/tmp, `run-as` copy into `cache/`,
   `am start -a VIEW -t text/calendar -d file:///data/user/0/<pkg>/cache/...`. Uninstall that copy afterwards (never
