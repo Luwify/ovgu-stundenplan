@@ -1,4 +1,6 @@
-Neu in der Web-Version (iPad und iPhone):
+Keine Änderungen an der App; neu ist der Funktionsumfang der Web-Version.
+
+Web-Version:
 - Fast alles aus der App geht jetzt auch im Browser: Fächer bearbeiten (Farbe, Kürzel für alle Typen und pro Typ mit Vorschau, Rhythmus, Kurse verschieben), Notiz und eigene Änderungen, „Fällt für mich aus“, „Termine auswählen“ und eigene Kurse, auch am Wochenende
 - Ausblenden (Termin, Fach, nur ein Typ oder eine Gruppe) mit „Rückgängig“ und der Liste „Ausgeblendet“ zum Wiederherstellen
 - Freunde aus einer .ics-Datei, Kurse eines Freundes „Zu meinem Plan“, Kurse aus einer weiteren .ics hinzufügen, Freunde umbenennen, als Favorit markieren und per Ziehen sortieren, „Zusammen frei“ in der Tagesansicht
