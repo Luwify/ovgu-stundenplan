@@ -396,19 +396,29 @@ fun MainScreen(vm: MainViewModel, onImport: () -> Unit, onExportBackup: () -> Un
                 },
                 bottomBar = {
                     if (plan?.isEmpty == false && !compact) {
-                        NavigationBar {
-                            NavigationBarItem(
-                                selected = tab == Tab.WEEK,
-                                onClick = { tab = Tab.WEEK },
-                                icon = { Icon(WeekIcon, null) },
-                                label = { Text(stringResource(R.string.tab_week)) },
-                            )
-                            NavigationBarItem(
-                                selected = tab == Tab.DAY,
-                                onClick = { tab = Tab.DAY },
-                                icon = { Icon(TodayIcon, null) },
-                                label = { Text(stringResource(R.string.tab_day)) },
-                            )
+                        // On a pure black page (AMOLED, custom black) the bar is black too, so those pixels stay off;
+                        // a divider line separates it. Otherwise Material's default container.
+                        val scheme = androidx.compose.material3.MaterialTheme.colorScheme
+                        val blackPage = scheme.background == androidx.compose.ui.graphics.Color.Black
+                        androidx.compose.foundation.layout.Column {
+                            if (blackPage) androidx.compose.material3.HorizontalDivider(color = scheme.outlineVariant)
+                            NavigationBar(
+                                containerColor = if (blackPage) scheme.background else androidx.compose.material3.NavigationBarDefaults.containerColor,
+                                tonalElevation = if (blackPage) 0.dp else androidx.compose.material3.NavigationBarDefaults.Elevation,
+                            ) {
+                                NavigationBarItem(
+                                    selected = tab == Tab.WEEK,
+                                    onClick = { tab = Tab.WEEK },
+                                    icon = { Icon(WeekIcon, null) },
+                                    label = { Text(stringResource(R.string.tab_week)) },
+                                )
+                                NavigationBarItem(
+                                    selected = tab == Tab.DAY,
+                                    onClick = { tab = Tab.DAY },
+                                    icon = { Icon(TodayIcon, null) },
+                                    label = { Text(stringResource(R.string.tab_day)) },
+                                )
+                            }
                         }
                     }
                 },

@@ -19,6 +19,7 @@
   --inverse-primary: #a9c9a8;
   --surface-container-lowest: #fffcf6;
   --surface-container-low: #fbf6ec;
+  --bar: #fbf6ec;
   --surface-container: #f3ecdf;
   --surface-container-high: #eee6d8;
   --surface-container-highest: #e8dfcf;
@@ -55,6 +56,7 @@
     --inverse-primary: #43654a;
     --surface-container-lowest: #080706;
     --surface-container-low: #15110e;
+    --bar: #15110e;
     --surface-container: #1a1612;
     --surface-container-high: #231e18;
     --surface-container-highest: #2d2720;
@@ -89,7 +91,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
   width: 300px;
   flex: none;
   border-right: 1px solid var(--outline-variant);
-  background: var(--surface-container-low);
+  background: var(--bar);
   overflow-y: auto;
 }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -111,7 +113,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
   justify-content: center;
   padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--outline-variant);
-  background: var(--surface-container-low);
+  background: var(--bar);
 }
 .bottombar .segmented { width: 100%; max-width: 420px; }
 .bottombar .segmented button { flex: 1; }

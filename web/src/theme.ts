@@ -247,6 +247,9 @@ export function resolve(spec: ThemeSpec, systemDark: boolean): Resolved {
     '--inverse-surface': c(s.inverseSurface), '--inverse-on-surface': c(s.inverseOnSurface), '--inverse-primary': c(inversePrimary),
     '--surface-container-lowest': c(s.surfaceContainerLowest), '--surface-container-low': c(s.surfaceContainerLow),
     '--surface-container': c(s.surfaceContainer), '--surface-container-high': c(s.surfaceContainerHigh),
+    // Bars that stay on screen (bottom bar, iPad sidebar): on a pure black page (AMOLED, custom black) black too, so
+    // those pixels stay off; the divider line separates them. Otherwise one step above the page.
+    '--bar': c(toInt(s.background) === 0 ? s.background : s.surfaceContainerLow),
     '--surface-container-highest': c(s.surfaceContainerHighest), '--card': c(p.card), '--card-border': c(p.border),
     '--highlight': c(p.highlight), '--on-highlight': c(p.onHighlight), '--highlight-text': c(p.highlightText),
     '--favorite': c(p.favorite), '--own': c(p.own), '--error': c(s.error),
