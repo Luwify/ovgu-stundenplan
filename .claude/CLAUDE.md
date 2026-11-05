@@ -54,8 +54,8 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 - **Devices:** the device list and all device / adb input safety rules are in the maintainer's global
   `~/.claude/CLAUDE.md` (real app vs. test copy, guards, DND, rotation, keyboard, privacy). Here: the real app is
   `de.luwify.stundenplanmd` (it holds the user's real plan and subject settings: never import fixtures into it; it
-  updates itself from the releases); the
-  test copy is `de.luwify.stundenplanmd.preview` ("Stundenplan Preview"), where all fake-data tests go.
+  updates itself from the releases); the test copy is `de.luwify.stundenplanmd.preview` ("Stundenplan Preview"),
+  where all fake-data tests go.
 - Never run sudo or install system/SDK packages: tell the user the command.
 - Stay inside this directory (reading the Mensa MD repo is allowed, never modify it).
 - `private/` holds real exports: never commit them, never copy them into tests, never quote them into public files
