@@ -51,11 +51,11 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   put secrets into the repo, logs or commit messages. Scripts read them at runtime and never echo them (no `set -x`).
   Builds that use the signing config and `tools/release.sh --dry-run` are allowed; the real release only the user
   runs.
-- **Never touch the data of the real app `de.luwify.stundenplanmd` on ANY connected device:** no `pm clear`, no
-  uninstall, no `run-as` on it, no importing fixtures into it. It holds the user's real plan and subject settings.
-  It updates itself from the releases; install over it only with `installRelease` when the user asks. Debug builds
-  have the applicationIdSuffix `.preview` (`de.luwify.stundenplanmd.preview`, launcher label "Stundenplan Preview"): all
-  fake-data tests go there; only that copy may be cleared or uninstalled.
+- **Devices:** the device list and all device / adb input safety rules are in the maintainer's global
+  `~/.claude/CLAUDE.md` (real app vs. test copy, guards, DND, rotation, keyboard, privacy). Here: the real app is
+  `de.luwify.stundenplanmd` (it holds the user's real plan and subject settings: never import fixtures into it; it
+  updates itself from the releases); the
+  test copy is `de.luwify.stundenplanmd.preview` ("Stundenplan Preview"), where all fake-data tests go.
 - Never run sudo or install system/SDK packages: tell the user the command.
 - Stay inside this directory (reading the Mensa MD repo is allowed, never modify it).
 - `private/` holds real exports: never commit them, never copy them into tests, never quote them into public files
@@ -63,9 +63,3 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
   and course titles, UIDs remapped consistently; keep structure and every quirk listed in `core/CLAUDE.md`.
 - Small commits. After each: `./gradlew testDebugUnitTest assembleDebug lint`.
 - Write own lenient iCal parser for the LSF subset; no iCal library.
-### Input safety for adb input tap/swipe:
-- Before every scripted input, check that the foreground activity is the app under test (`dumpsys activity activities | grep -m1 topResumedActivity` or `dumpsys window | grep mCurrentFocus`). If it isn't, stop the script. Don't tap anything else.
-- Turn on Do Not Disturb at the start of a test run (`cmd notification set_dnd priority`), restore the previous state afterwards, and record the previous state first.
-- Record rotation settings (`settings get system accelerometer_rotation` and `user_rotation`) before testing and restore them at the end.
-- Never tap the status bar area, never open the notification shade or the control centre, never interact with other apps.
-- If anything happened outside the app under test, report it at the top of the summary.

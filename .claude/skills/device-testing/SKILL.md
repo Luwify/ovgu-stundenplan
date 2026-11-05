@@ -5,7 +5,8 @@ description: Stundenplan MD dev tools and device tests - planReport/planCompare/
   regeneration. Use before running anything on a phone or tablet or comparing exports.
 ---
 
-Follow the Rules in `.claude/CLAUDE.md` (never touch the real app, adb input safety) for everything here.
+Follow the device and adb input safety rules in the global `~/.claude/CLAUDE.md` (never touch the real app, guards)
+for everything here.
 
 ## Perf build
 - Build type `perf` (`assemblePerf`: R8 like release, not debuggable, debug-signed, `.preview` id)
@@ -39,6 +40,4 @@ Follow the Rules in `.claude/CLAUDE.md` (never touch the real app, adb input saf
 - Device testing with fake data: debug build (`<pkg>` = `de.luwify.stundenplanmd.preview`), `adb push` the fixture
   to /data/local/tmp, `run-as` copy into `cache/`,
   `am start -a VIEW -t text/calendar -d file:///data/user/0/<pkg>/cache/...`. Uninstall that copy afterwards (never
-  the real app). Several devices may be connected: always `adb -s <serial>`, for Gradle installs `ANDROID_SERIAL`.
-  Check `isKeyguardShowing` before screenshots. Rotation for layout checks: `settings put system user_rotation 0|1`
-  with `accelerometer_rotation 0`; read the values first and restore them.
+  the real app).
