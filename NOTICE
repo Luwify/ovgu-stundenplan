@@ -12,7 +12,8 @@ Icons
             ic_chevron_left.xml and ic_chevron_right.xml (back to this week / today; version list),
             ic_arrow_drop_down.xml (the "Ausblenden" menu button),
             ic_list.xml ("format_list_bulleted", version overview), ic_download.xml (install an
-            update), ic_open_in_new.xml (actions that leave the page)
+            update), ic_open_in_new.xml (actions that leave the page),
+            ic_schedule.xml (time picker button)
   Source:   Material Symbols, Outlined, weight 400, 24px, by Google
             https://fonts.google.com/icons
             https://github.com/google/material-design-icons

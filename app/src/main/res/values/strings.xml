@@ -315,6 +315,7 @@
     <string name="editor_start">Start</string>
     <string name="editor_end">End</string>
     <string name="editor_time_invalid">Times like 9:15, end after start</string>
+    <string name="time_pick">%1$s: pick a time</string>
     <string name="pick_dates_title">Dates of %1$s</string>
     <string name="pick_dates_hint">Checked dates take place for you.</string>
     <string name="note_marker">Has a note</string>

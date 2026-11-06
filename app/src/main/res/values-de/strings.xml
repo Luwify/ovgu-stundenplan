@@ -309,6 +309,7 @@
     <string name="editor_start">Beginn</string>
     <string name="editor_end">Ende</string>
     <string name="editor_time_invalid">Zeiten wie 9:15, Ende nach Beginn</string>
+    <string name="time_pick">%1$s: Uhrzeit wählen</string>
     <string name="pick_dates_title">Termine von %1$s</string>
     <string name="pick_dates_hint">Ausgewählte Termine finden für dich statt.</string>
     <string name="note_marker">Mit Notiz</string>

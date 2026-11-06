@@ -60,6 +60,9 @@
   field, others above/below, clamped to the window's safe area (`menuPlacement`, `MenuPlacementTest`; a list taller than
   the space fills it and scrolls to the current row). Opens like `GrowingMenu`: the field's rect grows into the panel
   on the bouncy spring, other rows fade in, the current one stays; closes at once; instant with animations off.
+- `TimeField` (`TimeField.kt`): the only time input (own changes, manual course). State = `TimeDigits` (up to 4 digits, no
+  colon; "915" = 09:15, fewer than 3 digits are no time, nothing is corrected), colon drawn by a `VisualTransformation`,
+  clock button -> M3 `TimePickerDialog` (24 h; keyboard input only when the window is too low for the dial).
 - Day view free blocks: `DayScreen` merges `DayPlan.gaps` into the list as dashed, non-clickable `FreeRow`s ("Frei · 13–15  2 h").
 - Landscape fit (setting "Querformat an Bildschirm anpassen", `ThemeSettings.fitLandscape`, default on, in the backup as
   `display` since version 4): `WeekPage` scales the hour height over the whole plan's `Schedule.hours` (`HourScale`, min

@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -44,7 +43,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -56,6 +54,7 @@ import de.luwify.stundenplanmd.core.model.ManualType
 import de.luwify.stundenplanmd.core.model.Subjects
 import de.luwify.stundenplanmd.ui.theme.SubjectColors
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneOffset
 
 /** "Own course" marker: a plus on a round surface badge (own changes have the violet pencil, LSF changes amber). */
@@ -131,14 +130,14 @@ fun ManualCourseEditor(
     val startInit = existing?.startDate ?: today
     var startDate by rememberSaveable { mutableStateOf(startInit.toEpochDay()) }
     var endDate by rememberSaveable { mutableStateOf((existing?.endDate ?: defaultEnd(startInit)).toEpochDay()) }
-    var startText by rememberSaveable { mutableStateOf(existing?.start?.let { "%d:%02d".format(it.hour, it.minute) } ?: "9:15") }
-    var endText by rememberSaveable { mutableStateOf(existing?.end?.let { "%d:%02d".format(it.hour, it.minute) } ?: "10:45") }
+    var startText by rememberSaveable { mutableStateOf(TimeDigits.of(existing?.start ?: LocalTime.of(9, 15))) }
+    var endText by rememberSaveable { mutableStateOf(TimeDigits.of(existing?.end ?: LocalTime.of(10, 45))) }
     var skipFree by rememberSaveable { mutableStateOf(existing?.skipFreeWeeks ?: true) }
     var picking by rememberSaveable { mutableStateOf<Int?>(null) } // 0 = first date, 1 = last date
     var picker by rememberSaveable { mutableStateOf(false) }
 
-    val s = parseTime(startText)
-    val e = parseTime(endText)
+    val s = TimeDigits.parse(startText)
+    val e = TimeDigits.parse(endText)
     val timesOk = s != null && e != null && e.isAfter(s)
     val once = rhythm == ManualCourse.Rhythm.ONCE
     val datesOk = once || endDate >= startDate
@@ -255,9 +254,9 @@ fun ManualCourseEditor(
                     }
                     if (!datesOk) Text(stringResource(R.string.manual_end_before_start), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val keyboard = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        OutlinedTextField(startText, { startText = it }, Modifier.weight(1f), singleLine = true, isError = !timesOk, keyboardOptions = keyboard, label = { Text(stringResource(R.string.editor_start)) })
-                        OutlinedTextField(endText, { endText = it }, Modifier.weight(1f), singleLine = true, isError = !timesOk, keyboardOptions = keyboard, label = { Text(stringResource(R.string.editor_end)) })
+                        val outOfOrder = s != null && e != null && !timesOk
+                        TimeField(startText, { startText = it }, stringResource(R.string.editor_start), Modifier.weight(1f), outOfOrder)
+                        TimeField(endText, { endText = it }, stringResource(R.string.editor_end), Modifier.weight(1f), outOfOrder)
                     }
                     if (!timesOk) Text(stringResource(R.string.editor_time_invalid), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     if (!once) SwitchLine(stringResource(R.string.manual_skip_free), stringResource(R.string.manual_skip_free_hint), skipFree) { skipFree = it }

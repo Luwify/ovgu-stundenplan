@@ -17,7 +17,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -46,7 +45,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,7 +59,6 @@ import de.luwify.stundenplanmd.core.schedule.Status
 import de.luwify.stundenplanmd.core.schedule.Timed
 import de.luwify.stundenplanmd.core.schedule.Groups
 import de.luwify.stundenplanmd.ui.theme.planColors
-import java.time.LocalTime
 
 /** My changes of [this], or an empty [Personal] to start editing from. */
 fun Timed.personalOrBlank(): Personal = personal ?: Personal(
@@ -190,16 +187,6 @@ private fun StLine() {
     }
 }
 
-internal fun parseTime(text: String): LocalTime? {
-    val t = text.trim().replace('.', ':')
-    val m = Regex("^(\\d{1,2})(?::(\\d{2}))?$").find(t) ?: return null
-    val h = m.groupValues[1].toInt()
-    val min = m.groupValues[2].ifEmpty { "0" }.toInt()
-    return if (h in 0..23 && min in 0..59) LocalTime.of(h, min) else null
-}
-
-private fun LocalTime.text() = "%d:%02d".format(hour, minute)
-
 /** Note, s.t., room and time of one date or (for series) of every date from this one on. */
 @Composable
 fun PersonalEditor(item: Timed, onSave: (series: Boolean, OccurrenceValues) -> Unit, onDismiss: () -> Unit) {
@@ -211,10 +198,10 @@ fun PersonalEditor(item: Timed, onSave: (series: Boolean, OccurrenceValues) -> U
     var note by rememberSaveable { mutableStateOf(cur.note) }
     var st by rememberSaveable { mutableStateOf(cur.st) }
     var room by rememberSaveable { mutableStateOf(if (cur.room == p.original.room) "" else cur.room.orEmpty()) }
-    var start by rememberSaveable { mutableStateOf(cur.start.text()) }
-    var end by rememberSaveable { mutableStateOf(cur.end.text()) }
-    val s = parseTime(start)
-    val e = parseTime(end)
+    var start by rememberSaveable { mutableStateOf(TimeDigits.of(cur.start)) }
+    var end by rememberSaveable { mutableStateOf(TimeDigits.of(cur.end)) }
+    val s = TimeDigits.parse(start)
+    val e = TimeDigits.parse(end)
     val valid = s != null && e != null && e.isAfter(s)
     val original = item.date.atTime(p.original.start)
     AlertDialog(
@@ -243,9 +230,9 @@ fun PersonalEditor(item: Timed, onSave: (series: Boolean, OccurrenceValues) -> U
                     supportingText = { Text(stringResource(R.string.editor_room_hint, p.original.room ?: stringResource(R.string.no_room))) },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val keyboard = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    OutlinedTextField(start, { start = it }, Modifier.weight(1f), singleLine = true, isError = !valid, keyboardOptions = keyboard, label = { Text(stringResource(R.string.editor_start)) })
-                    OutlinedTextField(end, { end = it }, Modifier.weight(1f), singleLine = true, isError = !valid, keyboardOptions = keyboard, label = { Text(stringResource(R.string.editor_end)) })
+                    val outOfOrder = s != null && e != null && !valid
+                    TimeField(start, { start = it }, stringResource(R.string.editor_start), Modifier.weight(1f), outOfOrder)
+                    TimeField(end, { end = it }, stringResource(R.string.editor_end), Modifier.weight(1f), outOfOrder)
                 }
                 if (!valid) Text(stringResource(R.string.editor_time_invalid), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
