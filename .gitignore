@@ -28,3 +28,9 @@ private/
 
 # Private Claude Code notes (devices, paths, home network): loaded after .claude/CLAUDE.md, never commit.
 /CLAUDE.local.md
+
+# Claude Code: the project files in .claude/ are committed, anything local to this machine is not.
+/.claude/settings.local.json
+/.claude/*.local.*
+/.claude/*.lock
+/.claude/worktrees/
