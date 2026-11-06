@@ -20,6 +20,8 @@ working here). Not here: the APK updater (the service worker is the updater), th
   app's: hidden names, rhythm, room, duplicates), `colors.ts` (SubjectColors.block port, Oklab lerp like Compose),
   `theme.ts` (port of ui/theme: System = M3 baseline + softened, Soft, AMOLED, Custom with the contrast nudges, plan
   colours -> CSS variables), `lineIcons.ts` (the app's own line icons), `qr.ts` (QR codes, see below).
+- Times: `TimeField` in `Editors.tsx` = native `<input type="time">` (value "" or "HH:mm", no parsing; 12/24 h follow the
+  device's region). Android has its own `TimeField` (digits, fixed colon, picker).
 - Editing goes through `core.edit` (= WebCore -> `:core` `StoreEdits`), never TypeScript logic; dates are addressed by
   key `uid|start|o|c`; the detail sheet follows its date by `ref` (uid + original date) through every change.
 - Theme and "Querformat an Bildschirm anpassen" live in the backup extras (`theme` = ThemeBackup, `display` =

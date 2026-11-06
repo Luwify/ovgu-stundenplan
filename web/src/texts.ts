@@ -72,11 +72,5 @@ export function duplicateText(d: { day: string; start: string; end: string; room
 /** "9:15" from "09:15" or "09:15:00". */
 export const timeInput = (s: string) => `${Number(s.slice(0, 2))}:${s.slice(3, 5)}`
 
-/** The app's parseTime: "9", "9:15", "9.15" -> "09:15", else null. */
-export function parseTime(text: string): string | null {
-  const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(text.trim().replace('.', ':'))
-  if (!m) return null
-  const h = Number(m[1])
-  const min = Number(m[2] ?? '0')
-  return h <= 23 && min <= 59 ? `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}` : null
-}
+/** The value of a native time input ("09:15") from "09:15" or "09:15:00". */
+export const timeValue = (s: string) => s.slice(0, 5)

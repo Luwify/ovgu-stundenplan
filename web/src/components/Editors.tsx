@@ -2,7 +2,7 @@ import { useId, useMemo, useState } from 'preact/hooks'
 import type { DateState, DetailInfo, ManualCourse, ManualRhythm, ManualType, PickDate, SubjectInfo, WeekRhythm } from '../core'
 import { blockColors, palette, rgbHex } from '../colors'
 import { dayAndDate, t, timeRange, weekdayShort } from '../i18n'
-import { parseTime, timeInput, weekRhythmName } from '../texts'
+import { timeInput, timeValue, weekRhythmName } from '../texts'
 import { MenuButton, type MenuEntry } from './Menu'
 import { Button, Dialog, Icon } from './ui'
 
@@ -34,6 +34,7 @@ function TextField(props: {
   maxLength?: number
   placeholder?: string
   inputMode?: 'numeric' | 'text'
+  type?: 'time'
   autofocus?: boolean
 }) {
   const common = {
@@ -50,11 +51,19 @@ function TextField(props: {
     <div class={`field ${props.error ? 'invalid' : ''}`}>
       <label class="field-inner">
         <span>{props.label}</span>
-        {props.multiline ? <textarea rows={3} {...common} {...described} /> : <input inputMode={props.inputMode} autofocus={props.autofocus} {...common} {...described} />}
+        {props.multiline ? <textarea rows={3} {...common} {...described} /> : <input type={props.type} inputMode={props.inputMode} autofocus={props.autofocus} {...common} {...described} />}
       </label>
       {note && <span id={id} class={props.error ? 'error small' : 'muted small'}>{note}</span>}
     </div>
   )
+}
+
+/**
+ * The browser's own time input (iPad: the system's time wheel). Its value is "" or "HH:mm" whatever it shows, so there is
+ * nothing to parse; 12 or 24 hours follow the device's region.
+ */
+function TimeField(props: { label: string; value: string; onInput: (v: string) => void; invalid: boolean }) {
+  return <TextField type="time" label={props.label} value={props.value} onInput={props.onInput} error={props.invalid ? ' ' : null} />
 }
 
 /** Note, s.t., room and time of one date or (series) of every date from this one on (the app's PersonalEditor). */
@@ -68,11 +77,9 @@ export function PersonalEditor(props: {
   const [note, setNote] = useState(e.note)
   const [st, setSt] = useState(e.st)
   const [room, setRoom] = useState(e.room)
-  const [start, setStart] = useState(timeInput(e.start))
-  const [end, setEnd] = useState(timeInput(e.end))
-  const s = parseTime(start)
-  const en = parseTime(end)
-  const valid = !!s && !!en && en > s
+  const [start, setStart] = useState(timeValue(e.start))
+  const [end, setEnd] = useState(timeValue(e.end))
+  const valid = !!start && !!end && end > start
   return (
     <Dialog
       title={t('action_edit_personal')}
@@ -80,7 +87,7 @@ export function PersonalEditor(props: {
       actions={
         <>
           <Button onClick={props.onClose}>{t('cancel')}</Button>
-          <Button variant="filled" disabled={!valid} onClick={() => props.onSave(series, note.trim(), st, room.trim(), s!, en!)}>{t('save')}</Button>
+          <Button variant="filled" disabled={!valid} onClick={() => props.onSave(series, note.trim(), st, room.trim(), start, end)}>{t('save')}</Button>
         </>
       }
     >
@@ -94,8 +101,8 @@ export function PersonalEditor(props: {
       <Switch label={t('editor_st')} checked={st} onChange={setSt} />
       <TextField label={t('editor_room')} value={room} onInput={setRoom} hint={t('editor_room_hint', e.originalRoom ?? t('no_room'))} />
       <div class="field-pair">
-        <TextField label={t('editor_start')} value={start} onInput={setStart} inputMode="numeric" error={valid ? null : ' '} />
-        <TextField label={t('editor_end')} value={end} onInput={setEnd} inputMode="numeric" error={valid ? null : ' '} />
+        <TimeField label={t('editor_start')} value={start} onInput={setStart} invalid={!valid} />
+        <TimeField label={t('editor_end')} value={end} onInput={setEnd} invalid={!valid} />
       </div>
       {!valid && <p class="error small">{t('editor_time_invalid')}</p>}
     </Dialog>
@@ -371,12 +378,10 @@ export function ManualEditor(props: {
   const [rhythm, setRhythm] = useState<ManualRhythm>(ex?.rhythm ?? 'WEEKLY')
   const [startDate, setStartDate] = useState(ex?.startDate ?? props.today)
   const [endDate, setEndDate] = useState(ex?.endDate ?? props.defaultEnd(ex?.startDate ?? props.today))
-  const [startText, setStartText] = useState(ex ? timeInput(ex.start) : '9:15')
-  const [endText, setEndText] = useState(ex ? timeInput(ex.end) : '10:45')
+  const [startText, setStartText] = useState(ex ? timeValue(ex.start) : '09:15')
+  const [endText, setEndText] = useState(ex ? timeValue(ex.end) : '10:45')
   const [skipFree, setSkipFree] = useState(ex?.skipFreeWeeks ?? true)
-  const s = parseTime(startText)
-  const e = parseTime(endText)
-  const timesOk = !!s && !!e && e > s
+  const timesOk = !!startText && !!endText && endText > startText
   const once = rhythm === 'ONCE'
   const datesOk = once || endDate >= startDate
   const titleOk = title.trim().length > 0
@@ -393,8 +398,8 @@ export function ManualEditor(props: {
     rhythm,
     startDate,
     endDate: once ? null : endDate,
-    start: s!,
-    end: e!,
+    start: startText,
+    end: endText,
     skipFreeWeeks: skipFree,
   }, subjectKey, shortName.trim() || null, color)
   return (
@@ -463,8 +468,8 @@ export function ManualEditor(props: {
       </div>
       {!datesOk && <p class="error small">{t('manual_end_before_start')}</p>}
       <div class="field-pair">
-        <TextField label={t('editor_start')} value={startText} onInput={setStartText} inputMode="numeric" error={timesOk ? null : ' '} />
-        <TextField label={t('editor_end')} value={endText} onInput={setEndText} inputMode="numeric" error={timesOk ? null : ' '} />
+        <TimeField label={t('editor_start')} value={startText} onInput={setStartText} invalid={!timesOk} />
+        <TimeField label={t('editor_end')} value={endText} onInput={setEndText} invalid={!timesOk} />
       </div>
       {!timesOk && <p class="error small">{t('editor_time_invalid')}</p>}
       {!once && <Switch label={t('manual_skip_free')} hint={t('manual_skip_free_hint')} checked={skipFree} onChange={setSkipFree} />}
