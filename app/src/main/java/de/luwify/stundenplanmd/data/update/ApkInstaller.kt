@@ -55,7 +55,6 @@ object ApkInstaller {
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
             setAppPackageName(packageName)
             setSize(apk.length())
-            if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
         }
         val id = installer.createSession(params)
         try {
