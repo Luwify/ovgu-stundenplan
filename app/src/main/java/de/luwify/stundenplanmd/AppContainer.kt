@@ -4,7 +4,7 @@ import android.content.Context
 import de.luwify.stundenplanmd.data.PlanRepository
 import de.luwify.stundenplanmd.data.settings.ThemeSettings
 import de.luwify.stundenplanmd.data.settings.themeSettings
-import de.luwify.stundenplanmd.data.update.CompanionInstaller
+import de.luwify.stundenplanmd.data.update.CompanionLauncher
 import de.luwify.stundenplanmd.data.update.Updates
 import de.luwify.stundenplanmd.data.update.buildUpdateSource
 import de.luwify.stundenplanmd.data.update.updateSettings
@@ -18,7 +18,8 @@ class AppContainer(context: Context) {
 
     val theme: ThemeSettings by lazy { themeSettings(app) }
 
-    val companion: CompanionInstaller by lazy { CompanionInstaller(app, updateSettings(app)) }
+    /** Mensa MD for the settings banner: installed or not, opening it, its release page. */
+    val companion: CompanionLauncher by lazy { CompanionLauncher(app) }
 
     val updates: Updates by lazy { Updates(app, updateSettings(app), buildUpdateSource(app)) }
 }

@@ -295,7 +295,6 @@ fun SettingsScreen(
             VersionDetailScreen(release, updates, onShare = { shareApp = true }, onBack = { openVersion = null })
         }
         Overlay(shareApp) { AppShareScreen(updates, onClose = { shareApp = false }) }
-        MensaDialogs(vm.companion)
         val spec = choice?.custom
         Overlay(spec.takeIf { showColors }) { shown ->
             ColorEditorScreen(shown, onChange = { vm.setCustomTheme(it) }, onBack = { showColors = false })

@@ -43,17 +43,12 @@ object ApkInspector {
     private fun sha256(bytes: ByteArray) = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 }
 
-/**
- * Installs a verified APK through a PackageInstaller session; the result comes back to [InstallResultReceiver]
- * ([companion]: the install of another app, see [CompanionInstaller]; [packageName] is the app the APK is for).
- */
+/** Installs this app's verified update through a PackageInstaller session; the result comes back to [InstallResultReceiver]. */
 object ApkInstaller {
-    const val EXTRA_COMPANION = "companion"
-
-    fun install(context: Context, apk: File, packageName: String = context.packageName, companion: Boolean = false) {
+    fun install(context: Context, apk: File) {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-            setAppPackageName(packageName)
+            setAppPackageName(context.packageName)
             setSize(apk.length())
         }
         val id = installer.createSession(params)
@@ -65,7 +60,7 @@ object ApkInstaller {
                 }
                 // Mutable: the installer adds the status extras.
                 val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
-                val callback = PendingIntent.getBroadcast(context, id, Intent(context, InstallResultReceiver::class.java).putExtra(EXTRA_COMPANION, companion), flags)
+                val callback = PendingIntent.getBroadcast(context, id, Intent(context, InstallResultReceiver::class.java), flags)
                 session.commit(callback.intentSender)
             }
         } catch (e: Exception) {
@@ -79,10 +74,8 @@ object ApkInstaller {
 class InstallResultReceiver : BroadcastReceiver() {
     @SuppressLint("UnsafeIntentLaunch") // the confirmation intent comes from the system installer
     override fun onReceive(context: Context, intent: Intent) {
-        val container = (context.applicationContext as StundenplanApp).container
-        val companion = intent.getBooleanExtra(ApkInstaller.EXTRA_COMPANION, false)
-        fun finished(success: Boolean, message: String?, aborted: Boolean = false) =
-            if (companion) container.companion.installFinished(success, message, aborted) else container.updates.installFinished(success, message, aborted)
+        val updates = (context.applicationContext as StundenplanApp).container.updates
+        fun finished(success: Boolean, message: String?, aborted: Boolean = false) = updates.installFinished(success, message, aborted)
         when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 val confirm = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_INTENT, Intent::class.java)

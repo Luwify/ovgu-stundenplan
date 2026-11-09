@@ -262,14 +262,8 @@
     <string name="mensa_open">Open</string>
     <string name="mensa_download">Download</string>
     <string name="mensa_hide">Hide</string>
-    <string name="mensa_downloading">Downloading</string>
-    <string name="mensa_verifying">Checking the download…</string>
-    <string name="mensa_installing">Installing Mensa MD…</string>
-    <string name="mensa_github">Open on GitHub</string>
-    <string name="mensa_retry">Try again</string>
     <string name="mensa_setting">Show note about Mensa MD</string>
-    <string name="mensa_setting_hint">A card at the top of the settings that opens or installs Mensa MD. Without a choice here it shows only while Mensa MD is not installed</string>
-    <string name="companion_unavailable">There is no version of the app available for this device.</string>
+    <string name="mensa_setting_hint">A card at the top of the settings that opens Mensa MD or its download page. Without a choice here it shows only while Mensa MD is missing</string>
     <string name="unknown_sources_open">Open setting</string>
     <string name="app_share_qr_hint">For a first install: scan the code with the camera and open the link. It downloads version %1$s; Android then asks to allow installing apps from the browser.</string>
     <string name="app_share_file">Send app file</string>

@@ -492,7 +492,6 @@ fun UnknownSourcesDialog(explain: Boolean?, onHandled: (explained: Boolean) -> U
 
 @Composable
 internal fun failureText(failure: Failure): String = when (failure) {
-    Failure.Unavailable -> stringResource(R.string.companion_unavailable)
     Failure.Network -> stringResource(R.string.update_failed_network)
     is Failure.Install -> listOfNotNull(stringResource(R.string.update_failed_install), failure.message).joinToString("\n\n")
     is Failure.Check -> (listOf(stringResource(R.string.update_failed_check)) + failure.problems.map {

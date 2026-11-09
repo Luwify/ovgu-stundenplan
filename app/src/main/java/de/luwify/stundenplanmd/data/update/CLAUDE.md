@@ -37,11 +37,10 @@
   `de.luwify.stundenplanmd.preview`.
 
 ## Mensa MD banner (settings, top)
-- `core` `update/Companion.kt`: `CompanionApp.MENSA` (package `de.luwify.mensamd`, manifest of `Luwify/ovgu-mensa`, release page,
-  pinned certificate = `release/signing-cert.sha256`, checked by `CompanionTest`), `CompanionPolicy` (`banner` state, `release`,
-  `problems`: signer must be exactly the pin, not this app's own, so debug builds work). App: `data/update/CompanionInstaller`
-  (installed check via `<queries>`, download with the updater's `UpdateHttp`, `ApkInstaller` with the `companion` extra so
-  `InstallResultReceiver` routes the result, same "unknown apps" flow via `UnknownSourcesDialog`), `ui/MensaBanner`.
+- **Never download or install the other app in-app:** that install made Play Protect block every Mensa MD version (2026-11; test builds
+  of the same code without it passed), although this app with the same banner wasn't flagged. Self-update of the app itself is fine.
+- `core` `update/Companion.kt`: `CompanionApp.MENSA` (package `de.luwify.mensamd`, release page), `CompanionPolicy` (`wanted`, `banner`).
+  App: `data/update/Companion.kt` (`CompanionLauncher`: installed check via `<queries>`, `open`, `openReleasePage` in the browser), `ui/MensaBanner`.
   Choice: `ThemeSettings.mensaBannerHidden` (Boolean?, null = never chosen): shown only while Mensa MD isn't installed
   (`CompanionPolicy.wanted`), an explicit choice wins; in the backup's `display` part (null = keep current; the undo
   snapshot resets it). Switch "Hinweis auf Mensa MD anzeigen" in the "Version" section.

@@ -40,7 +40,7 @@ git-ignored `CLAUDE.local.md` at the repo root, which Claude Code loads after th
 - Details (files, migration history, backup format): `app/src/main/java/de/luwify/stundenplanmd/data/CLAUDE.md`.
 
 ## Privacy
-- No server; INTERNET only for the updater (manifest + APKs of the GitHub releases, and the same for the Mensa MD banner, nothing else, no
+- No server; INTERNET only for the updater (manifest + APKs of the app's own GitHub releases, nothing else, no
   identifiers, User-Agent `StundenplanMD/<version>`; check the merged release manifest); camera frames only in
   memory; imported data is untrusted; cloud backup stays excluded.
 - Icons: Material Symbols Outlined 24px (Apache 2.0) as single vector drawables, each listed in NOTICE (add new
